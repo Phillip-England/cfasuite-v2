@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Time Punch Correction</title>
+  <style>
+    :root {
+      --bg: #f4f1ec;
+      --card: #ffffff;
+      --line: #e2d5c4;
+      --ink: #1f232a;
+      --muted: #68707b;
+      --accent: #b2472a;
+      --accent-dark: #913820;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 14px;
+      background: radial-gradient(50rem 25rem at 110% -10%, #f1d9bf 0, transparent 52%), var(--bg);
+      color: var(--ink);
+      font-family: "Manrope", "Segoe UI", sans-serif;
+    }
+    .card {
+      width: 100%;
+      max-width: 580px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 12px 28px rgba(33, 28, 23, 0.08);
+    }
+    h1 {
+      margin: 0 0 4px;
+      font-size: clamp(1.3rem, 5vw, 1.65rem);
+      line-height: 1.15;
+    }
+    .sub {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .msg { margin: 0 0 10px; font-weight: 700; font-size: 0.9rem; }
+    .msg.error { color: #9f1e1e; }
+    .msg.ok { color: #186243; }
+
+    form { display: grid; gap: 11px; }
+    .field { display: grid; gap: 6px; }
+    .label {
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #404854;
+    }
+    input, select {
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid #d7c9b6;
+      border-radius: 10px;
+      padding: 10px 11px;
+      font: 600 0.94rem/1.2 "Manrope", sans-serif;
+      background: #fffefc;
+      color: var(--ink);
+    }
+    .search-note {
+      margin: -1px 0 2px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .member-select-wrap {
+      position: relative;
+    }
+    .submit-btn {
+      margin-top: 2px;
+      border: 0;
+      border-radius: 10px;
+      min-height: 46px;
+      padding: 11px 13px;
+      background: var(--accent);
+      color: #fff;
+      font: 800 0.95rem/1 "Manrope", sans-serif;
+      cursor: pointer;
+    }
+    .submit-btn:hover { background: var(--accent-dark); }
+
+    @media (min-width: 720px) {
+      body { padding: 22px; }
+      .card { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <section class="card">
+    <h1>Time Punch Correction</h1>
+    <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})</p>
+    {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
+    {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
+
+    <form method="post" action="/time-punch/{{ .Token }}">
+      <div class="field">
+        <label class="label" for="member_search">Find Team Member</label>
+        <input id="member_search" type="text" data-member-search placeholder="Start typing your name">
+        <p class="search-note" data-member-results>You can type to filter or open the dropdown and select.</p>
+      </div>
+
+      <div class="field">
+        <label class="label" for="time_punch_name">Team Member</label>
+        <div class="member-select-wrap">
+          <select id="time_punch_name" name="time_punch_name" data-member-select required>
+            <option value="">Select your name</option>
+            {{ range .Employees }}
+              <option value="{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }}</option>
+            {{ end }}
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="label" for="punch_date">Date</label>
+        <input id="punch_date" type="date" name="punch_date" required>
+      </div>
+
+      <div class="field">
+        <label class="label" for="time_in">Time In</label>
+        <input id="time_in" type="time" name="time_in" required>
+      </div>
+
+      <div class="field">
+        <label class="label" for="time_out">Time Out</label>
+        <input id="time_out" type="time" name="time_out" required>
+      </div>
+
+      <button class="submit-btn" type="submit">Submit Correction</button>
+    </form>
+  </section>
+  <script>
+    (() => {
+      const searchInput = document.querySelector("[data-member-search]");
+      const memberSelect = document.querySelector("[data-member-select]");
+      const resultText = document.querySelector("[data-member-results]");
+      if (!searchInput || !memberSelect) return;
+
+      const options = Array.from(memberSelect.options)
+        .filter((opt) => opt.value !== "");
+      const normalize = (value) => value.toLowerCase().trim();
+
+      const filterOptions = () => {
+        const query = normalize(searchInput.value.trim());
+        let matches = 0;
+        options.forEach((opt) => {
+          const label = normalize(opt.textContent || "");
+          const isMatch = !query || label.includes(query);
+          opt.hidden = !isMatch;
+          if (isMatch) matches += 1;
+        });
+
+        if (memberSelect.value) {
+          const selected = options.find((opt) => opt.value === memberSelect.value);
+          if (selected && selected.hidden) {
+            memberSelect.value = "";
+          }
+        }
+
+        if (resultText) {
+          if (!query) {
+            resultText.textContent = "You can type to filter or open the dropdown and select.";
+          } else if (matches === 0) {
+            resultText.textContent = "No matching names.";
+          } else {
+            resultText.textContent = matches + " match" + (matches === 1 ? "" : "es") + ".";
+          }
+        }
+      };
+
+      searchInput.addEventListener("input", filterOptions);
+      searchInput.addEventListener("focus", () => {
+        options.forEach((opt) => {
+          opt.hidden = false;
+        });
+      });
+      memberSelect.addEventListener("change", () => {
+        if (!memberSelect.value) return;
+        const selected = options.find((opt) => opt.value === memberSelect.value);
+        if (selected) {
+          searchInput.value = selected.textContent || "";
+          filterOptions();
+        }
+      });
+      filterOptions();
+    })();
+  </script>
+</body>
+</html>

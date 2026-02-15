@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ .CSRF }}">
+  <title>Employee Details</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f3eee6;
+      --surface: #fffaf3;
+      --ink: #1f232a;
+      --line: #e4d6c0;
+      --muted: #69717c;
+      --accent: #b2472a;
+      --shadow: 0 24px 45px rgba(35, 29, 21, 0.14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Manrope", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(70rem 50rem at 120% -10%, #ffd8b6 0, transparent 55%),
+        radial-gradient(50rem 40rem at -10% 120%, #f9d8bd 0, transparent 52%),
+        var(--bg);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 12px;
+    }
+    .card {
+      width: min(680px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: linear-gradient(155deg, var(--surface), #fff);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+    .back {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 0.9rem;
+    }
+    h1 {
+      margin: 12px 0 10px;
+      font: 800 clamp(1.6rem, 3.5vw, 2.5rem)/1.1 "Space Grotesk", sans-serif;
+    }
+    .sub {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 10px 14px;
+      font-size: 0.97rem;
+      margin-bottom: 20px;
+    }
+    .label {
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .value {
+      font-weight: 800;
+    }
+    .department {
+      border-top: 1px dashed var(--line);
+      margin-top: 8px;
+      padding-top: 14px;
+    }
+    .photo {
+      border-top: 1px dashed var(--line);
+      margin-top: 8px;
+      padding-top: 14px;
+    }
+    .photo-preview {
+      width: 180px;
+      max-width: 100%;
+      height: auto;
+      max-height: 280px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      object-fit: contain;
+      display: block;
+      background: #f7f3ed;
+    }
+    .crop-stage {
+      position: relative;
+      width: 180px;
+      max-width: 100%;
+    }
+    .crop-selection {
+      position: absolute;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.38);
+      border-radius: 10px;
+      cursor: move;
+      touch-action: none;
+      display: none;
+    }
+    .crop-selection.is-active {
+      display: block;
+    }
+    .crop-selection.is-locked {
+      box-shadow: none;
+      cursor: default;
+    }
+    .crop-selection.is-locked .crop-handle {
+      display: none;
+    }
+    .crop-handle {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      right: -9px;
+      bottom: -9px;
+      border-radius: 999px;
+      border: 2px solid #fff;
+      background: var(--accent);
+      cursor: nwse-resize;
+      touch-action: none;
+    }
+    .preview-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .preview-box {
+      display: grid;
+      gap: 6px;
+    }
+    .preview-box.crop-result-box {
+      display: none;
+    }
+    .preview-box.crop-result-box.is-active {
+      display: grid;
+    }
+    .preview-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .controls {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .crop-tools {
+      display: none;
+      gap: 8px;
+      position: relative;
+      z-index: 20;
+    }
+    .crop-tools.is-active {
+      display: grid;
+    }
+    .button-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .controls label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .controls input[type="range"] {
+      width: 100%;
+    }
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      min-height: 44px;
+      padding: 10px 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-secondary {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+    }
+    .upload-link-box {
+      margin-top: 10px;
+      font-size: 0.84rem;
+      color: var(--muted);
+      word-break: break-all;
+    }
+    .department label {
+      font-weight: 800;
+      display: block;
+      margin-bottom: 8px;
+    }
+    .department select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      min-height: 44px;
+      padding: 10px 12px;
+      background: #fff;
+      font: 700 0.92rem/1 "Manrope", sans-serif;
+      color: var(--ink);
+    }
+    .message {
+      margin-top: 8px;
+      min-height: 1.3em;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+    .message.ok { color: #186243; }
+    .message.error { color: #9f1e1e; }
+    @media (min-width: 760px) {
+      body { padding: 24px; }
+      .card { padding: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <section class="card">
+    <a class="back" href="/admin/locations/{{ .Location.Number }}/employees">Back to Employees</a>
+    <h1>{{ .Employee.FirstName }} {{ .Employee.LastName }}</h1>
+    <p class="sub">Location {{ .Location.Name }} ({{ .Location.Number }})</p>
+
+    <div class="grid">
+      <div class="label">Time Punch Name</div>
+      <div class="value">{{ .Employee.TimePunchName }}</div>
+      <div class="label">Birthday</div>
+      <div class="value">{{ .Employee.Birthday }}</div>
+    </div>
+
+    <section class="photo">
+      <label style="font-weight:800;display:block;margin-bottom:8px;">Profile Photo</label>
+      <div class="preview-row">
+        <div class="preview-box">
+          <span class="preview-label">Selected Image</span>
+          <div class="crop-stage">
+            <img id="photo-preview" class="photo-preview" src="{{ if .Employee.HasPhoto }}/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/photo{{ else }}data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='100%25' height='100%25' fill='%23f7f3ed'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2369717c' font-family='Manrope' font-size='14'%3ENo Photo%3C/text%3E%3C/svg%3E{{ end }}" alt="Profile photo">
+            <div id="crop-selection" class="crop-selection">
+              <div id="crop-handle" class="crop-handle"></div>
+            </div>
+          </div>
+        </div>
+        <div id="crop-result-box" class="preview-box crop-result-box">
+          <span class="preview-label">Cropped Result</span>
+          <canvas id="crop-result" class="photo-preview" width="180" height="180"></canvas>
+        </div>
+      </div>
+      <form id="photo-form" class="controls" method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/photo" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+        <input type="hidden" id="crop_x" name="crop_x" value="0">
+        <input type="hidden" id="crop_y" name="crop_y" value="0">
+        <input type="hidden" id="crop_size" name="crop_size" value="0">
+        <input id="photo_file" type="file" name="photo_file" accept="image/png,image/jpeg,image/webp" required>
+        <div id="crop-tools" class="crop-tools">
+          <p class="sub" style="margin:0;">Drag the crop box. Use the bottom-right handle to resize.</p>
+          <div class="button-row">
+            <button id="confirm-crop" type="button" class="btn btn-secondary">Confirm Crop</button>
+            <button id="upload-photo-btn" type="submit" class="btn btn-primary" disabled>Upload Photo</button>
+            <button id="cancel-upload" type="button" class="btn btn-secondary">Cancel Upload</button>
+          </div>
+        </div>
+      </form>
+      <button id="generate-link" type="button" style="margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;font-weight:800;cursor:pointer;">Generate Secure Upload Link</button>
+      <div id="upload-link-box" class="upload-link-box"></div>
+    </section>
+
+    <section class="department">
+      <label for="department">Department</label>
+      <select id="department">
+        {{ $current := .Employee.Department }}
+        {{ range $.Departments }}
+          <option value="{{ . }}" {{ if eq . $current }}selected{{ end }}>{{ . }}</option>
+        {{ end }}
+      </select>
+      <div id="message" class="message">{{ if .SuccessMessage }}{{ .SuccessMessage }}{{ end }}{{ if .Error }}{{ .Error }}{{ end }}</div>
+    </section>
+  </section>
+
+  <script>
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+    const locationNumber = "{{ .Location.Number }}";
+    const timePunchName = "{{ .Employee.TimePunchName }}";
+    const department = document.getElementById("department");
+    const message = document.getElementById("message");
+    const preview = document.getElementById("photo-preview");
+    const photoFile = document.getElementById("photo_file");
+    const cropSelection = document.getElementById("crop-selection");
+    const cropHandle = document.getElementById("crop-handle");
+    const cropX = document.getElementById("crop_x");
+    const cropY = document.getElementById("crop_y");
+    const cropSize = document.getElementById("crop_size");
+    const cropTools = document.getElementById("crop-tools");
+    const cropResultBox = document.getElementById("crop-result-box");
+    const cropCanvas = document.getElementById("crop-result");
+    const cropCtx = cropCanvas.getContext("2d");
+    const confirmCropBtn = document.getElementById("confirm-crop");
+    const uploadPhotoBtn = document.getElementById("upload-photo-btn");
+    const cancelUploadBtn = document.getElementById("cancel-upload");
+    const generateLinkBtn = document.getElementById("generate-link");
+    const uploadLinkBox = document.getElementById("upload-link-box");
+    const originalPreviewSrc = preview.getAttribute("src") || "";
+    let naturalWidth = 0;
+    let naturalHeight = 0;
+    let fileSelected = false;
+    let cropRect = { x: 0, y: 0, size: 0 };
+    let dragMode = "";
+    let pointerStart = { x: 0, y: 0 };
+    let rectStart = { x: 0, y: 0, size: 0 };
+    let cropConfirmed = false;
+    let cropLocked = false;
+
+    department.addEventListener("change", async () => {
+      const previous = department.dataset.prev || department.defaultValue || "INIT";
+      const nextDepartment = department.value;
+      department.disabled = true;
+      message.textContent = "";
+      message.className = "message";
+      try {
+        const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/employees/${encodeURIComponent(timePunchName)}/department`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": csrfToken
+          },
+          body: JSON.stringify({ department: nextDepartment })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(result.error || "Unable to update department.");
+        }
+        department.dataset.prev = nextDepartment;
+        department.defaultValue = nextDepartment;
+        message.textContent = "Department updated.";
+        message.classList.add("ok");
+      } catch (error) {
+        department.value = previous;
+        message.textContent = error.message || "Unable to update department.";
+        message.classList.add("error");
+      } finally {
+        department.disabled = false;
+      }
+    });
+
+    function syncCropHiddenFields() {
+      const displayWidth = preview.clientWidth || 0;
+      const displayHeight = preview.clientHeight || 0;
+      if (displayWidth <= 0 || displayHeight <= 0 || naturalWidth <= 0 || naturalHeight <= 0) return;
+      const scaleX = naturalWidth / displayWidth;
+      const scaleY = naturalHeight / displayHeight;
+      cropX.value = String(Math.round(cropRect.x * scaleX));
+      cropY.value = String(Math.round(cropRect.y * scaleY));
+      cropSize.value = String(Math.round(cropRect.size * Math.min(scaleX, scaleY)));
+    }
+
+    function renderCropSelection() {
+      cropSelection.style.left = `${cropRect.x}px`;
+      cropSelection.style.top = `${cropRect.y}px`;
+      cropSelection.style.width = `${cropRect.size}px`;
+      cropSelection.style.height = `${cropRect.size}px`;
+    }
+
+    function setCropModeActive(active) {
+      cropTools.classList.toggle("is-active", active);
+      cropResultBox.classList.toggle("is-active", active);
+      cropSelection.classList.toggle("is-active", active);
+      if (!active && cropCtx) {
+        cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+      }
+      setCropConfirmed(false);
+    }
+
+    function setCropConfirmed(value) {
+      cropConfirmed = value;
+      cropLocked = value;
+      cropSelection.classList.toggle("is-locked", value);
+      uploadPhotoBtn.disabled = !value;
+      confirmCropBtn.textContent = value ? "Crop Confirmed" : "Confirm Crop";
+    }
+
+    function cancelUpload() {
+      fileSelected = false;
+      photoFile.value = "";
+      naturalWidth = 0;
+      naturalHeight = 0;
+      cropX.value = "0";
+      cropY.value = "0";
+      cropSize.value = "0";
+      setCropModeActive(false);
+      cropSelection.classList.remove("is-active");
+      if (originalPreviewSrc !== "") {
+        preview.src = originalPreviewSrc;
+      }
+      setCropConfirmed(false);
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function drawCropPreview() {
+      if (!cropCtx || naturalWidth <= 0 || naturalHeight <= 0) return;
+      syncCropHiddenFields();
+      const size = Number(cropSize.value || "0");
+      const x = Number(cropX.value || "0");
+      const y = Number(cropY.value || "0");
+      if (size <= 0) return;
+      cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+      cropCtx.drawImage(preview, x, y, size, size, 0, 0, cropCanvas.width, cropCanvas.height);
+    }
+
+    function initializeCropControls() {
+      const displayWidth = preview.clientWidth || 0;
+      const displayHeight = preview.clientHeight || 0;
+      const minDim = Math.min(displayWidth, displayHeight);
+      const initial = Math.max(48, Math.floor(minDim * 0.72));
+      cropRect.size = Math.min(initial, minDim);
+      cropRect.x = Math.floor((displayWidth - cropRect.size) / 2);
+      cropRect.y = Math.floor((displayHeight - cropRect.size) / 2);
+      renderCropSelection();
+      drawCropPreview();
+    }
+
+    function onPointerMove(event) {
+      if (!dragMode || cropLocked) return;
+      const dx = event.clientX - pointerStart.x;
+      const dy = event.clientY - pointerStart.y;
+      const displayWidth = preview.clientWidth || 0;
+      const displayHeight = preview.clientHeight || 0;
+      if (dragMode === "move") {
+        cropRect.x = clamp(rectStart.x + dx, 0, displayWidth - rectStart.size);
+        cropRect.y = clamp(rectStart.y + dy, 0, displayHeight - rectStart.size);
+      } else if (dragMode === "resize") {
+        const maxSize = Math.min(displayWidth - rectStart.x, displayHeight - rectStart.y);
+        cropRect.size = clamp(rectStart.size + Math.max(dx, dy), 48, maxSize);
+      }
+      setCropConfirmed(false);
+      renderCropSelection();
+      drawCropPreview();
+      event.preventDefault();
+    }
+
+    function onPointerUp() {
+      dragMode = "";
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    }
+
+    cropSelection.addEventListener("pointerdown", (event) => {
+      if (!fileSelected || cropLocked) return;
+      dragMode = event.target === cropHandle ? "resize" : "move";
+      pointerStart = { x: event.clientX, y: event.clientY };
+      rectStart = { x: cropRect.x, y: cropRect.y, size: cropRect.size };
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+      event.preventDefault();
+    });
+
+    photoFile.addEventListener("change", () => {
+      const file = photoFile.files && photoFile.files[0];
+      if (!file) {
+        cancelUpload();
+        return;
+      }
+      fileSelected = true;
+      setCropModeActive(true);
+      const reader = new FileReader();
+      reader.onload = () => {
+        preview.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    preview.addEventListener("load", () => {
+      if (!fileSelected) return;
+      naturalWidth = preview.naturalWidth || 0;
+      naturalHeight = preview.naturalHeight || 0;
+      if (naturalWidth > 0 && naturalHeight > 0) {
+        initializeCropControls();
+      }
+      setCropConfirmed(false);
+    });
+
+    confirmCropBtn.addEventListener("click", () => {
+      if (!fileSelected) return;
+      drawCropPreview();
+      setCropConfirmed(true);
+    });
+    cancelUploadBtn.addEventListener("click", cancelUpload);
+    setCropModeActive(false);
+
+    generateLinkBtn.addEventListener("click", async () => {
+      uploadLinkBox.textContent = "";
+      try {
+        const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/employees/${encodeURIComponent(timePunchName)}/photo-link`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": csrfToken
+          },
+          body: "{}"
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(result.error || "Unable to generate link.");
+        }
+        uploadLinkBox.innerHTML = `Share this link with employee:<br><a href="${result.uploadLink}" target="_blank" rel="noreferrer">${result.uploadLink}</a>`;
+      } catch (error) {
+        uploadLinkBox.textContent = error.message || "Unable to generate link.";
+      }
+    });
+  </script>
+</body>
+</html>

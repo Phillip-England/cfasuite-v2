@@ -1,0 +1,3521 @@
+package clientapp
+
+import (
+	"bytes"
+	"context"
+	"embed"
+	"encoding/json"
+	"errors"
+	"html/template"
+	"io"
+	"log"
+	"mime/multipart"
+	"net/http"
+	"net/url"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/phillip-england/cfasuite/internal/middleware"
+	"github.com/xuri/excelize/v2"
+)
+
+const (
+	csrfHeaderName    = "X-CSRF-Token"
+	sessionCookieName = "cfasuite_session"
+)
+
+type Config struct {
+	Addr         string
+	APIBaseURL   string
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+}
+
+type pageData struct {
+	Error      string
+	CSRF       string
+	Page       int
+	Token      string
+	Search     string
+	ReturnPath string
+
+	Locations  []locationView
+	HasPrev    bool
+	HasNext    bool
+	PrevPage   int
+	NextPage   int
+	TotalCount int
+
+	Location                *locationView
+	Employee                *employeeView
+	BusinessDay             *businessDayView
+	Employees               []employeeView
+	BusinessDays            []businessDayView
+	TimePunchEntries        []timePunchEntryView
+	TimeOffRequests         []timeOffRequestView
+	ArchivedTimeOffRequests []timeOffRequestView
+	UniformItems            []uniformItemView
+	UniformOrders           []uniformOrderView
+	ArchivedOrders          []uniformOrderView
+	UniformItem             *uniformItemView
+	EmployeeNames           []string
+	Departments             []string
+	SuccessMessage          string
+	UploadLink              string
+	TimePunchLink           string
+	TimeOffLink             string
+	UniformLink             string
+}
+
+type locationView struct {
+	Name      string `json:"name"`
+	Number    string `json:"number"`
+	CreatedAt string `json:"createdAt"`
+}
+
+type employeeView struct {
+	FirstName     string `json:"firstName"`
+	LastName      string `json:"lastName"`
+	TimePunchName string `json:"timePunchName"`
+	Department    string `json:"department"`
+	Birthday      string `json:"birthday"`
+	HasPhoto      bool   `json:"hasPhoto"`
+}
+
+type locationsListResponse struct {
+	Count      int            `json:"count"`
+	Page       int            `json:"page"`
+	PerPage    int            `json:"perPage"`
+	TotalPages int            `json:"totalPages"`
+	Locations  []locationView `json:"locations"`
+}
+
+type locationDetailResponse struct {
+	Location      locationView `json:"location"`
+	EmployeeCount int          `json:"employeeCount"`
+}
+
+type locationEmployeesResponse struct {
+	Count     int            `json:"count"`
+	Employees []employeeView `json:"employees"`
+}
+
+type employeeDetailResponse struct {
+	Employee employeeView `json:"employee"`
+}
+
+type photoLinkResponse struct {
+	Token     string `json:"token"`
+	ExpiresAt string `json:"expiresAt"`
+}
+
+type publicPhotoTokenResponse struct {
+	LocationNumber string `json:"locationNumber"`
+	TimePunchName  string `json:"timePunchName"`
+	ExpiresAt      string `json:"expiresAt"`
+}
+
+type authTokenResponse struct {
+	CSRFToken string `json:"csrfToken"`
+}
+
+type timePunchEntryView struct {
+	ID            int64  `json:"id"`
+	TimePunchName string `json:"timePunchName"`
+	PunchDate     string `json:"punchDate"`
+	TimeIn        string `json:"timeIn"`
+	TimeOut       string `json:"timeOut"`
+	CreatedAt     string `json:"createdAt"`
+}
+
+type timePunchEntriesResponse struct {
+	Count   int                  `json:"count"`
+	Entries []timePunchEntryView `json:"entries"`
+}
+
+type timePunchLinkResponse struct {
+	Token string `json:"token"`
+}
+
+type timeOffRequestView struct {
+	ID            int64  `json:"id"`
+	TimePunchName string `json:"timePunchName"`
+	StartDate     string `json:"startDate"`
+	EndDate       string `json:"endDate"`
+	CreatedAt     string `json:"createdAt"`
+	ArchivedAt    string `json:"archivedAt"`
+}
+
+type timeOffRequestsResponse struct {
+	Count    int                  `json:"count"`
+	Requests []timeOffRequestView `json:"requests"`
+}
+
+type publicTimePunchResponse struct {
+	LocationNumber string         `json:"locationNumber"`
+	LocationName   string         `json:"locationName"`
+	Employees      []employeeView `json:"employees"`
+}
+
+type publicTimeOffResponse struct {
+	LocationNumber string         `json:"locationNumber"`
+	LocationName   string         `json:"locationName"`
+	Employees      []employeeView `json:"employees"`
+}
+
+type businessDayView struct {
+	ID           int64   `json:"id"`
+	BusinessDate string  `json:"businessDate"`
+	TotalSales   float64 `json:"totalSales"`
+	LaborHours   float64 `json:"laborHours"`
+	CreatedAt    string  `json:"createdAt"`
+}
+
+type businessDaysResponse struct {
+	Count        int               `json:"count"`
+	BusinessDays []businessDayView `json:"businessDays"`
+}
+
+type businessDayResponse struct {
+	BusinessDay businessDayView `json:"businessDay"`
+}
+
+type uniformItemView struct {
+	ID        int64              `json:"id"`
+	Name      string             `json:"name"`
+	Price     float64            `json:"price"`
+	Enabled   bool               `json:"enabled"`
+	ImageData string             `json:"imageData"`
+	ImageMime string             `json:"imageMime"`
+	Images    []uniformImageView `json:"images"`
+	Sizes     []string           `json:"sizes"`
+}
+
+type uniformImageView struct {
+	ID        int64  `json:"id"`
+	ItemID    int64  `json:"itemId"`
+	ImageData string `json:"imageData"`
+	ImageMime string `json:"imageMime"`
+	SortOrder int64  `json:"sortOrder"`
+}
+
+type uniformItemsResponse struct {
+	Count int               `json:"count"`
+	Items []uniformItemView `json:"items"`
+}
+
+type uniformOrderView struct {
+	ID            int64                  `json:"id"`
+	TimePunchName string                 `json:"timePunchName"`
+	ItemsSummary  string                 `json:"itemsSummary"`
+	Lines         []uniformOrderLineView `json:"lines"`
+	Total         float64                `json:"total"`
+	CreatedAt     string                 `json:"createdAt"`
+	ArchivedAt    string                 `json:"archivedAt"`
+}
+
+type uniformOrderLineView struct {
+	ID          int64   `json:"id"`
+	OrderID     int64   `json:"orderId"`
+	ItemID      int64   `json:"itemId"`
+	ItemName    string  `json:"itemName"`
+	SizeOption  string  `json:"sizeOption"`
+	Note        string  `json:"note"`
+	Quantity    int64   `json:"quantity"`
+	UnitPrice   float64 `json:"unitPrice"`
+	LineTotal   float64 `json:"lineTotal"`
+	Purchased   bool    `json:"purchased"`
+	PurchasedAt string  `json:"purchasedAt"`
+	ChargedBack float64 `json:"chargedBack"`
+	Remaining   float64 `json:"remaining"`
+}
+
+type uniformOrdersResponse struct {
+	Count  int                `json:"count"`
+	Orders []uniformOrderView `json:"orders"`
+}
+
+type uniformItemDetailResponse struct {
+	Item uniformItemView `json:"item"`
+}
+
+type uniformLinkResponse struct {
+	Token string `json:"token"`
+}
+
+type publicUniformOrderResponse struct {
+	LocationNumber string            `json:"locationNumber"`
+	LocationName   string            `json:"locationName"`
+	Employees      []employeeView    `json:"employees"`
+	Items          []uniformItemView `json:"items"`
+}
+
+type updateBusinessDayRequest struct {
+	TotalSales string `json:"totalSales"`
+	LaborHours string `json:"laborHours"`
+}
+
+//go:embed templates/admin.html templates/login.html templates/location_apps.html templates/location.html templates/time_punch.html templates/time_off.html templates/business_days.html templates/business_day.html templates/employee.html templates/uniforms.html templates/uniform_orders_archived.html templates/uniform_item.html templates/public_photo_upload.html templates/public_time_punch.html templates/public_time_off.html templates/public_uniform_order.html templates/public_uniform_order_item.html
+var templatesFS embed.FS
+
+type server struct {
+	apiBaseURL            string
+	apiClient             *http.Client
+	adminTmpl             *template.Template
+	loginTmpl             *template.Template
+	locationAppsTmpl      *template.Template
+	locationTmpl          *template.Template
+	timePunchTmpl         *template.Template
+	timeOffTmpl           *template.Template
+	businessDaysTmpl      *template.Template
+	businessDayTmpl       *template.Template
+	employeeTmpl          *template.Template
+	uniformsTmpl          *template.Template
+	uniformArchivedTmpl   *template.Template
+	uniformItemTmpl       *template.Template
+	publicUploadTmpl      *template.Template
+	publicTimePunchTmpl   *template.Template
+	publicTimeOffTmpl     *template.Template
+	publicUniformTmpl     *template.Template
+	publicUniformItemTmpl *template.Template
+}
+
+func DefaultConfigFromEnv() Config {
+	return Config{
+		Addr:         envOrDefault("CLIENT_ADDR", ":3000"),
+		APIBaseURL:   envOrDefault("API_BASE_URL", "http://localhost:8080"),
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+}
+
+func Run(ctx context.Context, cfg Config) error {
+	apiClient := &http.Client{Timeout: 8 * time.Second}
+
+	s := &server{
+		apiBaseURL:            strings.TrimRight(cfg.APIBaseURL, "/"),
+		apiClient:             apiClient,
+		adminTmpl:             template.Must(template.ParseFS(templatesFS, "templates/admin.html")),
+		loginTmpl:             template.Must(template.ParseFS(templatesFS, "templates/login.html")),
+		locationAppsTmpl:      template.Must(template.ParseFS(templatesFS, "templates/location_apps.html")),
+		locationTmpl:          template.Must(template.ParseFS(templatesFS, "templates/location.html")),
+		timePunchTmpl:         template.Must(template.ParseFS(templatesFS, "templates/time_punch.html")),
+		timeOffTmpl:           template.Must(template.ParseFS(templatesFS, "templates/time_off.html")),
+		businessDaysTmpl:      template.Must(template.ParseFS(templatesFS, "templates/business_days.html")),
+		businessDayTmpl:       template.Must(template.ParseFS(templatesFS, "templates/business_day.html")),
+		employeeTmpl:          template.Must(template.ParseFS(templatesFS, "templates/employee.html")),
+		uniformsTmpl:          template.Must(template.ParseFS(templatesFS, "templates/uniforms.html")),
+		uniformArchivedTmpl:   template.Must(template.ParseFS(templatesFS, "templates/uniform_orders_archived.html")),
+		uniformItemTmpl:       template.Must(template.ParseFS(templatesFS, "templates/uniform_item.html")),
+		publicUploadTmpl:      template.Must(template.ParseFS(templatesFS, "templates/public_photo_upload.html")),
+		publicTimePunchTmpl:   template.Must(template.ParseFS(templatesFS, "templates/public_time_punch.html")),
+		publicTimeOffTmpl:     template.Must(template.ParseFS(templatesFS, "templates/public_time_off.html")),
+		publicUniformTmpl:     template.Must(template.ParseFS(templatesFS, "templates/public_uniform_order.html")),
+		publicUniformItemTmpl: template.Must(template.ParseFS(templatesFS, "templates/public_uniform_order_item.html")),
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/", http.HandlerFunc(s.loginPage))
+	mux.Handle("/login", http.HandlerFunc(s.login))
+	mux.Handle("/amin", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/admin", http.StatusFound)
+	}))
+	mux.Handle("/admin", middleware.Chain(http.HandlerFunc(s.adminPage), s.requireAdmin))
+	mux.Handle("/admin/locations", middleware.Chain(http.HandlerFunc(s.createLocationProxy), s.requireAdmin))
+	mux.Handle("/admin/locations/", middleware.Chain(http.HandlerFunc(s.locationRoutes), s.requireAdmin))
+	mux.Handle("/employee/photo-upload/", http.HandlerFunc(s.publicPhotoUploadRoutes))
+	mux.Handle("/time-punch/", http.HandlerFunc(s.publicTimePunchRoutes))
+	mux.Handle("/time-off/", http.HandlerFunc(s.publicTimeOffRoutes))
+	mux.Handle("/uniform-order/", http.HandlerFunc(s.publicUniformOrderRoutes))
+
+	csp := strings.Join([]string{
+		"default-src 'self'",
+		"style-src 'self' https://fonts.googleapis.com 'unsafe-inline'",
+		"font-src 'self' https://fonts.gstatic.com",
+		"img-src 'self' data:",
+		"script-src 'self' 'unsafe-inline'",
+		"connect-src 'self'",
+		"frame-ancestors 'none'",
+	}, "; ")
+
+	handler := middleware.Chain(
+		mux,
+		middleware.SecurityHeaders(middleware.SecurityHeadersConfig{ContentSecurityPolicy: csp}),
+	)
+
+	httpServer := &http.Server{
+		Addr:              cfg.Addr,
+		Handler:           handler,
+		ReadHeaderTimeout: cfg.ReadTimeout,
+		WriteTimeout:      cfg.WriteTimeout,
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		log.Printf("client listening on http://localhost%s", cfg.Addr)
+		errCh <- httpServer.ListenAndServe()
+	}()
+
+	select {
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = httpServer.Shutdown(shutdownCtx)
+		return ctx.Err()
+	case err := <-errCh:
+		if err == nil || errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
+		return err
+	}
+}
+
+func (s *server) loginPage(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	data := pageData{Error: r.URL.Query().Get("error")}
+	if err := renderHTMLTemplate(w, s.loginTmpl, data); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("login template render failed: %v", err)
+	}
+}
+
+func (s *server) login(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+
+	username := strings.TrimSpace(r.FormValue("username"))
+	password := r.FormValue("password")
+	if username == "" || password == "" {
+		http.Redirect(w, r, "/?error=Username+and+password+are+required", http.StatusFound)
+		return
+	}
+
+	bodyBytes, _ := json.Marshal(map[string]string{"username": username, "password": password})
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, s.apiBaseURL+"/api/auth/login", bytes.NewReader(bodyBytes))
+	if err != nil {
+		http.Redirect(w, r, "/?error=Unable+to+authenticate", http.StatusFound)
+		return
+	}
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/?error=Authentication+service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+
+	if apiResp.StatusCode != http.StatusOK {
+		http.Redirect(w, r, "/?error=Invalid+credentials", http.StatusFound)
+		return
+	}
+
+	for _, setCookie := range apiResp.Header.Values("Set-Cookie") {
+		w.Header().Add("Set-Cookie", setCookie)
+	}
+	http.Redirect(w, r, "/admin", http.StatusFound)
+}
+
+func (s *server) adminPage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil {
+		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
+		return
+	}
+	page := parsePositiveInt(r.URL.Query().Get("page"), 1)
+	list, err := s.fetchLocationsPage(r, page, 25)
+	if err != nil {
+		http.Error(w, "unable to load locations", http.StatusBadGateway)
+		return
+	}
+
+	data := pageData{
+		CSRF:       csrfToken,
+		Page:       list.Page,
+		Locations:  list.Locations,
+		HasPrev:    list.Page > 1,
+		HasNext:    list.Page < list.TotalPages,
+		PrevPage:   max(1, list.Page-1),
+		NextPage:   list.Page + 1,
+		TotalCount: list.Count,
+	}
+	if err := renderHTMLTemplate(w, s.adminTmpl, data); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("admin template render failed: %v", err)
+	}
+}
+
+func (s *server) locationDetailPage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	rawNumber := strings.TrimPrefix(r.URL.Path, "/admin/locations/")
+	rawNumber = strings.TrimSpace(rawNumber)
+	if rawNumber == "" || strings.Contains(rawNumber, "/") {
+		http.NotFound(w, r)
+		return
+	}
+	locationNumber, err := url.PathUnescape(rawNumber)
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	location, err := s.fetchLocation(r, locationNumber)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := renderHTMLTemplate(w, s.locationAppsTmpl, pageData{
+		Location: location,
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("location apps template render failed: %v", err)
+	}
+}
+
+func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost {
+		if locationNumber, orderID, lineID, ok := parseLocationUniformOrderLineSettlementPostPath(r.URL.Path); ok {
+			s.updateUniformOrderLineSettlementProxy(w, r, locationNumber, orderID, lineID)
+			return
+		}
+		if locationNumber, orderID, ok := parseLocationUniformOrderDeletePostPath(r.URL.Path); ok {
+			s.deleteArchivedUniformOrderProxy(w, r, locationNumber, orderID)
+			return
+		}
+		if locationNumber, orderID, ok := parseLocationUniformOrderArchivePostPath(r.URL.Path); ok {
+			s.archiveUniformOrderProxy(w, r, locationNumber, orderID)
+			return
+		}
+		if locationNumber, itemID, imageID, ok := parseLocationUniformItemImageDeletePostPath(r.URL.Path); ok {
+			s.deleteUniformItemImageProxy(w, r, locationNumber, itemID, imageID)
+			return
+		}
+		if locationNumber, itemID, ok := parseLocationUniformItemImagesAddPostPath(r.URL.Path); ok {
+			s.addUniformItemImagesProxy(w, r, locationNumber, itemID)
+			return
+		}
+		if locationNumber, itemID, imageID, ok := parseLocationUniformImageMovePostPath(r.URL.Path); ok {
+			s.moveUniformImageProxy(w, r, locationNumber, itemID, imageID)
+			return
+		}
+		if locationNumber, itemID, ok := parseLocationUniformItemDeletePostPath(r.URL.Path); ok {
+			s.deleteUniformItemProxy(w, r, locationNumber, itemID)
+			return
+		}
+		if locationNumber, itemID, ok := parseLocationUniformItemUpdatePostPath(r.URL.Path); ok {
+			s.updateUniformItemProxy(w, r, locationNumber, itemID)
+			return
+		}
+		if locationNumber, ok := parseLocationUniformItemsCreatePath(r.URL.Path); ok {
+			s.createUniformItemProxy(w, r, locationNumber)
+			return
+		}
+		if locationNumber, requestID, ok := parseLocationTimeOffArchivePostPath(r.URL.Path); ok {
+			s.archiveTimeOffRequestProxy(w, r, locationNumber, requestID)
+			return
+		}
+		if locationNumber, ok := parseLocationBusinessDayOpenPath(r.URL.Path); ok {
+			s.openBusinessDayInlineProxy(w, r, locationNumber)
+			return
+		}
+		if locationNumber, entryID, ok := parseLocationTimePunchDeletePath(r.URL.Path); ok {
+			s.deleteLocationTimePunchEntryProxy(w, r, locationNumber, entryID)
+			return
+		}
+		if locationNumber, ok := parseLocationBusinessDaysPath(r.URL.Path); ok {
+			s.openBusinessDayFromPicker(w, r, locationNumber)
+			return
+		}
+	}
+	if r.Method == http.MethodPut {
+		if locationNumber, businessDate, ok := parseLocationBusinessDayDetailPath(r.URL.Path); ok {
+			s.updateBusinessDayProxy(w, r, locationNumber, businessDate)
+			return
+		}
+	}
+	if strings.Contains(r.URL.Path, "/employees/") && strings.HasSuffix(r.URL.Path, "/photo-link") {
+		s.createEmployeePhotoLinkProxy(w, r)
+		return
+	}
+	if strings.Contains(r.URL.Path, "/employees/") && strings.HasSuffix(r.URL.Path, "/photo") {
+		if r.Method == http.MethodGet {
+			s.getEmployeePhotoProxy(w, r)
+		} else if r.Method == http.MethodPost {
+			s.uploadEmployeePhotoProxy(w, r)
+		} else {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+		return
+	}
+	if strings.Contains(r.URL.Path, "/employees/") && strings.HasSuffix(r.URL.Path, "/department") {
+		s.updateEmployeeDepartmentProxy(w, r)
+		return
+	}
+	if strings.HasSuffix(r.URL.Path, "/employees/birthdates/import") {
+		s.importLocationBirthdatesProxy(w, r)
+		return
+	}
+	if strings.HasSuffix(r.URL.Path, "/employees/import") {
+		s.importLocationEmployeesProxy(w, r)
+		return
+	}
+	if r.Method == http.MethodGet {
+		if locationNumber, ok := parseLocationUniformOrdersArchivedPath(r.URL.Path); ok {
+			s.locationArchivedUniformOrdersPage(w, r, locationNumber)
+			return
+		}
+		if locationNumber, itemID, ok := parseLocationUniformItemPath(r.URL.Path); ok {
+			s.locationUniformItemPage(w, r, locationNumber, itemID)
+			return
+		}
+		if locationNumber, timePunchName, ok := parseLocationEmployeePath(r.URL.Path); ok {
+			s.employeeDetailPage(w, r, locationNumber, timePunchName)
+			return
+		}
+		if locationNumber, ok := parseLocationUniformsPath(r.URL.Path); ok {
+			s.locationUniformsPage(w, r, locationNumber)
+			return
+		}
+		if locationNumber, ok := parseLocationTimePunchPath(r.URL.Path); ok {
+			s.locationTimePunchPage(w, r, locationNumber)
+			return
+		}
+		if locationNumber, ok := parseLocationTimeOffPath(r.URL.Path); ok {
+			s.locationTimeOffPage(w, r, locationNumber)
+			return
+		}
+		if locationNumber, ok := parseLocationBusinessDaysPath(r.URL.Path); ok {
+			s.locationBusinessDaysPage(w, r, locationNumber)
+			return
+		}
+		if locationNumber, businessDate, ok := parseLocationBusinessDayDetailPath(r.URL.Path); ok {
+			s.locationBusinessDayPage(w, r, locationNumber, businessDate)
+			return
+		}
+		if locationNumber, ok := parseLocationEmployeesPath(r.URL.Path); ok {
+			s.locationEmployeesPage(w, r, locationNumber)
+			return
+		}
+	}
+	if r.Method == http.MethodPut {
+		s.updateLocationProxy(w, r)
+		return
+	}
+	if r.Method == http.MethodDelete {
+		s.deleteLocationProxy(w, r)
+		return
+	}
+	s.locationDetailPage(w, r)
+}
+
+func (s *server) locationEmployeesPage(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	location, err := s.fetchLocation(r, locationNumber)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil {
+		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
+		return
+	}
+	employees, err := s.fetchLocationEmployees(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load location employees", http.StatusBadGateway)
+		return
+	}
+
+	if err := renderHTMLTemplate(w, s.locationTmpl, pageData{
+		Location:       location,
+		CSRF:           csrfToken,
+		Employees:      employees,
+		Departments:    departmentOptions(),
+		SuccessMessage: r.URL.Query().Get("message"),
+		Error:          r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("location template render failed: %v", err)
+	}
+}
+
+func (s *server) publicPhotoUploadRoutes(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimPrefix(r.URL.Path, "/employee/photo-upload/")
+	token = strings.TrimSpace(strings.Trim(token, "/"))
+	if token == "" {
+		http.NotFound(w, r)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		s.publicPhotoUploadPage(w, r, token)
+	case http.MethodPost:
+		s.publicPhotoUploadSubmit(w, r, token)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *server) publicTimePunchRoutes(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimPrefix(r.URL.Path, "/time-punch/")
+	token = strings.TrimSpace(strings.Trim(token, "/"))
+	if token == "" {
+		http.NotFound(w, r)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		s.publicTimePunchPage(w, r, token)
+	case http.MethodPost:
+		s.publicTimePunchSubmit(w, r, token)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *server) publicTimeOffRoutes(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimPrefix(r.URL.Path, "/time-off/")
+	token = strings.TrimSpace(strings.Trim(token, "/"))
+	if token == "" {
+		http.NotFound(w, r)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		s.publicTimeOffPage(w, r, token)
+	case http.MethodPost:
+		s.publicTimeOffSubmit(w, r, token)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *server) publicUniformOrderRoutes(w http.ResponseWriter, r *http.Request) {
+	trimmed := strings.Trim(strings.TrimPrefix(r.URL.Path, "/uniform-order/"), "/")
+	if trimmed == "" {
+		http.NotFound(w, r)
+		return
+	}
+	parts := strings.Split(trimmed, "/")
+	token := strings.TrimSpace(parts[0])
+	if token == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	if len(parts) == 1 {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		s.publicUniformOrderPage(w, r, token)
+		return
+	}
+
+	if len(parts) == 3 && parts[1] == "item" {
+		itemID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+		if err != nil || itemID <= 0 {
+			http.NotFound(w, r)
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			s.publicUniformOrderItemPage(w, r, token, itemID)
+		case http.MethodPost:
+			s.publicUniformOrderItemSubmit(w, r, token, itemID)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	http.NotFound(w, r)
+}
+
+func (s *server) employeeDetailPage(w http.ResponseWriter, r *http.Request, locationNumber, timePunchName string) {
+	location, err := s.fetchLocation(r, locationNumber)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil {
+		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
+		return
+	}
+	employee, err := s.fetchEmployee(r, locationNumber, timePunchName)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	if err := renderHTMLTemplate(w, s.employeeTmpl, pageData{
+		CSRF:           csrfToken,
+		Location:       location,
+		Employee:       employee,
+		Departments:    departmentOptions(),
+		SuccessMessage: r.URL.Query().Get("message"),
+		Error:          r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("employee template render failed: %v", err)
+	}
+}
+
+func (s *server) locationTimePunchPage(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	location, err := s.fetchLocation(r, locationNumber)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil {
+		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
+		return
+	}
+	entries, err := s.fetchLocationTimePunchEntries(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load time punch entries", http.StatusBadGateway)
+		return
+	}
+	token, err := s.fetchLocationTimePunchToken(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load time punch link", http.StatusBadGateway)
+		return
+	}
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	publicLink := scheme + "://" + r.Host + "/time-punch/" + url.PathEscape(token)
+	if err := renderHTMLTemplate(w, s.timePunchTmpl, pageData{
+		Location:         location,
+		CSRF:             csrfToken,
+		TimePunchEntries: entries,
+		TimePunchLink:    publicLink,
+		SuccessMessage:   r.URL.Query().Get("message"),
+		Error:            r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("time punch template render failed: %v", err)
+	}
+}
+
+func (s *server) locationTimeOffPage(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	location, err := s.fetchLocation(r, locationNumber)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil {
+		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
+		return
+	}
+	requests, err := s.fetchLocationTimeOffRequests(r, locationNumber, false)
+	if err != nil {
+		http.Error(w, "unable to load time off requests", http.StatusBadGateway)
+		return
+	}
+	archivedRequests, err := s.fetchLocationTimeOffRequests(r, locationNumber, true)
+	if err != nil {
+		http.Error(w, "unable to load archived time off requests", http.StatusBadGateway)
+		return
+	}
+	token, err := s.fetchLocationTimeOffToken(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load time off link", http.StatusBadGateway)
+		return
+	}
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	publicLink := scheme + "://" + r.Host + "/time-off/" + url.PathEscape(token)
+	if err := renderHTMLTemplate(w, s.timeOffTmpl, pageData{
+		Location:                location,
+		CSRF:                    csrfToken,
+		TimeOffRequests:         requests,
+		ArchivedTimeOffRequests: archivedRequests,
+		TimeOffLink:             publicLink,
+		SuccessMessage:          r.URL.Query().Get("message"),
+		Error:                   r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("time off template render failed: %v", err)
+	}
+}
+
+func (s *server) locationUniformsPage(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	location, err := s.fetchLocation(r, locationNumber)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil {
+		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
+		return
+	}
+	items, err := s.fetchLocationUniformItems(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load uniform items", http.StatusBadGateway)
+		return
+	}
+	orders, err := s.fetchLocationUniformOrders(r, locationNumber, false)
+	if err != nil {
+		http.Error(w, "unable to load uniform orders", http.StatusBadGateway)
+		return
+	}
+	token, err := s.fetchLocationUniformToken(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load uniform order link", http.StatusBadGateway)
+		return
+	}
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	publicLink := scheme + "://" + r.Host + "/uniform-order/" + url.PathEscape(token)
+	if err := renderHTMLTemplate(w, s.uniformsTmpl, pageData{
+		Location:       location,
+		CSRF:           csrfToken,
+		UniformItems:   items,
+		UniformOrders:  orders,
+		UniformLink:    publicLink,
+		SuccessMessage: r.URL.Query().Get("message"),
+		Error:          r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("uniforms template render failed: %v", err)
+	}
+}
+
+func (s *server) locationArchivedUniformOrdersPage(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	location, err := s.fetchLocation(r, locationNumber)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil {
+		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
+		return
+	}
+	archivedOrders, err := s.fetchLocationUniformOrders(r, locationNumber, true)
+	if err != nil {
+		http.Error(w, "unable to load archived uniform orders", http.StatusBadGateway)
+		return
+	}
+	nameSet := make(map[string]struct{}, len(archivedOrders))
+	employeeNames := make([]string, 0, len(archivedOrders))
+	for _, order := range archivedOrders {
+		name := strings.TrimSpace(order.TimePunchName)
+		if name == "" {
+			continue
+		}
+		key := strings.ToLower(name)
+		if _, exists := nameSet[key]; exists {
+			continue
+		}
+		nameSet[key] = struct{}{}
+		employeeNames = append(employeeNames, name)
+	}
+	sort.Slice(employeeNames, func(i, j int) bool {
+		return strings.ToLower(employeeNames[i]) < strings.ToLower(employeeNames[j])
+	})
+	search := strings.TrimSpace(r.URL.Query().Get("employee"))
+	page := parsePositiveInt(r.URL.Query().Get("page"), 1)
+	perPage := 50
+
+	filtered := make([]uniformOrderView, 0, len(archivedOrders))
+	if search == "" {
+		filtered = archivedOrders
+	} else {
+		searchLower := strings.ToLower(search)
+		for _, order := range archivedOrders {
+			if strings.Contains(strings.ToLower(order.TimePunchName), searchLower) {
+				filtered = append(filtered, order)
+			}
+		}
+	}
+
+	total := len(filtered)
+	totalPages := 1
+	if total > 0 {
+		totalPages = (total + perPage - 1) / perPage
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+	start := (page - 1) * perPage
+	if start > total {
+		start = total
+	}
+	end := start + perPage
+	if end > total {
+		end = total
+	}
+	pageOrders := filtered[start:end]
+
+	returnPath := "/admin/locations/" + url.PathEscape(locationNumber) + "/uniform-orders/archived"
+	queryParts := make([]string, 0, 2)
+	if page > 1 {
+		queryParts = append(queryParts, "page="+strconv.Itoa(page))
+	}
+	if search != "" {
+		queryParts = append(queryParts, "employee="+url.QueryEscape(search))
+	}
+	if len(queryParts) > 0 {
+		returnPath += "?" + strings.Join(queryParts, "&")
+	}
+
+	if err := renderHTMLTemplate(w, s.uniformArchivedTmpl, pageData{
+		Location:       location,
+		CSRF:           csrfToken,
+		ArchivedOrders: pageOrders,
+		EmployeeNames:  employeeNames,
+		Page:           page,
+		HasPrev:        page > 1,
+		HasNext:        page < totalPages,
+		PrevPage:       max(1, page-1),
+		NextPage:       page + 1,
+		TotalCount:     total,
+		Search:         search,
+		ReturnPath:     returnPath,
+		SuccessMessage: r.URL.Query().Get("message"),
+		Error:          r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("archived uniform orders template render failed: %v", err)
+	}
+}
+
+func (s *server) locationUniformItemPage(w http.ResponseWriter, r *http.Request, locationNumber string, itemID int64) {
+	location, err := s.fetchLocation(r, locationNumber)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil {
+		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
+		return
+	}
+	item, err := s.fetchLocationUniformItem(r, locationNumber, itemID)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := renderHTMLTemplate(w, s.uniformItemTmpl, pageData{
+		Location:       location,
+		CSRF:           csrfToken,
+		UniformItem:    item,
+		SuccessMessage: r.URL.Query().Get("message"),
+		Error:          r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("uniform item template render failed: %v", err)
+	}
+}
+
+func (s *server) createUniformItemProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	if err := r.ParseMultipartForm(20 << 20); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Invalid+upload", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	file, header, err := r.FormFile("photo_file")
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Image+file+is+required", http.StatusFound)
+		return
+	}
+	defer file.Close()
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	_ = writer.WriteField("name", strings.TrimSpace(r.FormValue("name")))
+	_ = writer.WriteField("price", strings.TrimSpace(r.FormValue("price")))
+	_ = writer.WriteField("sizes", strings.TrimSpace(r.FormValue("sizes")))
+	for _, key := range []string{"crop_x", "crop_y", "crop_size"} {
+		if value := strings.TrimSpace(r.FormValue(key)); value != "" {
+			_ = writer.WriteField(key, value)
+		}
+	}
+	part, err := writer.CreateFormFile("photo_file", header.Filename)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Unable+to+prepare+upload", http.StatusFound)
+		return
+	}
+	if _, err := io.Copy(part, file); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Unable+to+read+upload", http.StatusFound)
+		return
+	}
+	if err := writer.Close(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Unable+to+finalize+upload", http.StatusFound)
+		return
+	}
+
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/uniform-items"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, &body)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Unable+to+send+upload", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", writer.FormDataContentType())
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusCreated && apiResp.StatusCode != http.StatusOK {
+		msg := "unable to create uniform item"
+		var payload map[string]string
+		if err := json.Unmarshal(respBody, &payload); err == nil && strings.TrimSpace(payload["error"]) != "" {
+			msg = payload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?message="+url.QueryEscape("Uniform item created"), http.StatusFound)
+}
+
+func (s *server) updateUniformItemProxy(w http.ResponseWriter, r *http.Request, locationNumber string, itemID int64) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	nextPath := strings.TrimSpace(r.FormValue("next"))
+	if nextPath == "" || !strings.HasPrefix(nextPath, "/") {
+		nextPath = "/admin/locations/" + url.PathEscape(locationNumber) + "/uniforms"
+	}
+	if csrfToken == "" {
+		http.Redirect(w, r, nextPath+"?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	payload := map[string]any{
+		"name":  strings.TrimSpace(r.FormValue("name")),
+		"price": strings.TrimSpace(r.FormValue("price")),
+		"sizes": strings.TrimSpace(r.FormValue("sizes")),
+	}
+	body, _ := json.Marshal(payload)
+
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/uniform-items/" + strconv.FormatInt(itemID, 10)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, apiURL, bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, nextPath+"?error=Unable+to+update+item", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, nextPath+"?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to update uniform item"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, nextPath+"?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, nextPath+"?message="+url.QueryEscape("Uniform item updated"), http.StatusFound)
+}
+
+func (s *server) deleteUniformItemProxy(w http.ResponseWriter, r *http.Request, locationNumber string, itemID int64) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/uniform-items/" + strconv.FormatInt(itemID, 10)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodDelete, apiURL, nil)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Unable+to+delete+item", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to delete uniform item"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?message="+url.QueryEscape("Uniform item deleted"), http.StatusFound)
+}
+
+func (s *server) archiveUniformOrderProxy(w http.ResponseWriter, r *http.Request, locationNumber string, orderID int64) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/uniform-orders/" + strconv.FormatInt(orderID, 10)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, apiURL, nil)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Unable+to+archive+order", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to archive uniform order"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?message="+url.QueryEscape("Uniform order archived"), http.StatusFound)
+}
+
+func (s *server) updateUniformOrderLineSettlementProxy(w http.ResponseWriter, r *http.Request, locationNumber string, orderID, lineID int64) {
+	basePath := "/admin/locations/" + url.PathEscape(locationNumber) + "/uniforms"
+	redirectWithPanel := func(query string) string {
+		if strings.TrimSpace(query) == "" {
+			return basePath + "#submitted-requests"
+		}
+		return basePath + query + "#submitted-requests"
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, redirectWithPanel("?error=Invalid+form+submission"), http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, redirectWithPanel("?error=Missing+csrf+token"), http.StatusFound)
+		return
+	}
+
+	payload := map[string]any{
+		"purchased":   strings.TrimSpace(r.FormValue("purchased")) == "on",
+		"chargedBack": strings.TrimSpace(r.FormValue("charged_back")),
+	}
+	body, _ := json.Marshal(payload)
+
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/uniform-orders/" + strconv.FormatInt(orderID, 10) + "/lines/" + strconv.FormatInt(lineID, 10)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, apiURL, bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, redirectWithPanel("?error=Unable+to+update+uniform+line"), http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, redirectWithPanel("?error=Service+unavailable"), http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to update uniform line"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, redirectWithPanel("?error="+url.QueryEscape(msg)), http.StatusFound)
+		return
+	}
+	message := "Uniform line updated"
+	var okPayload map[string]any
+	if err := json.Unmarshal(respBody, &okPayload); err == nil {
+		if raw, exists := okPayload["message"]; exists {
+			if parsed, ok := raw.(string); ok && strings.TrimSpace(parsed) != "" {
+				message = parsed
+			}
+		}
+	}
+	http.Redirect(w, r, redirectWithPanel("?message="+url.QueryEscape(message)), http.StatusFound)
+}
+
+func (s *server) deleteArchivedUniformOrderProxy(w http.ResponseWriter, r *http.Request, locationNumber string, orderID int64) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	nextPath := strings.TrimSpace(r.FormValue("next"))
+	if nextPath == "" || !strings.HasPrefix(nextPath, "/") {
+		nextPath = "/admin/locations/" + url.PathEscape(locationNumber) + "/uniform-orders/archived"
+	}
+	if csrfToken == "" {
+		http.Redirect(w, r, nextPath+"?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/uniform-orders/" + strconv.FormatInt(orderID, 10)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodDelete, apiURL, nil)
+	if err != nil {
+		http.Redirect(w, r, nextPath+"?error=Unable+to+delete+archived+order", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, nextPath+"?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to delete archived uniform order"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, nextPath+"?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, nextPath+"?message="+url.QueryEscape("Archived order deleted"), http.StatusFound)
+}
+
+func (s *server) moveUniformImageProxy(w http.ResponseWriter, r *http.Request, locationNumber string, itemID, imageID int64) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	direction := strings.ToLower(strings.TrimSpace(r.FormValue("direction")))
+	nextPath := strings.TrimSpace(r.FormValue("next"))
+	if nextPath == "" || !strings.HasPrefix(nextPath, "/") {
+		nextPath = "/admin/locations/" + url.PathEscape(locationNumber) + "/uniforms"
+	}
+	if direction != "up" && direction != "down" {
+		http.Redirect(w, r, nextPath+"?error=Invalid+reorder+direction", http.StatusFound)
+		return
+	}
+	body, _ := json.Marshal(map[string]string{"direction": direction})
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/uniform-items/" + strconv.FormatInt(itemID, 10) + "/images/" + strconv.FormatInt(imageID, 10) + "/move"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, apiURL, bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, nextPath+"?error=Unable+to+reorder+image", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, nextPath+"?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to reorder uniform image"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, nextPath+"?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, nextPath+"?message="+url.QueryEscape("Uniform image reordered"), http.StatusFound)
+}
+
+func (s *server) addUniformItemImagesProxy(w http.ResponseWriter, r *http.Request, locationNumber string, itemID int64) {
+	if err := r.ParseMultipartForm(30 << 20); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniform-items/"+strconv.FormatInt(itemID, 10)+"?error=Invalid+upload", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniform-items/"+strconv.FormatInt(itemID, 10)+"?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	file, header, err := r.FormFile("photo_file")
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniform-items/"+strconv.FormatInt(itemID, 10)+"?error=Photo+file+is+required", http.StatusFound)
+		return
+	}
+	defer file.Close()
+	dst, err := writer.CreateFormFile("photo_file", header.Filename)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniform-items/"+strconv.FormatInt(itemID, 10)+"?error=Unable+to+prepare+upload", http.StatusFound)
+		return
+	}
+	if _, err := io.Copy(dst, file); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniform-items/"+strconv.FormatInt(itemID, 10)+"?error=Unable+to+read+upload", http.StatusFound)
+		return
+	}
+	for _, key := range []string{"crop_x", "crop_y", "crop_size"} {
+		if value := strings.TrimSpace(r.FormValue(key)); value != "" {
+			_ = writer.WriteField(key, value)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniform-items/"+strconv.FormatInt(itemID, 10)+"?error=Unable+to+finalize+upload", http.StatusFound)
+		return
+	}
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/uniform-items/" + strconv.FormatInt(itemID, 10) + "/images"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, &body)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniform-items/"+strconv.FormatInt(itemID, 10)+"?error=Unable+to+send+upload", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", writer.FormDataContentType())
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniform-items/"+strconv.FormatInt(itemID, 10)+"?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to upload gallery images"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniform-items/"+strconv.FormatInt(itemID, 10)+"?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniform-items/"+strconv.FormatInt(itemID, 10)+"?message="+url.QueryEscape("Gallery images added"), http.StatusFound)
+}
+
+func (s *server) deleteUniformItemImageProxy(w http.ResponseWriter, r *http.Request, locationNumber string, itemID, imageID int64) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniform-items/"+strconv.FormatInt(itemID, 10)+"?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniform-items/"+strconv.FormatInt(itemID, 10)+"?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/uniform-items/" + strconv.FormatInt(itemID, 10) + "/images/" + strconv.FormatInt(imageID, 10)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodDelete, apiURL, nil)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniform-items/"+strconv.FormatInt(itemID, 10)+"?error=Unable+to+delete+image", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniform-items/"+strconv.FormatInt(itemID, 10)+"?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to delete image"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniform-items/"+strconv.FormatInt(itemID, 10)+"?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniform-items/"+strconv.FormatInt(itemID, 10)+"?message="+url.QueryEscape("Image deleted"), http.StatusFound)
+}
+
+func (s *server) locationBusinessDaysPage(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	location, err := s.fetchLocation(r, locationNumber)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil {
+		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
+		return
+	}
+	businessDays, err := s.fetchLocationBusinessDays(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load business days", http.StatusBadGateway)
+		return
+	}
+	if err := renderHTMLTemplate(w, s.businessDaysTmpl, pageData{
+		Location:       location,
+		CSRF:           csrfToken,
+		BusinessDays:   businessDays,
+		SuccessMessage: r.URL.Query().Get("message"),
+		Error:          r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("business days template render failed: %v", err)
+	}
+}
+
+func (s *server) openBusinessDayFromPicker(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/business-days?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	selectedDate := strings.TrimSpace(r.FormValue("selected_date"))
+	if selectedDate == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/business-days?error=Date+is+required", http.StatusFound)
+		return
+	}
+	if _, err := time.Parse("2006-01-02", selectedDate); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/business-days?error=Date+must+use+YYYY-MM-DD", http.StatusFound)
+		return
+	}
+	if day, _ := time.Parse("2006-01-02", selectedDate); day.Weekday() == time.Sunday {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/business-days?error=Sunday+cannot+be+used+as+a+business+day", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/business-days/"+url.PathEscape(selectedDate), http.StatusFound)
+}
+
+func (s *server) locationBusinessDayPage(w http.ResponseWriter, r *http.Request, locationNumber, businessDate string) {
+	location, err := s.fetchLocation(r, locationNumber)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil {
+		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
+		return
+	}
+	day, err := s.fetchOrCreateBusinessDay(r, locationNumber, businessDate)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/business-days?error=Unable+to+open+business+day", http.StatusFound)
+		return
+	}
+	if err := renderHTMLTemplate(w, s.businessDayTmpl, pageData{
+		Location:       location,
+		CSRF:           csrfToken,
+		BusinessDay:    day,
+		SuccessMessage: r.URL.Query().Get("message"),
+		Error:          r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("business day detail template render failed: %v", err)
+	}
+}
+
+func (s *server) updateBusinessDayProxy(w http.ResponseWriter, r *http.Request, locationNumber, businessDate string) {
+	csrfToken := strings.TrimSpace(r.Header.Get(csrfHeaderName))
+	if csrfToken == "" {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "csrf token is required"})
+		return
+	}
+	var req updateBusinessDayRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	body, _ := json.Marshal(req)
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/business-days/" + url.PathEscape(businessDate)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, apiURL, bytes.NewReader(body))
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "upstream request failed"})
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream service unavailable"})
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(apiResp.StatusCode)
+	_, _ = w.Write(respBody)
+}
+
+func (s *server) openBusinessDayInlineProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	csrfToken := strings.TrimSpace(r.Header.Get(csrfHeaderName))
+	if csrfToken == "" {
+		writeJSON(w, http.StatusForbidden, map[string]string{"error": "csrf token is required"})
+		return
+	}
+	var payload map[string]string
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+		return
+	}
+	businessDate := strings.TrimSpace(payload["businessDate"])
+	if businessDate == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "business date is required"})
+		return
+	}
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/business-days/" + url.PathEscape(businessDate)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "upstream request failed"})
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "upstream service unavailable"})
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(apiResp.StatusCode)
+	_, _ = w.Write(respBody)
+}
+
+func (s *server) deleteLocationTimePunchEntryProxy(w http.ResponseWriter, r *http.Request, locationNumber string, entryID int64) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/time-punch/" + strconv.FormatInt(entryID, 10)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodDelete, apiURL, nil)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error=Unable+to+delete+entry", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to delete time punch entry"
+		var payload map[string]string
+		if err := json.Unmarshal(respBody, &payload); err == nil && strings.TrimSpace(payload["error"]) != "" {
+			msg = payload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?message="+url.QueryEscape("Time punch entry deleted"), http.StatusFound)
+}
+
+func (s *server) archiveTimeOffRequestProxy(w http.ResponseWriter, r *http.Request, locationNumber string, requestID int64) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/time-off/" + strconv.FormatInt(requestID, 10)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, apiURL, nil)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Unable+to+archive+request", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to archive time off request"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?message="+url.QueryEscape("Time off request archived"), http.StatusFound)
+}
+
+func (s *server) importLocationEmployeesProxy(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	trimmed := strings.TrimPrefix(r.URL.Path, "/admin/locations/")
+	trimmed = strings.TrimSuffix(trimmed, "/employees/import")
+	trimmed = strings.Trim(trimmed, "/")
+	if trimmed == "" {
+		http.NotFound(w, r)
+		return
+	}
+	locationNumber, err := url.PathUnescape(trimmed)
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	if err := r.ParseMultipartForm(20 << 20); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Invalid+upload", http.StatusFound)
+		return
+	}
+	file, header, err := r.FormFile("bio_file")
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Employee+Bio+Reader+file+is+required", http.StatusFound)
+		return
+	}
+	defer file.Close()
+
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("bio_file", header.Filename)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+prepare+upload", http.StatusFound)
+		return
+	}
+	if _, err := io.Copy(part, file); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+read+upload", http.StatusFound)
+		return
+	}
+	if err := writer.Close(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+finalize+upload", http.StatusFound)
+		return
+	}
+
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/import"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, &body)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+send+upload", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", writer.FormDataContentType())
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Import+service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to import bio reader"
+		var payload map[string]string
+		if err := json.Unmarshal(respBody, &payload); err == nil {
+			if payload["error"] != "" {
+				msg = payload["error"]
+			}
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?message="+url.QueryEscape("Bio reader imported successfully"), http.StatusFound)
+}
+
+func (s *server) importLocationBirthdatesProxy(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	trimmed := strings.TrimPrefix(r.URL.Path, "/admin/locations/")
+	trimmed = strings.TrimSuffix(trimmed, "/employees/birthdates/import")
+	trimmed = strings.Trim(trimmed, "/")
+	if trimmed == "" {
+		http.NotFound(w, r)
+		return
+	}
+	locationNumber, err := url.PathUnescape(trimmed)
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	if err := r.ParseMultipartForm(20 << 20); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Invalid+upload", http.StatusFound)
+		return
+	}
+	file, header, err := r.FormFile("birthdate_file")
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Birthday+report+file+is+required", http.StatusFound)
+		return
+	}
+	defer file.Close()
+
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("birthdate_file", header.Filename)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+prepare+upload", http.StatusFound)
+		return
+	}
+	if _, err := io.Copy(part, file); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+read+upload", http.StatusFound)
+		return
+	}
+	if err := writer.Close(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+finalize+upload", http.StatusFound)
+		return
+	}
+
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/birthdates/import"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, &body)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+send+upload", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", writer.FormDataContentType())
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Import+service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to import birthday report"
+		var payload map[string]string
+		if err := json.Unmarshal(respBody, &payload); err == nil {
+			if payload["error"] != "" {
+				msg = payload["error"]
+			}
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?message="+url.QueryEscape("Birthday report imported successfully"), http.StatusFound)
+}
+
+func (s *server) createLocationProxy(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	csrfToken := strings.TrimSpace(r.Header.Get(csrfHeaderName))
+	if csrfToken == "" {
+		http.Error(w, `{"error":"csrf token is required"}`, http.StatusForbidden)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, s.apiBaseURL+"/api/admin/locations", bytes.NewReader(body))
+	if err != nil {
+		http.Error(w, `{"error":"upstream request failed"}`, http.StatusInternalServerError)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, `{"error":"upstream service unavailable"}`, http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+
+	respBody, err := io.ReadAll(apiResp.Body)
+	if err != nil {
+		http.Error(w, `{"error":"upstream response failed"}`, http.StatusBadGateway)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(apiResp.StatusCode)
+	_, _ = w.Write(respBody)
+}
+
+func (s *server) updateLocationProxy(w http.ResponseWriter, r *http.Request) {
+	locationNumber, ok := locationNumberFromAdminPath(r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	csrfToken := strings.TrimSpace(r.Header.Get(csrfHeaderName))
+	if csrfToken == "" {
+		http.Error(w, `{"error":"csrf token is required"}`, http.StatusForbidden)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber), bytes.NewReader(body))
+	if err != nil {
+		http.Error(w, `{"error":"upstream request failed"}`, http.StatusInternalServerError)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, `{"error":"upstream service unavailable"}`, http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+
+	respBody, err := io.ReadAll(apiResp.Body)
+	if err != nil {
+		http.Error(w, `{"error":"upstream response failed"}`, http.StatusBadGateway)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(apiResp.StatusCode)
+	_, _ = w.Write(respBody)
+}
+
+func (s *server) deleteLocationProxy(w http.ResponseWriter, r *http.Request) {
+	locationNumber, ok := locationNumberFromAdminPath(r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	csrfToken := strings.TrimSpace(r.Header.Get(csrfHeaderName))
+	if csrfToken == "" {
+		http.Error(w, `{"error":"csrf token is required"}`, http.StatusForbidden)
+		return
+	}
+
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodDelete, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber), nil)
+	if err != nil {
+		http.Error(w, `{"error":"upstream request failed"}`, http.StatusInternalServerError)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, `{"error":"upstream service unavailable"}`, http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+
+	respBody, err := io.ReadAll(apiResp.Body)
+	if err != nil {
+		http.Error(w, `{"error":"upstream response failed"}`, http.StatusBadGateway)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(apiResp.StatusCode)
+	_, _ = w.Write(respBody)
+}
+
+func (s *server) updateEmployeeDepartmentProxy(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	trimmed := strings.TrimPrefix(r.URL.Path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "employees" || parts[3] != "department" {
+		http.NotFound(w, r)
+		return
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		http.NotFound(w, r)
+		return
+	}
+	timePunchName, err := url.PathUnescape(parts[2])
+	if err != nil || strings.TrimSpace(timePunchName) == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	csrfToken := strings.TrimSpace(r.Header.Get(csrfHeaderName))
+	if csrfToken == "" {
+		http.Error(w, `{"error":"csrf token is required"}`, http.StatusForbidden)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/" + url.PathEscape(timePunchName) + "/department"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, apiURL, bytes.NewReader(body))
+	if err != nil {
+		http.Error(w, `{"error":"upstream request failed"}`, http.StatusInternalServerError)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, `{"error":"upstream service unavailable"}`, http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+
+	respBody, err := io.ReadAll(apiResp.Body)
+	if err != nil {
+		http.Error(w, `{"error":"upstream response failed"}`, http.StatusBadGateway)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(apiResp.StatusCode)
+	_, _ = w.Write(respBody)
+}
+
+func (s *server) getEmployeePhotoProxy(w http.ResponseWriter, r *http.Request) {
+	locationNumber, timePunchName, ok := parseLocationEmployeeActionPath(r.URL.Path, "photo")
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/" + url.PathEscape(timePunchName) + "/photo"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil)
+	if err != nil {
+		http.Error(w, "upstream request failed", http.StatusInternalServerError)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, "upstream service unavailable", http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		http.NotFound(w, r)
+		return
+	}
+	if ct := apiResp.Header.Get("Content-Type"); ct != "" {
+		w.Header().Set("Content-Type", ct)
+	}
+	_, _ = io.Copy(w, apiResp.Body)
+}
+
+func (s *server) uploadEmployeePhotoProxy(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	locationNumber, timePunchName, ok := parseLocationEmployeeActionPath(r.URL.Path, "photo")
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	if err := r.ParseMultipartForm(20 << 20); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Invalid+upload", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	file, header, err := r.FormFile("photo_file")
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Photo+file+is+required", http.StatusFound)
+		return
+	}
+	defer file.Close()
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("photo_file", header.Filename)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Unable+to+prepare+upload", http.StatusFound)
+		return
+	}
+	if _, err := io.Copy(part, file); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Unable+to+read+upload", http.StatusFound)
+		return
+	}
+	for _, key := range []string{"crop_x", "crop_y", "crop_size"} {
+		if value := strings.TrimSpace(r.FormValue(key)); value != "" {
+			_ = writer.WriteField(key, value)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Unable+to+finalize+upload", http.StatusFound)
+		return
+	}
+
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/" + url.PathEscape(timePunchName) + "/photo"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, &body)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Unable+to+send+upload", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", writer.FormDataContentType())
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Upload+service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to upload photo"
+		var payload map[string]string
+		if err := json.Unmarshal(respBody, &payload); err == nil && payload["error"] != "" {
+			msg = payload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?message="+url.QueryEscape("Photo uploaded"), http.StatusFound)
+}
+
+func (s *server) createEmployeePhotoLinkProxy(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	locationNumber, timePunchName, ok := parseLocationEmployeeActionPath(r.URL.Path, "photo-link")
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.Header.Get(csrfHeaderName))
+	if csrfToken == "" {
+		http.Error(w, `{"error":"csrf token is required"}`, http.StatusForbidden)
+		return
+	}
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/" + url.PathEscape(timePunchName) + "/photo-link"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, bytes.NewReader([]byte(`{}`)))
+	if err != nil {
+		http.Error(w, `{"error":"upstream request failed"}`, http.StatusInternalServerError)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, `{"error":"upstream service unavailable"}`, http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+	var payload photoLinkResponse
+	if apiResp.StatusCode == http.StatusOK {
+		if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+			http.Error(w, `{"error":"invalid upstream response"}`, http.StatusBadGateway)
+			return
+		}
+		scheme := "http"
+		if r.TLS != nil {
+			scheme = "https"
+		}
+		link := scheme + "://" + r.Host + "/employee/photo-upload/" + url.PathEscape(payload.Token)
+		writeJSON(w, http.StatusOK, map[string]string{
+			"uploadLink": link,
+			"expiresAt":  payload.ExpiresAt,
+		})
+		return
+	}
+	respBody, _ := io.ReadAll(apiResp.Body)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(apiResp.StatusCode)
+	_, _ = w.Write(respBody)
+}
+
+func (s *server) publicPhotoUploadPage(w http.ResponseWriter, r *http.Request, token string) {
+	apiURL := s.apiBaseURL + "/api/public/employee-photo-upload/" + url.PathEscape(token)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil)
+	if err != nil {
+		http.Error(w, "request failed", http.StatusInternalServerError)
+		return
+	}
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, "service unavailable", http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		http.NotFound(w, r)
+		return
+	}
+	var payload publicPhotoTokenResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		http.Error(w, "invalid response", http.StatusBadGateway)
+		return
+	}
+	if err := renderHTMLTemplate(w, s.publicUploadTmpl, pageData{
+		Token:          token,
+		Location:       &locationView{Number: payload.LocationNumber},
+		Employee:       &employeeView{TimePunchName: payload.TimePunchName},
+		SuccessMessage: r.URL.Query().Get("message"),
+		Error:          r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("public photo upload template render failed: %v", err)
+	}
+}
+
+func (s *server) publicTimePunchPage(w http.ResponseWriter, r *http.Request, token string) {
+	apiURL := s.apiBaseURL + "/api/public/time-punch/" + url.PathEscape(token)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil)
+	if err != nil {
+		http.Error(w, "request failed", http.StatusInternalServerError)
+		return
+	}
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, "service unavailable", http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		http.NotFound(w, r)
+		return
+	}
+	var payload publicTimePunchResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		http.Error(w, "invalid response", http.StatusBadGateway)
+		return
+	}
+	if err := renderHTMLTemplate(w, s.publicTimePunchTmpl, pageData{
+		Token:          token,
+		Location:       &locationView{Number: payload.LocationNumber, Name: payload.LocationName},
+		Employees:      payload.Employees,
+		SuccessMessage: r.URL.Query().Get("message"),
+		Error:          r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("public time punch template render failed: %v", err)
+	}
+}
+
+func (s *server) publicTimePunchSubmit(w http.ResponseWriter, r *http.Request, token string) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/time-punch/"+url.PathEscape(token)+"?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	payload := map[string]string{
+		"timePunchName": strings.TrimSpace(r.FormValue("time_punch_name")),
+		"punchDate":     strings.TrimSpace(r.FormValue("punch_date")),
+		"timeIn":        strings.TrimSpace(r.FormValue("time_in")),
+		"timeOut":       strings.TrimSpace(r.FormValue("time_out")),
+	}
+	body, _ := json.Marshal(payload)
+	apiURL := s.apiBaseURL + "/api/public/time-punch/" + url.PathEscape(token)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, "/time-punch/"+url.PathEscape(token)+"?error=Unable+to+submit", http.StatusFound)
+		return
+	}
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/time-punch/"+url.PathEscape(token)+"?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to submit time punch"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/time-punch/"+url.PathEscape(token)+"?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/time-punch/"+url.PathEscape(token)+"?message="+url.QueryEscape("Time punch correction submitted"), http.StatusFound)
+}
+
+func (s *server) publicTimeOffPage(w http.ResponseWriter, r *http.Request, token string) {
+	apiURL := s.apiBaseURL + "/api/public/time-off/" + url.PathEscape(token)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil)
+	if err != nil {
+		http.Error(w, "request failed", http.StatusInternalServerError)
+		return
+	}
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, "service unavailable", http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		http.NotFound(w, r)
+		return
+	}
+	var payload publicTimeOffResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		http.Error(w, "invalid response", http.StatusBadGateway)
+		return
+	}
+	if err := renderHTMLTemplate(w, s.publicTimeOffTmpl, pageData{
+		Token:          token,
+		Location:       &locationView{Number: payload.LocationNumber, Name: payload.LocationName},
+		Employees:      payload.Employees,
+		SuccessMessage: r.URL.Query().Get("message"),
+		Error:          r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("public time off template render failed: %v", err)
+	}
+}
+
+func (s *server) publicTimeOffSubmit(w http.ResponseWriter, r *http.Request, token string) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/time-off/"+url.PathEscape(token)+"?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	startDate := strings.TrimSpace(r.FormValue("start_date"))
+	endDate := strings.TrimSpace(r.FormValue("end_date"))
+	if endDate == "" {
+		endDate = startDate
+	}
+	payload := map[string]string{
+		"timePunchName": strings.TrimSpace(r.FormValue("time_punch_name")),
+		"startDate":     startDate,
+		"endDate":       endDate,
+	}
+	body, _ := json.Marshal(payload)
+	apiURL := s.apiBaseURL + "/api/public/time-off/" + url.PathEscape(token)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, "/time-off/"+url.PathEscape(token)+"?error=Unable+to+submit", http.StatusFound)
+		return
+	}
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/time-off/"+url.PathEscape(token)+"?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to submit time off request"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/time-off/"+url.PathEscape(token)+"?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/time-off/"+url.PathEscape(token)+"?message="+url.QueryEscape("Time off request submitted"), http.StatusFound)
+}
+
+func (s *server) publicUniformOrderPage(w http.ResponseWriter, r *http.Request, token string) {
+	payload, err := s.fetchPublicUniformOrderData(r, token)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := renderHTMLTemplate(w, s.publicUniformTmpl, pageData{
+		Token:          token,
+		Location:       &locationView{Number: payload.LocationNumber, Name: payload.LocationName},
+		UniformItems:   payload.Items,
+		SuccessMessage: r.URL.Query().Get("message"),
+		Error:          r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("public uniform order template render failed: %v", err)
+	}
+}
+
+func (s *server) publicUniformOrderItemPage(w http.ResponseWriter, r *http.Request, token string, itemID int64) {
+	payload, err := s.fetchPublicUniformOrderData(r, token)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	var selected *uniformItemView
+	for i := range payload.Items {
+		if payload.Items[i].ID == itemID {
+			selected = &payload.Items[i]
+			break
+		}
+	}
+	if selected == nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := renderHTMLTemplate(w, s.publicUniformItemTmpl, pageData{
+		Token:          token,
+		Location:       &locationView{Number: payload.LocationNumber, Name: payload.LocationName},
+		Employees:      payload.Employees,
+		UniformItem:    selected,
+		SuccessMessage: r.URL.Query().Get("message"),
+		Error:          r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("public uniform order item template render failed: %v", err)
+	}
+}
+
+func (s *server) publicUniformOrderItemSubmit(w http.ResponseWriter, r *http.Request, token string, itemID int64) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/uniform-order/"+url.PathEscape(token)+"/item/"+strconv.FormatInt(itemID, 10)+"?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	quantity, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("quantity")), 10, 64)
+	if err != nil || quantity <= 0 {
+		http.Redirect(w, r, "/uniform-order/"+url.PathEscape(token)+"/item/"+strconv.FormatInt(itemID, 10)+"?error=Quantity+must+be+at+least+1", http.StatusFound)
+		return
+	}
+	payload := map[string]any{
+		"timePunchName": strings.TrimSpace(r.FormValue("time_punch_name")),
+		"items": []map[string]any{
+			{
+				"itemId":   itemID,
+				"size":     strings.TrimSpace(r.FormValue("size")),
+				"note":     strings.TrimSpace(r.FormValue("note")),
+				"quantity": quantity,
+			},
+		},
+	}
+	body, _ := json.Marshal(payload)
+	apiURL := s.apiBaseURL + "/api/public/uniform-order/" + url.PathEscape(token)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, "/uniform-order/"+url.PathEscape(token)+"/item/"+strconv.FormatInt(itemID, 10)+"?error=Unable+to+submit+order", http.StatusFound)
+		return
+	}
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/uniform-order/"+url.PathEscape(token)+"/item/"+strconv.FormatInt(itemID, 10)+"?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to submit uniform order"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/uniform-order/"+url.PathEscape(token)+"/item/"+strconv.FormatInt(itemID, 10)+"?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/uniform-order/"+url.PathEscape(token)+"?message="+url.QueryEscape("Uniform order submitted"), http.StatusFound)
+}
+
+func (s *server) fetchPublicUniformOrderData(r *http.Request, token string) (publicUniformOrderResponse, error) {
+	apiURL := s.apiBaseURL + "/api/public/uniform-order/" + url.PathEscape(token)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil)
+	if err != nil {
+		return publicUniformOrderResponse{}, err
+	}
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return publicUniformOrderResponse{}, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return publicUniformOrderResponse{}, errors.New("invalid token")
+	}
+	var payload publicUniformOrderResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return publicUniformOrderResponse{}, err
+	}
+	return payload, nil
+}
+
+func (s *server) publicPhotoUploadSubmit(w http.ResponseWriter, r *http.Request, token string) {
+	if err := r.ParseMultipartForm(20 << 20); err != nil {
+		http.Redirect(w, r, "/employee/photo-upload/"+url.PathEscape(token)+"?error=Invalid+upload", http.StatusFound)
+		return
+	}
+	file, header, err := r.FormFile("photo_file")
+	if err != nil {
+		http.Redirect(w, r, "/employee/photo-upload/"+url.PathEscape(token)+"?error=Photo+file+is+required", http.StatusFound)
+		return
+	}
+	defer file.Close()
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("photo_file", header.Filename)
+	if err != nil {
+		http.Redirect(w, r, "/employee/photo-upload/"+url.PathEscape(token)+"?error=Unable+to+prepare+upload", http.StatusFound)
+		return
+	}
+	if _, err := io.Copy(part, file); err != nil {
+		http.Redirect(w, r, "/employee/photo-upload/"+url.PathEscape(token)+"?error=Unable+to+read+upload", http.StatusFound)
+		return
+	}
+	for _, key := range []string{"crop_x", "crop_y", "crop_size"} {
+		if value := strings.TrimSpace(r.FormValue(key)); value != "" {
+			_ = writer.WriteField(key, value)
+		}
+	}
+	_ = writer.Close()
+
+	apiURL := s.apiBaseURL + "/api/public/employee-photo-upload/" + url.PathEscape(token)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, &body)
+	if err != nil {
+		http.Redirect(w, r, "/employee/photo-upload/"+url.PathEscape(token)+"?error=Unable+to+send+upload", http.StatusFound)
+		return
+	}
+	apiReq.Header.Set("Content-Type", writer.FormDataContentType())
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/employee/photo-upload/"+url.PathEscape(token)+"?error=Upload+service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to upload photo"
+		var payload map[string]string
+		if err := json.Unmarshal(respBody, &payload); err == nil && payload["error"] != "" {
+			msg = payload["error"]
+		}
+		http.Redirect(w, r, "/employee/photo-upload/"+url.PathEscape(token)+"?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/employee/photo-upload/"+url.PathEscape(token)+"?message="+url.QueryEscape("Photo uploaded successfully"), http.StatusFound)
+}
+
+func (s *server) requireAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !s.sessionIsValid(r) {
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *server) sessionIsValid(r *http.Request) bool {
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, s.apiBaseURL+"/api/auth/me", nil)
+	if err != nil {
+		return false
+	}
+	copySessionCookieHeader(r, apiReq)
+
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return false
+	}
+	defer apiResp.Body.Close()
+
+	return apiResp.StatusCode == http.StatusOK
+}
+
+func (s *server) fetchCSRFToken(r *http.Request) (string, error) {
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, s.apiBaseURL+"/api/auth/csrf", nil)
+	if err != nil {
+		return "", err
+	}
+	copySessionCookieHeader(r, apiReq)
+
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return "", err
+	}
+	defer apiResp.Body.Close()
+
+	if apiResp.StatusCode != http.StatusOK {
+		return "", errors.New("unauthorized")
+	}
+
+	var payload authTokenResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return "", err
+	}
+	if payload.CSRFToken == "" {
+		return "", errors.New("missing csrf token")
+	}
+	return payload.CSRFToken, nil
+}
+
+func (s *server) fetchLocationsPage(r *http.Request, page, perPage int) (*locationsListResponse, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations?page="+strconv.Itoa(page)+"&per_page="+strconv.Itoa(perPage),
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to fetch locations")
+	}
+	var payload locationsListResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	return &payload, nil
+}
+
+func (s *server) fetchLocation(r *http.Request, number string) (*locationView, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number),
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("location not found")
+	}
+	var payload locationDetailResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	return &payload.Location, nil
+}
+
+func (s *server) fetchLocationEmployees(r *http.Request, number string) ([]employeeView, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number)+"/employees",
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to fetch employees")
+	}
+
+	var payload locationEmployeesResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	for i := range payload.Employees {
+		payload.Employees[i].Birthday = formatBirthdayDisplay(payload.Employees[i].Birthday)
+	}
+	return payload.Employees, nil
+}
+
+func (s *server) fetchLocationTimePunchEntries(r *http.Request, number string) ([]timePunchEntryView, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number)+"/time-punch",
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to fetch time punch entries")
+	}
+	var payload timePunchEntriesResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	for i := range payload.Entries {
+		payload.Entries[i].TimeIn = formatPunchClockDisplay(payload.Entries[i].TimeIn)
+		payload.Entries[i].TimeOut = formatPunchClockDisplay(payload.Entries[i].TimeOut)
+	}
+	return payload.Entries, nil
+}
+
+func (s *server) fetchLocationTimePunchToken(r *http.Request, number string) (string, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number)+"/time-punch/link",
+		nil,
+	)
+	if err != nil {
+		return "", err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return "", err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return "", errors.New("failed to fetch time punch token")
+	}
+	var payload timePunchLinkResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(payload.Token) == "" {
+		return "", errors.New("empty time punch token")
+	}
+	return payload.Token, nil
+}
+
+func (s *server) fetchLocationTimeOffRequests(r *http.Request, number string, archived bool) ([]timeOffRequestView, error) {
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(number) + "/time-off"
+	if archived {
+		apiURL += "?archived=1"
+	}
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		apiURL,
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to fetch time off requests")
+	}
+	var payload timeOffRequestsResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	return payload.Requests, nil
+}
+
+func (s *server) fetchLocationTimeOffToken(r *http.Request, number string) (string, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number)+"/time-off/link",
+		nil,
+	)
+	if err != nil {
+		return "", err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return "", err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return "", errors.New("failed to fetch time off token")
+	}
+	var payload timePunchLinkResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(payload.Token) == "" {
+		return "", errors.New("empty time off token")
+	}
+	return payload.Token, nil
+}
+
+func (s *server) fetchLocationUniformToken(r *http.Request, number string) (string, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number)+"/uniform-order/link",
+		nil,
+	)
+	if err != nil {
+		return "", err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return "", err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return "", errors.New("failed to fetch uniform token")
+	}
+	var payload uniformLinkResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(payload.Token) == "" {
+		return "", errors.New("empty uniform token")
+	}
+	return payload.Token, nil
+}
+
+func (s *server) fetchLocationUniformItems(r *http.Request, number string) ([]uniformItemView, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number)+"/uniform-items",
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to fetch uniform items")
+	}
+	var payload uniformItemsResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	return payload.Items, nil
+}
+
+func (s *server) fetchLocationUniformOrders(r *http.Request, number string, archived bool) ([]uniformOrderView, error) {
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(number) + "/uniform-orders"
+	if archived {
+		apiURL += "?archived=1"
+	}
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		apiURL,
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to fetch uniform orders")
+	}
+	var payload uniformOrdersResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	return payload.Orders, nil
+}
+
+func (s *server) fetchLocationUniformItem(r *http.Request, number string, itemID int64) (*uniformItemView, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number)+"/uniform-items/"+strconv.FormatInt(itemID, 10),
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to fetch uniform item")
+	}
+	var payload uniformItemDetailResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	return &payload.Item, nil
+}
+
+func (s *server) fetchLocationBusinessDays(r *http.Request, number string) ([]businessDayView, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number)+"/business-days",
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to fetch business days")
+	}
+	var payload businessDaysResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	return payload.BusinessDays, nil
+}
+
+func (s *server) fetchOrCreateBusinessDay(r *http.Request, locationNumber, businessDate string) (*businessDayView, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/business-days/"+url.PathEscape(businessDate),
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to fetch business day")
+	}
+	var payload businessDayResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	return &payload.BusinessDay, nil
+}
+
+func (s *server) fetchEmployee(r *http.Request, locationNumber, timePunchName string) (*employeeView, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName),
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("employee not found")
+	}
+	var payload employeeDetailResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	payload.Employee.Birthday = formatBirthdayDisplay(payload.Employee.Birthday)
+	return &payload.Employee, nil
+}
+
+func formatBirthdayDisplay(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	formats := []string{
+		"2006-01-02",
+		"1/2/2006",
+		"01/02/2006",
+		"1/2/06",
+		"01/02/06",
+		"1-2-2006",
+		"01-02-2006",
+		"2006/01/02",
+		"Jan 2, 2006",
+		"January 2, 2006",
+		"2 Jan 2006",
+		"2 January 2006",
+		"2006-01-02 15:04:05",
+		time.RFC3339,
+		time.RFC3339Nano,
+	}
+	// Excel numeric serial value support for display resilience.
+	if serial, err := strconv.ParseFloat(trimmed, 64); err == nil {
+		if serial >= 20000 && serial <= 80000 {
+			if parsed, err := excelize.ExcelDateToTime(serial, false); err == nil {
+				return parsed.Format("01/02/2006")
+			}
+		}
+	}
+	for _, layout := range formats {
+		if parsed, err := time.Parse(layout, trimmed); err == nil {
+			return parsed.Format("01/02/2006")
+		}
+	}
+	return trimmed
+}
+
+func formatPunchClockDisplay(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	layouts := []string{"15:04", "15:04:05", "3:04 PM", "3:04PM"}
+	for _, layout := range layouts {
+		if parsed, err := time.Parse(layout, trimmed); err == nil {
+			return parsed.Format("3:04 PM")
+		}
+	}
+	return trimmed
+}
+
+func copySessionCookieHeader(from *http.Request, to *http.Request) {
+	for _, c := range from.Cookies() {
+		if c.Name == sessionCookieName {
+			to.Header.Set("Cookie", c.Name+"="+c.Value)
+			return
+		}
+	}
+}
+
+func renderHTMLTemplate(w http.ResponseWriter, tmpl *template.Template, data pageData) error {
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, err := w.Write(buf.Bytes())
+	return err
+}
+
+func envOrDefault(name, fallback string) string {
+	value := strings.TrimSpace(os.Getenv(name))
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
+func parsePositiveInt(raw string, fallback int) int {
+	value, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || value <= 0 {
+		return fallback
+	}
+	return value
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func locationNumberFromAdminPath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	if trimmed == "" || strings.Contains(trimmed, "/") {
+		return "", false
+	}
+	number, err := url.PathUnescape(trimmed)
+	if err != nil || strings.TrimSpace(number) == "" {
+		return "", false
+	}
+	return number, true
+}
+
+func departmentOptions() []string {
+	return []string{"INIT", "NONE", "FOH", "BOH", "LEADERSHIP", "RLT", "CST", "EXECUTIVE", "PARTNER", "OPERATOR"}
+}
+
+func parseLocationEmployeePath(path string) (string, string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 || parts[1] != "employees" {
+		return "", "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", "", false
+	}
+	timePunchName, err := url.PathUnescape(parts[2])
+	if err != nil || strings.TrimSpace(timePunchName) == "" {
+		return "", "", false
+	}
+	return locationNumber, timePunchName, true
+}
+
+func parseLocationEmployeesPath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 2 || parts[1] != "employees" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
+func parseLocationTimePunchPath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 2 || parts[1] != "time-punch" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
+func parseLocationTimeOffPath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 2 || parts[1] != "time-off" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
+func parseLocationUniformsPath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 2 || parts[1] != "uniforms" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
+func parseLocationUniformOrdersArchivedPath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 || parts[1] != "uniform-orders" || parts[2] != "archived" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
+func parseLocationUniformItemsCreatePath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 2 || parts[1] != "uniform-items" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
+func parseLocationUniformItemUpdatePostPath(path string) (string, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "uniform-items" || parts[3] != "update" {
+		return "", 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, false
+	}
+	itemID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || itemID <= 0 {
+		return "", 0, false
+	}
+	return locationNumber, itemID, true
+}
+
+func parseLocationUniformItemDeletePostPath(path string) (string, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "uniform-items" || parts[3] != "delete" {
+		return "", 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, false
+	}
+	itemID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || itemID <= 0 {
+		return "", 0, false
+	}
+	return locationNumber, itemID, true
+}
+
+func parseLocationUniformOrderArchivePostPath(path string) (string, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "uniform-orders" || parts[3] != "archive" {
+		return "", 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, false
+	}
+	orderID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || orderID <= 0 {
+		return "", 0, false
+	}
+	return locationNumber, orderID, true
+}
+
+func parseLocationTimeOffArchivePostPath(path string) (string, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "time-off" || parts[3] != "archive" {
+		return "", 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, false
+	}
+	requestID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || requestID <= 0 {
+		return "", 0, false
+	}
+	return locationNumber, requestID, true
+}
+
+func parseLocationUniformOrderLineSettlementPostPath(path string) (string, int64, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 6 || parts[1] != "uniform-orders" || parts[3] != "lines" || parts[5] != "settlement" {
+		return "", 0, 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, 0, false
+	}
+	orderID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || orderID <= 0 {
+		return "", 0, 0, false
+	}
+	lineID, err := strconv.ParseInt(strings.TrimSpace(parts[4]), 10, 64)
+	if err != nil || lineID <= 0 {
+		return "", 0, 0, false
+	}
+	return locationNumber, orderID, lineID, true
+}
+
+func parseLocationUniformOrderDeletePostPath(path string) (string, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "uniform-orders" || parts[3] != "delete" {
+		return "", 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, false
+	}
+	orderID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || orderID <= 0 {
+		return "", 0, false
+	}
+	return locationNumber, orderID, true
+}
+
+func parseLocationUniformImageMovePostPath(path string) (string, int64, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 6 || parts[1] != "uniform-items" || parts[3] != "images" || parts[5] != "move" {
+		return "", 0, 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, 0, false
+	}
+	itemID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || itemID <= 0 {
+		return "", 0, 0, false
+	}
+	imageID, err := strconv.ParseInt(strings.TrimSpace(parts[4]), 10, 64)
+	if err != nil || imageID <= 0 {
+		return "", 0, 0, false
+	}
+	return locationNumber, itemID, imageID, true
+}
+
+func parseLocationUniformItemPath(path string) (string, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 || parts[1] != "uniform-items" {
+		return "", 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, false
+	}
+	itemID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || itemID <= 0 {
+		return "", 0, false
+	}
+	return locationNumber, itemID, true
+}
+
+func parseLocationUniformItemImagesAddPostPath(path string) (string, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "uniform-items" || parts[3] != "images" {
+		return "", 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, false
+	}
+	itemID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || itemID <= 0 {
+		return "", 0, false
+	}
+	return locationNumber, itemID, true
+}
+
+func parseLocationUniformItemImageDeletePostPath(path string) (string, int64, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 6 || parts[1] != "uniform-items" || parts[3] != "images" || parts[5] != "delete" {
+		return "", 0, 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, 0, false
+	}
+	itemID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || itemID <= 0 {
+		return "", 0, 0, false
+	}
+	imageID, err := strconv.ParseInt(strings.TrimSpace(parts[4]), 10, 64)
+	if err != nil || imageID <= 0 {
+		return "", 0, 0, false
+	}
+	return locationNumber, itemID, imageID, true
+}
+
+func parseLocationBusinessDaysPath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 2 || parts[1] != "business-days" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
+func parseLocationBusinessDayOpenPath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 || parts[1] != "business-days" || parts[2] != "open" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
+func parseLocationBusinessDayDetailPath(path string) (string, string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 || parts[1] != "business-days" {
+		return "", "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", "", false
+	}
+	businessDate, err := url.PathUnescape(parts[2])
+	if err != nil || strings.TrimSpace(businessDate) == "" {
+		return "", "", false
+	}
+	return locationNumber, strings.TrimSpace(businessDate), true
+}
+
+func parseLocationTimePunchDeletePath(path string) (string, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "time-punch" || parts[3] != "delete" {
+		return "", 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, false
+	}
+	entryID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || entryID <= 0 {
+		return "", 0, false
+	}
+	return locationNumber, entryID, true
+}
+
+func parseLocationEmployeeActionPath(path, action string) (string, string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "employees" || parts[3] != action {
+		return "", "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", "", false
+	}
+	timePunchName, err := url.PathUnescape(parts[2])
+	if err != nil || strings.TrimSpace(timePunchName) == "" {
+		return "", "", false
+	}
+	return locationNumber, timePunchName, true
+}
+
+func writeJSON(w http.ResponseWriter, status int, payload any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(payload)
+}

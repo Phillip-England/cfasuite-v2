@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ .CSRF }}">
+  <title>Business Day</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#f3eee6; --surface:#fffaf3; --ink:#1f232a; --line:#e4d6c0; --muted:#69717c; --accent:#b2472a; --shadow:0 24px 45px rgba(35,29,21,.14); }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 12px; font-family: "Manrope", sans-serif; color: var(--ink); background: radial-gradient(70rem 50rem at 120% -10%,#ffd8b6 0,transparent 55%), radial-gradient(50rem 40rem at -10% 120%,#f9d8bd 0,transparent 52%), var(--bg); }
+    .card { max-width: 780px; margin: 0 auto; background: linear-gradient(155deg,var(--surface),#fff); border: 1px solid var(--line); border-radius: 18px; padding: 16px; box-shadow: var(--shadow); }
+    .back { color: var(--accent); text-decoration: none; font-weight: 800; font-size: 0.9rem; }
+    h1 { margin: 10px 0 6px; font: 800 clamp(1.5rem, 4vw, 2.1rem)/1.1 "Space Grotesk",sans-serif; }
+    .sub { margin: 0 0 14px; color: var(--muted); font-weight: 700; }
+    .notice { margin: 0 0 10px; font-weight: 700; font-size: 0.9rem; }
+    .notice.error { color: #9f1e1e; }
+    .notice.ok { color: #186243; }
+    .grid { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 420px; }
+    label { display: grid; gap: 6px; font-size: 0.88rem; font-weight: 700; color: #4a525e; }
+    input { border: 1px solid #dbcab4; border-radius: 10px; min-height: 44px; padding: 10px 11px; font: 600 0.94rem/1.2 "Manrope",sans-serif; background: #fffefb; }
+    .inline-status { min-height: 1.2em; margin: 10px 0 0; font-size: 0.84rem; font-weight: 700; color: #69717c; }
+    .inline-status.ok { color: #186243; }
+    .inline-status.error { color: #9f1e1e; }
+    @media (min-width: 760px) {
+      body { padding: 24px; }
+      .card { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <section class="card">
+    <a class="back" href="/admin/locations/{{ .Location.Number }}/business-days">Back to Business Days</a>
+    <h1>Business Day: {{ .BusinessDay.BusinessDate }}</h1>
+    <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})</p>
+    {{ if .SuccessMessage }}<p class="notice ok">{{ .SuccessMessage }}</p>{{ end }}
+    {{ if .Error }}<p class="notice error">{{ .Error }}</p>{{ end }}
+
+    <div class="grid">
+      <label>
+        Total Sales
+        <input id="total-sales" type="number" min="0" step="0.01" value="{{ .BusinessDay.TotalSales }}">
+      </label>
+      <label>
+        Labor Hours
+        <input id="labor-hours" type="number" min="0" step="0.01" value="{{ .BusinessDay.LaborHours }}">
+      </label>
+    </div>
+    <p id="inline-status" class="inline-status"></p>
+  </section>
+
+  <script>
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+    const locationNumber = "{{ .Location.Number }}";
+    const businessDate = "{{ .BusinessDay.BusinessDate }}";
+    const salesInput = document.getElementById("total-sales");
+    const laborInput = document.getElementById("labor-hours");
+    const statusEl = document.getElementById("inline-status");
+
+    function setStatus(message, isError) {
+      statusEl.textContent = message;
+      statusEl.className = "inline-status";
+      if (message) statusEl.classList.add(isError ? "error" : "ok");
+    }
+
+    async function save() {
+      const payload = {
+        totalSales: (salesInput.value || "").trim(),
+        laborHours: (laborInput.value || "").trim()
+      };
+      setStatus("Saving...", false);
+      try {
+        const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/business-days/${encodeURIComponent(businessDate)}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": csrfToken
+          },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(result.error || "Unable to update business day.");
+        }
+        setStatus("Saved", false);
+      } catch (error) {
+        setStatus(error.message || "Unable to update business day.", true);
+      }
+    }
+
+    salesInput.addEventListener("change", save);
+    laborInput.addEventListener("change", save);
+  </script>
+</body>
+</html>

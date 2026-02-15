@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Upload Profile Photo</title>
+  <style>
+    :root {
+      --bg: #f4f1ec;
+      --card: #ffffff;
+      --line: #e2d5c4;
+      --ink: #1f232a;
+      --muted: #68707b;
+      --accent: #b2472a;
+      --soft: #faf6f1;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 14px;
+      background: radial-gradient(50rem 25rem at 110% -10%, #f1d9bf 0, transparent 52%), var(--bg);
+      color: var(--ink);
+      font-family: "Manrope", "Segoe UI", sans-serif;
+    }
+    .card {
+      width: 100%;
+      max-width: 620px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 12px 28px rgba(33, 28, 23, 0.08);
+    }
+    h1 { margin: 0 0 4px; font-size: clamp(1.28rem, 5vw, 1.6rem); line-height: 1.15; }
+    .sub { margin: 0 0 12px; color: var(--muted); font-size: 0.9rem; }
+    .msg { margin: 0 0 10px; font-weight: 700; font-size: 0.9rem; }
+    .msg.error { color: #9f1e1e; }
+    .msg.ok { color: #186243; }
+
+    form { display: grid; gap: 11px; }
+    .field { display: grid; gap: 6px; }
+    .label { font-size: 0.8rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #404854; }
+
+    input[type="file"], input[type="range"] {
+      width: 100%;
+    }
+    input[type="file"] {
+      border: 1px solid #d7c9b6;
+      border-radius: 10px;
+      padding: 10px;
+      background: #fffefc;
+      min-height: 44px;
+    }
+
+    .preview-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+      gap: 10px;
+    }
+    .preview-box {
+      border: 1px solid #e4d6c5;
+      border-radius: 10px;
+      background: var(--soft);
+      padding: 8px;
+      display: grid;
+      gap: 6px;
+    }
+    .preview-box.crop-result-box { display: none; }
+    .preview-box.crop-result-box.is-active { display: grid; }
+    .preview-label {
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #616a76;
+    }
+    .preview {
+      width: 100%;
+      max-height: 320px;
+      border-radius: 10px;
+      border: 1px solid #d9cab8;
+      object-fit: contain;
+      background: #f7f3ed;
+      display: block;
+    }
+    .crop-stage {
+      position: relative;
+      width: 100%;
+    }
+    .crop-selection {
+      position: absolute;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,.38);
+      border-radius: 8px;
+      cursor: move;
+      touch-action: none;
+      display: none;
+    }
+    .crop-selection.is-active { display: block; }
+    .crop-selection.is-locked { box-shadow: none; cursor: default; }
+    .crop-selection.is-locked .crop-handle { display: none; }
+    .crop-handle {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      right: -9px;
+      bottom: -9px;
+      border-radius: 999px;
+      border: 2px solid #fff;
+      background: #b2472a;
+      cursor: nwse-resize;
+      touch-action: none;
+    }
+
+    .crop-tools { display: none; gap: 10px; position: relative; z-index: 20; }
+    .crop-tools.is-active { display: grid; }
+    .button-row { display: grid; gap: 8px; }
+    button {
+      border: 0;
+      border-radius: 10px;
+      min-height: 44px;
+      padding: 10px 12px;
+      background: var(--accent);
+      color: #fff;
+      font: 800 0.94rem/1 "Manrope", sans-serif;
+      cursor: pointer;
+    }
+    .btn-secondary {
+      border: 1px solid #d7c9b6;
+      background: #fff;
+      color: #1f232a;
+    }
+
+    @media (min-width: 720px) {
+      body { padding: 22px; }
+      .card { padding: 20px; }
+      .button-row { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <section class="card">
+    <h1>Upload Your Profile Photo</h1>
+    <p class="sub">Employee: <strong>{{ .Employee.TimePunchName }}</strong> (Location {{ .Location.Number }})</p>
+    {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
+    {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
+
+    <div class="preview-row">
+      <div class="preview-box">
+        <span class="preview-label">Selected Image</span>
+        <div class="crop-stage">
+          <img id="preview" class="preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Crect width='100%25' height='100%25' fill='%23f7f3ed'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2369717c' font-size='13'%3EPreview%3C/text%3E%3C/svg%3E" alt="Preview">
+          <div id="crop_selection" class="crop-selection">
+            <div id="crop_handle" class="crop-handle"></div>
+          </div>
+        </div>
+      </div>
+      <div id="crop_result_box" class="preview-box crop-result-box">
+        <span class="preview-label">Cropped Result</span>
+        <canvas id="crop_result" class="preview" width="160" height="160"></canvas>
+      </div>
+    </div>
+
+    <form method="post" action="/employee/photo-upload/{{ .Token }}" enctype="multipart/form-data">
+      <input type="hidden" id="crop_x" name="crop_x" value="0">
+      <input type="hidden" id="crop_y" name="crop_y" value="0">
+      <input type="hidden" id="crop_size" name="crop_size" value="0">
+
+      <div class="field">
+        <label class="label" for="photo_file">Photo File</label>
+        <input id="photo_file" type="file" name="photo_file" accept="image/png,image/jpeg,image/webp" required>
+      </div>
+
+      <div id="crop_tools" class="crop-tools">
+        <p class="sub" style="margin:0;">Drag the crop box. Use the bottom-right handle to resize.</p>
+        <div class="button-row">
+          <button id="confirm_crop" type="button" class="btn-secondary">Confirm Crop</button>
+          <button id="upload_btn" type="submit" disabled>Upload Photo</button>
+          <button id="cancel_upload" type="button" class="btn-secondary">Cancel Upload</button>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  <script>
+    const preview = document.getElementById("preview");
+    const fileInput = document.getElementById("photo_file");
+    const cropSelection = document.getElementById("crop_selection");
+    const cropHandle = document.getElementById("crop_handle");
+    const cropX = document.getElementById("crop_x");
+    const cropY = document.getElementById("crop_y");
+    const cropSize = document.getElementById("crop_size");
+    const cropTools = document.getElementById("crop_tools");
+    const cropResultBox = document.getElementById("crop_result_box");
+    const cropResult = document.getElementById("crop_result");
+    const cropCtx = cropResult.getContext("2d");
+    const confirmCropBtn = document.getElementById("confirm_crop");
+    const uploadBtn = document.getElementById("upload_btn");
+    const cancelUploadBtn = document.getElementById("cancel_upload");
+    const originalPreviewSrc = preview.getAttribute("src") || "";
+    let naturalWidth = 0;
+    let naturalHeight = 0;
+    let fileSelected = false;
+    let cropRect = { x: 0, y: 0, size: 0 };
+    let dragMode = "";
+    let pointerStart = { x: 0, y: 0 };
+    let rectStart = { x: 0, y: 0, size: 0 };
+    let cropConfirmed = false;
+    let cropLocked = false;
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function drawCropPreview() {
+      if (!cropCtx || naturalWidth <= 0 || naturalHeight <= 0) return;
+      sync();
+      const size = Number(cropSize.value || "0");
+      const x = Number(cropX.value || "0");
+      const y = Number(cropY.value || "0");
+      if (size <= 0) return;
+      cropCtx.clearRect(0, 0, cropResult.width, cropResult.height);
+      cropCtx.drawImage(preview, x, y, size, size, 0, 0, cropResult.width, cropResult.height);
+    }
+
+    function sync() {
+      const displayWidth = preview.clientWidth || 0;
+      const displayHeight = preview.clientHeight || 0;
+      if (displayWidth <= 0 || displayHeight <= 0 || naturalWidth <= 0 || naturalHeight <= 0) return;
+      const scaleX = naturalWidth / displayWidth;
+      const scaleY = naturalHeight / displayHeight;
+      cropX.value = String(Math.round(cropRect.x * scaleX));
+      cropY.value = String(Math.round(cropRect.y * scaleY));
+      cropSize.value = String(Math.round(cropRect.size * Math.min(scaleX, scaleY)));
+    }
+
+    function renderCropSelection() {
+      cropSelection.style.left = `${cropRect.x}px`;
+      cropSelection.style.top = `${cropRect.y}px`;
+      cropSelection.style.width = `${cropRect.size}px`;
+      cropSelection.style.height = `${cropRect.size}px`;
+    }
+
+    function initializeCropControls() {
+      const displayWidth = preview.clientWidth || 0;
+      const displayHeight = preview.clientHeight || 0;
+      const minDim = Math.min(displayWidth, displayHeight);
+      const initial = Math.max(48, Math.floor(minDim * 0.72));
+      cropRect.size = Math.min(initial, minDim);
+      cropRect.x = Math.floor((displayWidth - cropRect.size) / 2);
+      cropRect.y = Math.floor((displayHeight - cropRect.size) / 2);
+      renderCropSelection();
+      drawCropPreview();
+    }
+
+    function onPointerMove(event) {
+      if (!dragMode || cropLocked) return;
+      const dx = event.clientX - pointerStart.x;
+      const dy = event.clientY - pointerStart.y;
+      const displayWidth = preview.clientWidth || 0;
+      const displayHeight = preview.clientHeight || 0;
+      if (dragMode === "move") {
+        cropRect.x = clamp(rectStart.x + dx, 0, displayWidth - rectStart.size);
+        cropRect.y = clamp(rectStart.y + dy, 0, displayHeight - rectStart.size);
+      } else if (dragMode === "resize") {
+        const maxSize = Math.min(displayWidth - rectStart.x, displayHeight - rectStart.y);
+        cropRect.size = clamp(rectStart.size + Math.max(dx, dy), 48, maxSize);
+      }
+      setCropConfirmed(false);
+      renderCropSelection();
+      drawCropPreview();
+      event.preventDefault();
+    }
+
+    function onPointerUp() {
+      dragMode = "";
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    }
+    function setCropModeActive(active) {
+      cropTools.classList.toggle("is-active", active);
+      cropResultBox.classList.toggle("is-active", active);
+      cropSelection.classList.toggle("is-active", active);
+      if (!active && cropCtx) {
+        cropCtx.clearRect(0, 0, cropResult.width, cropResult.height);
+      }
+      setCropConfirmed(false);
+    }
+
+    function setCropConfirmed(value) {
+      cropConfirmed = value;
+      cropLocked = value;
+      cropSelection.classList.toggle("is-locked", value);
+      uploadBtn.disabled = !value;
+      confirmCropBtn.textContent = value ? "Crop Confirmed" : "Confirm Crop";
+    }
+
+    function cancelUpload() {
+      fileSelected = false;
+      fileInput.value = "";
+      naturalWidth = 0;
+      naturalHeight = 0;
+      cropX.value = "0";
+      cropY.value = "0";
+      cropSize.value = "0";
+      setCropModeActive(false);
+      cropSelection.classList.remove("is-active");
+      if (originalPreviewSrc !== "") {
+        preview.src = originalPreviewSrc;
+      }
+      setCropConfirmed(false);
+    }
+
+    cropSelection.addEventListener("pointerdown", (event) => {
+      if (!fileSelected || cropLocked) return;
+      dragMode = event.target === cropHandle ? "resize" : "move";
+      pointerStart = { x: event.clientX, y: event.clientY };
+      rectStart = { x: cropRect.x, y: cropRect.y, size: cropRect.size };
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+      event.preventDefault();
+    });
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) {
+        cancelUpload();
+        return;
+      }
+      fileSelected = true;
+      setCropModeActive(true);
+      const reader = new FileReader();
+      reader.onload = () => {
+        preview.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    preview.addEventListener("load", () => {
+      if (!fileSelected) return;
+      naturalWidth = preview.naturalWidth || 0;
+      naturalHeight = preview.naturalHeight || 0;
+      if (naturalWidth <= 0 || naturalHeight <= 0) return;
+      initializeCropControls();
+      setCropConfirmed(false);
+    });
+
+    confirmCropBtn.addEventListener("click", () => {
+      if (!fileSelected) return;
+      drawCropPreview();
+      setCropConfirmed(true);
+    });
+    cancelUploadBtn.addEventListener("click", cancelUpload);
+    setCropModeActive(false);
+  </script>
+</body>
+</html>

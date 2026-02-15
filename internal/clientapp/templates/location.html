@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ .CSRF }}">
+  <title>Location Details</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f3eee6;
+      --surface: #fffaf3;
+      --ink: #1f232a;
+      --line: #e4d6c0;
+      --muted: #69717c;
+      --accent: #b2472a;
+      --shadow: 0 24px 45px rgba(35, 29, 21, 0.14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Manrope", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(70rem 50rem at 120% -10%, #ffd8b6 0, transparent 55%),
+        radial-gradient(50rem 40rem at -10% 120%, #f9d8bd 0, transparent 52%),
+        var(--bg);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 12px;
+    }
+    .card {
+      width: min(680px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: linear-gradient(155deg, var(--surface), #fff);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+    .back {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 0.9rem;
+    }
+    h1 {
+      margin: 12px 0 16px;
+      font: 800 clamp(1.6rem, 3.5vw, 2.5rem)/1.1 "Space Grotesk", sans-serif;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 10px 14px;
+      font-size: 0.97rem;
+      margin-bottom: 20px;
+    }
+    .label {
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .value {
+      font-weight: 800;
+    }
+    .import {
+      border-top: 1px dashed var(--line);
+      padding-top: 16px;
+      margin-top: 10px;
+    }
+    .import h2, .employees h2 {
+      margin: 0 0 10px;
+      font: 800 1.1rem/1.2 "Space Grotesk", sans-serif;
+    }
+    .import form {
+      display: grid;
+      gap: 10px;
+    }
+    .import input[type="file"] {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      min-height: 44px;
+      padding: 9px;
+      width: 100%;
+    }
+    .import button {
+      border: 0;
+      border-radius: 10px;
+      min-height: 44px;
+      padding: 11px 14px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .notice {
+      margin: 0 0 10px;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+    .notice.error { color: #9f1e1e; }
+    .notice.ok { color: #186243; }
+    .employees {
+      border-top: 1px dashed var(--line);
+      margin-top: 18px;
+      padding-top: 16px;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fff;
+      min-width: 560px;
+    }
+    th, td {
+      text-align: left;
+      padding: 9px 11px;
+      border-bottom: 1px solid #efdfca;
+      font-size: 0.9rem;
+    }
+    th {
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 0.76rem;
+      background: #faf2e5;
+      color: var(--muted);
+    }
+    tbody tr:last-child td { border-bottom: 0; }
+    .department-select {
+      min-height: 36px;
+      border: 1px solid #d8c8b2;
+      border-radius: 8px;
+      padding: 6px 8px;
+      background: #fff;
+      font: 700 0.86rem/1 "Manrope", sans-serif;
+      color: var(--ink);
+    }
+
+    .location-link {
+      color: #9d3d23;
+      text-decoration: none;
+      font-weight: 800;
+    }
+
+    .location-link:hover {
+      text-decoration: underline;
+    }
+
+    @media (min-width: 700px) {
+      body { padding: 24px; }
+      .card { padding: 28px; }
+      .import form {
+        grid-template-columns: 1fr auto;
+        align-items: center;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <section class="card">
+    <a class="back" href="/admin/locations/{{ .Location.Number }}">Back to Apps</a>
+    <h1>{{ .Location.Name }}</h1>
+    <div class="grid">
+      <div class="label">Location Number</div>
+      <div class="value">{{ .Location.Number }}</div>
+      <div class="label">Created At</div>
+      <div class="value">{{ .Location.CreatedAt }}</div>
+    </div>
+
+    <section class="import">
+      <h2>Employee Bio Reader Upload</h2>
+      {{ if .SuccessMessage }}<p class="notice ok">{{ .SuccessMessage }}</p>{{ end }}
+      {{ if .Error }}<p class="notice error">{{ .Error }}</p>{{ end }}
+      <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/import" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+        <input type="file" name="bio_file" accept=".xls,.xlsx,.xlsm,.xsl" required>
+        <button type="submit">Import Employees</button>
+      </form>
+      <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/birthdates/import" enctype="multipart/form-data" style="margin-top:10px;">
+        <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+        <input type="file" name="birthdate_file" accept=".xls,.xlsx,.xlsm,.xsl" required>
+        <button type="submit">Import Birthdays</button>
+      </form>
+    </section>
+
+    <section class="employees">
+      <h2>Employees ({{ len .Employees }})</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Time Punch</th>
+              <th>Department</th>
+              <th>Birthday</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ if .Employees }}
+              {{ range .Employees }}
+                <tr>
+                  <td><a class="location-link" href="/admin/locations/{{ $.Location.Number }}/employees/{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }}{{ if eq .Department "INIT" }} *{{ end }}</a></td>
+                  <td>{{ .TimePunchName }}</td>
+                  <td>
+                    <select class="department-select" data-timepunch="{{ .TimePunchName }}">
+                      {{ $current := .Department }}
+                      {{ range $.Departments }}
+                        <option value="{{ . }}" {{ if eq . $current }}selected{{ end }}>{{ . }}</option>
+                      {{ end }}
+                    </select>
+                  </td>
+                  <td>{{ .Birthday }}</td>
+                </tr>
+              {{ end }}
+            {{ else }}
+              <tr><td colspan="4">No employees imported for this location yet.</td></tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </section>
+  <script>
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+    const locationNumber = "{{ .Location.Number }}";
+    const selects = document.querySelectorAll(".department-select");
+
+    selects.forEach((selectEl) => {
+      selectEl.addEventListener("change", async () => {
+        const previous = selectEl.dataset.prev || selectEl.defaultValue || "INIT";
+        const nextDepartment = selectEl.value;
+        const timePunchName = selectEl.dataset.timepunch;
+        selectEl.disabled = true;
+        try {
+          const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/employees/${encodeURIComponent(timePunchName)}/department`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": csrfToken
+            },
+            body: JSON.stringify({ department: nextDepartment })
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(result.error || "Unable to update department.");
+          }
+          selectEl.dataset.prev = nextDepartment;
+          selectEl.defaultValue = nextDepartment;
+        } catch (error) {
+          selectEl.value = previous;
+          window.alert(error.message || "Unable to update department.");
+        } finally {
+          selectEl.disabled = false;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

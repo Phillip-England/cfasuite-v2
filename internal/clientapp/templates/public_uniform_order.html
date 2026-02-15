@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Uniform Order</title>
+  <style>
+    :root {
+      --bg: #f4f1ec;
+      --card: #ffffff;
+      --line: #e2d5c4;
+      --ink: #1f232a;
+      --muted: #68707b;
+      --accent: #b2472a;
+      --accent-dark: #913820;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 18px;
+      background: radial-gradient(55rem 30rem at 110% -10%, #f1d9bf 0, transparent 52%), var(--bg);
+      color: var(--ink);
+      font-family: "Manrope", "Segoe UI", sans-serif;
+    }
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 14px 30px rgba(33, 28, 23, 0.08);
+    }
+    h1 {
+      margin: 0 0 4px;
+      font-size: clamp(1.25rem, 5vw, 1.55rem);
+      line-height: 1.12;
+    }
+    .sub {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .msg { margin: 0 0 10px; font-weight: 700; font-size: 0.9rem; }
+    .msg.error { color: #9f1e1e; }
+    .msg.ok { color: #186243; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 190px));
+      gap: 12px;
+      justify-content: center;
+    }
+    .card {
+      width: 100%;
+      max-width: 190px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    .photo-link {
+      display: block;
+      background: #f8f1e8;
+      aspect-ratio: 1/1;
+      max-width: 180px;
+      max-height: 180px;
+      margin: 0 auto;
+    }
+    .photo {
+      width: 100%;
+      height: 100%;
+      max-width: 180px;
+      max-height: 180px;
+      object-fit: cover;
+      display: block;
+      margin: 0 auto;
+    }
+    .meta {
+      padding: 10px;
+      display: grid;
+      gap: 6px;
+    }
+    .name {
+      margin: 0;
+      font-size: 0.96rem;
+      line-height: 1.25;
+      font-weight: 800;
+    }
+    .price {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 700;
+    }
+    .open {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      text-decoration: none;
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: var(--accent);
+      color: #fff;
+      font: 800 0.9rem/1 "Manrope", sans-serif;
+    }
+    .open:hover { background: var(--accent-dark); }
+
+    @media (max-width: 420px) {
+      .cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        justify-content: stretch;
+      }
+      .card {
+        max-width: 100%;
+      }
+      .photo-link,
+      .photo {
+        max-width: 100%;
+        max-height: none;
+      }
+    }
+
+    .empty {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+  </style>
+</head>
+<body>
+  <section class="wrap">
+    <h1>Uniform Purchase Form</h1>
+    <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})</p>
+    {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
+    {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
+
+    {{ if .UniformItems }}
+      <div class="cards">
+        {{ range .UniformItems }}
+          <article class="card">
+            <a class="photo-link" href="/uniform-order/{{ $.Token }}/item/{{ .ID }}">
+              {{ if .Images }}
+                <img class="photo" src="data:{{ (index .Images 0).ImageMime }};base64,{{ (index .Images 0).ImageData }}" alt="{{ .Name }}">
+              {{ else }}
+                <img class="photo" src="data:{{ .ImageMime }};base64,{{ .ImageData }}" alt="{{ .Name }}">
+              {{ end }}
+            </a>
+            <div class="meta">
+              <p class="name">{{ .Name }}</p>
+              <p class="price">${{ printf "%.2f" .Price }}</p>
+              <a class="open" href="/uniform-order/{{ $.Token }}/item/{{ .ID }}">Select Item</a>
+            </div>
+          </article>
+        {{ end }}
+      </div>
+    {{ else }}
+      <p class="empty">No uniform items are currently available for purchase.</p>
+    {{ end }}
+  </section>
+</body>
+</html>

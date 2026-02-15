@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Archived Uniform Orders</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#f3eee6; --surface:#fffaf3; --ink:#1f232a; --line:#e4d6c0; --muted:#69717c; --accent:#b2472a; --shadow:0 24px 45px rgba(35,29,21,.14); }
+    * { box-sizing: border-box; }
+    body { margin:0; padding:12px; font-family:"Manrope",sans-serif; color:var(--ink); background:radial-gradient(70rem 50rem at 120% -10%,#ffd8b6 0,transparent 55%),radial-gradient(50rem 40rem at -10% 120%,#f9d8bd 0,transparent 52%),var(--bg); }
+    .card { width:100%; max-width:1080px; margin:0 auto; background:linear-gradient(155deg,var(--surface),#fff); border:1px solid var(--line); border-radius:18px; padding:14px; box-shadow:var(--shadow); }
+    .back { color:var(--accent); text-decoration:none; font-weight:800; font-size:0.92rem; }
+    h1 { margin:10px 0 8px; font:800 clamp(1.5rem,4vw,2.2rem)/1.1 "Space Grotesk",sans-serif; }
+    p.sub { margin:0 0 14px; color:var(--muted); }
+    .msg { font-weight:700; margin:0 0 10px; }
+    .msg.error { color:#9f1e1e; }
+    .msg.ok { color:#186243; }
+    .search-row { display:grid; gap:8px; margin:0 0 12px; grid-template-columns:1fr 1fr auto; }
+    .search-row input { border:1px solid #dbcab4; border-radius:10px; padding:10px 11px; font:600 0.92rem/1.2 "Manrope",sans-serif; min-height:42px; }
+    .search-row select { border:1px solid #dbcab4; border-radius:10px; padding:10px 11px; font:600 0.92rem/1.2 "Manrope",sans-serif; min-height:42px; background:#fff; }
+    .search-row .search-btn { border:0; background:#41566e; color:#fff; border-radius:10px; padding:9px 12px; min-height:42px; font:700 0.88rem/1 "Manrope",sans-serif; cursor:pointer; }
+    .meta { margin:0 0 10px; color:#69717c; font-size:0.86rem; font-weight:700; }
+    .table-wrap { overflow-x:auto; border-radius:10px; }
+    table { width:100%; border-collapse:collapse; border:1px solid #e4d6c0; border-radius:10px; overflow:hidden; min-width:860px; background:#fff; }
+    th, td { text-align:left; padding:9px 10px; border-bottom:1px solid #efdfca; vertical-align:top; }
+    th { background:#faf2e5; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.04em; color:#69717c; }
+    button { border:0; background:#9f1e1e; color:#fff; font-weight:700; cursor:pointer; min-height:40px; border-radius:10px; padding:8px 10px; }
+    .pager { display:flex; gap:8px; align-items:center; justify-content:flex-end; margin-top:10px; flex-wrap:wrap; }
+    .pager a { text-decoration:none; color:#1f232a; border:1px solid #d8c9b4; background:#fff; border-radius:9px; padding:7px 10px; font-size:0.84rem; font-weight:700; }
+    .pager span { color:#69717c; font-size:0.84rem; font-weight:700; }
+    @media (min-width: 860px) {
+      .card { padding:20px; }
+      body { padding:24px; }
+    }
+    @media (max-width: 780px) {
+      .search-row { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <section class="card">
+    <a class="back" href="/admin/locations/{{ .Location.Number }}/uniforms">Back to Uniforms</a>
+    <h1>Archived Uniform Orders</h1>
+    <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})</p>
+    {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
+    {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
+
+    <form class="search-row" method="get" action="/admin/locations/{{ .Location.Number }}/uniform-orders/archived">
+      <input type="text" name="employee" value="{{ .Search }}" placeholder="Search by employee name">
+      <select id="employee-dropdown">
+        <option value="">Select employee</option>
+        {{ range .EmployeeNames }}
+          <option value="{{ . }}" {{ if eq $.Search . }}selected{{ end }}>{{ . }}</option>
+        {{ end }}
+      </select>
+      <button class="search-btn" type="submit">Search</button>
+    </form>
+    <p class="meta">Showing up to 50 per page. {{ .TotalCount }} result{{ if ne .TotalCount 1 }}s{{ end }}{{ if .Search }} for "{{ .Search }}"{{ end }}.</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Submitted At (UTC)</th>
+            <th>Archived At (UTC)</th>
+            <th>Employee</th>
+            <th>Items</th>
+            <th>Total</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ if .ArchivedOrders }}
+            {{ range .ArchivedOrders }}
+              <tr>
+                <td>{{ .CreatedAt }}</td>
+                <td>{{ .ArchivedAt }}</td>
+                <td>{{ .TimePunchName }}</td>
+                <td>{{ .ItemsSummary }}</td>
+                <td>${{ printf "%.2f" .Total }}</td>
+                <td>
+                  <form method="post" action="/admin/locations/{{ $.Location.Number }}/uniform-orders/{{ .ID }}/delete" onsubmit="return confirm('Delete this archived order permanently?');">
+                    <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                    <input type="hidden" name="next" value="{{ $.ReturnPath }}">
+                    <button type="submit">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            {{ end }}
+          {{ else }}
+            <tr><td colspan="6">No archived orders yet.</td></tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+    <div class="pager">
+      {{ if .HasPrev }}
+        <a href="/admin/locations/{{ .Location.Number }}/uniform-orders/archived?page={{ .PrevPage }}{{ if .Search }}&employee={{ urlquery .Search }}{{ end }}">Previous</a>
+      {{ end }}
+      <span>Page {{ .Page }}</span>
+      {{ if .HasNext }}
+        <a href="/admin/locations/{{ .Location.Number }}/uniform-orders/archived?page={{ .NextPage }}{{ if .Search }}&employee={{ urlquery .Search }}{{ end }}">Next</a>
+      {{ end }}
+    </div>
+  </section>
+  <script>
+    (() => {
+      const input = document.querySelector('input[name="employee"]');
+      const select = document.getElementById("employee-dropdown");
+      if (!input || !select) return;
+      const options = Array.from(select.options).slice(1);
+      const normalize = (v) => v.toLowerCase().trim();
+      const filterOptions = () => {
+        const q = normalize(input.value);
+        options.forEach((opt) => {
+          if (!q) {
+            opt.hidden = false;
+            return;
+          }
+          opt.hidden = !normalize(opt.value).includes(q);
+        });
+      };
+      input.addEventListener("input", filterOptions);
+      select.addEventListener("change", () => {
+        if (select.value) input.value = select.value;
+      });
+      filterOptions();
+    })();
+  </script>
+</body>
+</html>

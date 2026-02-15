@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Location Apps</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f3eee6;
+      --surface: #fffaf3;
+      --ink: #1f232a;
+      --line: #e4d6c0;
+      --muted: #69717c;
+      --accent: #b2472a;
+      --shadow: 0 24px 45px rgba(35, 29, 21, 0.14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Manrope", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(70rem 50rem at 120% -10%, #ffd8b6 0, transparent 55%),
+        radial-gradient(50rem 40rem at -10% 120%, #f9d8bd 0, transparent 52%),
+        var(--bg);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 12px;
+    }
+    .card {
+      width: min(840px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: linear-gradient(155deg, var(--surface), #fff);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+    .back {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 0.9rem;
+    }
+    h1 {
+      margin: 12px 0 6px;
+      font: 800 clamp(1.6rem, 3.5vw, 2.5rem)/1.1 "Space Grotesk", sans-serif;
+    }
+    .sub {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .apps {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    .app-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      padding: 16px;
+      text-decoration: none;
+      color: var(--ink);
+      display: grid;
+      gap: 6px;
+      transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+    }
+    .app-card:hover {
+      transform: translateY(-1px);
+      border-color: #ccad8d;
+      box-shadow: 0 8px 18px rgba(35, 29, 21, 0.1);
+    }
+    .app-title {
+      font: 800 1.06rem/1.2 "Space Grotesk", sans-serif;
+    }
+    .app-desc {
+      margin: 0;
+      font-size: 0.86rem;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .app-card.coming-soon {
+      opacity: 0.65;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    @media (min-width: 760px) {
+      body { padding: 24px; }
+      .card { padding: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <section class="card">
+    <a class="back" href="/admin">Back to Admin</a>
+    <h1>{{ .Location.Name }}</h1>
+    <p class="sub">Location {{ .Location.Number }}. Select an app to manage this location.</p>
+
+    <section class="apps">
+      <a class="app-card" href="/admin/locations/{{ .Location.Number }}/employees">
+        <div class="app-title">Employees</div>
+        <p class="app-desc">Import employee files, assign departments, update photos, and manage employee details.</p>
+      </a>
+      <a class="app-card" href="/admin/locations/{{ .Location.Number }}/time-punch">
+        <div class="app-title">Time Punch</div>
+        <p class="app-desc">Review submitted time punch corrections and share the store link for team member submissions.</p>
+      </a>
+      <a class="app-card" href="/admin/locations/{{ .Location.Number }}/business-days">
+        <div class="app-title">Business Days</div>
+        <p class="app-desc">Create daily store records and track key metrics like sales and labor hours.</p>
+      </a>
+      <a class="app-card" href="/admin/locations/{{ .Location.Number }}/time-off">
+        <div class="app-title">Time Off Requests</div>
+        <p class="app-desc">Share a request form with team members and archive requests as they are addressed.</p>
+      </a>
+      <a class="app-card" href="/admin/locations/{{ .Location.Number }}/uniforms">
+        <div class="app-title">Uniforms</div>
+        <p class="app-desc">Set purchasable uniform items and share a secret form for team member uniform orders.</p>
+      </a>
+    </section>
+  </section>
+</body>
+</html>

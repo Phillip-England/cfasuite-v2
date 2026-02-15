@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Uniform Item</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#f3eee6; --surface:#fffaf3; --ink:#1f232a; --line:#e4d6c0; --muted:#69717c; --accent:#b2472a; --shadow:0 24px 45px rgba(35,29,21,.14); }
+    * { box-sizing: border-box; }
+    body { font-family: "Manrope", sans-serif; margin: 0; padding: 12px; color: var(--ink); background: radial-gradient(70rem 50rem at 120% -10%,#ffd8b6 0,transparent 55%), radial-gradient(50rem 40rem at -10% 120%,#f9d8bd 0,transparent 52%), var(--bg); }
+    .card { width: 100%; max-width: 960px; margin: 0 auto; background: linear-gradient(155deg,var(--surface),#fff); border: 1px solid var(--line); border-radius: 18px; padding: 14px; box-shadow: var(--shadow); }
+    .back { color: var(--accent); text-decoration: none; font-weight: 800; font-size: 0.92rem; }
+    h1 { margin: 10px 0 8px; font: 800 clamp(1.5rem,4vw,2.2rem)/1.1 "Space Grotesk",sans-serif; }
+    p.sub { margin: 0 0 14px; color: #69717c; }
+    .msg { font-weight: 700; margin: 0 0 10px; }
+    .msg.error { color: #9f1e1e; }
+    .msg.ok { color: #186243; }
+    .hub { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; margin-bottom: 12px; }
+    .hub-btn {
+      border: 1px solid #d8c7b2;
+      background: #fff;
+      color: #2d3038;
+      border-radius: 12px;
+      text-align: left;
+      padding: 11px 12px;
+      cursor: pointer;
+      min-height: 56px;
+    }
+    .hub-btn strong { display: block; font: 800 0.98rem/1.1 "Space Grotesk", sans-serif; margin-bottom: 3px; }
+    .hub-btn span { display: block; color: #646c77; font-size: 0.82rem; font-weight: 700; }
+    .hub-btn.active { border-color: #c69b78; background: #fff6ec; }
+    .section { border: 1px solid #e4d6c0; border-radius: 12px; padding: 14px; margin-bottom: 12px; background: #fff; }
+    .section[data-panel] { display: none; }
+    .section[data-panel].active { display: block; }
+    .section h2 { margin: 0 0 10px; font-size: 1.05rem; }
+    form { display: grid; gap: 10px; }
+    label { display: grid; gap: 6px; font-size: 0.9rem; font-weight: 700; color: #3b424d; }
+    input, button { border-radius: 10px; padding: 10px 11px; font: 600 0.94rem/1.2 "Manrope",sans-serif; }
+    input { border: 1px solid #dbcab4; background: #fffefb; min-height: 44px; }
+    button { border: 0; background: #b2472a; color: #fff; font-weight: 700; cursor: pointer; min-height: 44px; }
+    .small-btn { background: #41566e; font-size: 0.84rem; padding: 8px 10px; }
+    .preview-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 180px)); gap: 10px; margin-top: 6px; }
+    .preview-box { border: 1px dashed #dbcab4; border-radius: 10px; background: #fffefb; padding: 8px; }
+    .preview-label { display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #69717c; margin-bottom: 6px; letter-spacing: 0.05em; }
+    .preview-image { width: 100%; max-height: 320px; border-radius: 8px; object-fit: contain; background: #f4f0ea; border: 1px solid #e4d6c0; display: block; }
+    .crop-tools { display: none; gap: 8px; position: relative; z-index: 20; }
+    .crop-tools.is-active { display: grid; }
+    .crop-result-box { display: none; }
+    .crop-result-box.is-active { display: block; }
+    .crop-stage { position: relative; width: 100%; }
+    .crop-selection {
+      position: absolute;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,.38);
+      border-radius: 8px;
+      cursor: move;
+      touch-action: none;
+      display: none;
+    }
+    .crop-selection.is-active { display: block; }
+    .crop-selection.is-locked { box-shadow: none; cursor: default; }
+    .crop-selection.is-locked .crop-handle { display: none; }
+    .crop-handle {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      right: -9px;
+      bottom: -9px;
+      border-radius: 999px;
+      border: 2px solid #fff;
+      background: #b2472a;
+      cursor: nwse-resize;
+      touch-action: none;
+    }
+    .gallery-help { margin: 0 0 8px; font-size: 0.82rem; color: #69717c; font-weight: 700; }
+    .gallery { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+    .gallery-card {
+      position: relative;
+      border: 1px solid #efdfca;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fff;
+      min-height: 132px;
+    }
+    .gallery-card img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      display: block;
+      background: #f4f0ea;
+    }
+    .gallery-card[draggable="true"] { cursor: grab; }
+    .gallery-card.dragging { opacity: 0.45; }
+    .gallery-card.drag-over { border-color: #b2472a; box-shadow: 0 0 0 2px rgba(178, 71, 42, 0.16); }
+    .card-badge {
+      position: absolute;
+      left: 8px;
+      bottom: 8px;
+      background: rgba(20, 18, 15, 0.68);
+      color: #fff;
+      border-radius: 999px;
+      padding: 3px 7px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .remove-form {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      margin: 0;
+    }
+    .remove-btn {
+      width: 22px;
+      height: 22px;
+      min-height: 22px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      background: rgba(23, 18, 14, 0.72);
+      color: #fff;
+      font: 800 0.8rem/1 "Space Grotesk", sans-serif;
+      padding: 0;
+      cursor: pointer;
+    }
+    @media (min-width: 760px) {
+      body { padding: 24px; }
+      .card { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <section class="card">
+    <a class="back" href="/admin/locations/{{ .Location.Number }}/uniforms">Back to Uniforms</a>
+    <h1>{{ .UniformItem.Name }}</h1>
+    <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})</p>
+    {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
+    {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
+
+    <section class="hub">
+      <button class="hub-btn" type="button" data-target="details-panel">
+        <strong>Item Details</strong>
+        <span>Update name, price, and size options.</span>
+      </button>
+      <button class="hub-btn" type="button" data-target="gallery-panel">
+        <strong>Gallery</strong>
+        <span>Add photos, reorder by drag/drop, remove with the corner ×.</span>
+      </button>
+    </section>
+
+    <section class="section" data-panel="details-panel">
+      <h2>Item Details</h2>
+      <form method="post" action="/admin/locations/{{ .Location.Number }}/uniform-items/{{ .UniformItem.ID }}/update">
+        <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+        <input type="hidden" name="next" value="/admin/locations/{{ .Location.Number }}/uniform-items/{{ .UniformItem.ID }}">
+        <label>Name<input type="text" name="name" value="{{ .UniformItem.Name }}" required></label>
+        <label>Price (USD)<input type="text" name="price" value="{{ printf "%.2f" .UniformItem.Price }}" required></label>
+        <label>Sizes (optional, comma-separated)<input type="text" name="sizes" value="{{ range $idx, $size := .UniformItem.Sizes }}{{ if $idx }},{{ end }}{{ $size }}{{ end }}" placeholder="XS,S,M,L"></label>
+        <button type="submit">Save Item</button>
+      </form>
+    </section>
+
+    <section class="section" data-panel="gallery-panel">
+      <h2>Add Gallery Images</h2>
+      <form method="post" enctype="multipart/form-data" action="/admin/locations/{{ .Location.Number }}/uniform-items/{{ .UniformItem.ID }}/images">
+        <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+        <input type="hidden" id="crop_x" name="crop_x" value="0">
+        <input type="hidden" id="crop_y" name="crop_y" value="0">
+        <input type="hidden" id="crop_size" name="crop_size" value="0">
+        <label>Upload Image<input id="photo_file" type="file" name="photo_file" accept="image/png,image/jpeg,image/webp" required></label>
+        <div class="preview-row">
+          <div class="preview-box">
+            <span class="preview-label">Selected Image</span>
+            <div class="crop-stage">
+              <img id="photo-preview" class="preview-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='100%25' height='100%25' fill='%23f4f0ea'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2369717c' font-size='12' font-family='sans-serif'%3ESelect Image%3C/text%3E%3C/svg%3E" alt="Selected image preview">
+              <div id="crop-selection" class="crop-selection">
+                <div id="crop-handle" class="crop-handle"></div>
+              </div>
+            </div>
+          </div>
+          <div id="crop-result-box" class="preview-box crop-result-box">
+            <span class="preview-label">Cropped Result</span>
+            <canvas id="crop-result" class="preview-image" width="180" height="180"></canvas>
+          </div>
+        </div>
+        <div id="crop-tools" class="crop-tools">
+          <p class="sub" style="margin:0;">Drag the crop box. Use the bottom-right handle to resize.</p>
+          <button id="confirm-crop" type="button" class="small-btn">Confirm Crop</button>
+        </div>
+        <button id="add-image-btn" type="submit" disabled>Add Image</button>
+      </form>
+
+      <h2 style="margin-top:14px;">Current Gallery</h2>
+      <p class="gallery-help">Drag cards to reorder. Tap the corner <strong>×</strong> to remove an image.</p>
+      <div id="gallery" class="gallery" data-location-number="{{ .Location.Number }}" data-item-id="{{ .UniformItem.ID }}" data-csrf="{{ .CSRF }}">
+        {{ if .UniformItem.Images }}
+          {{ range .UniformItem.Images }}
+            <div class="gallery-card" {{ if gt .ID 0 }}draggable="true" data-image-id="{{ .ID }}"{{ end }}>
+              <img src="data:{{ .ImageMime }};base64,{{ .ImageData }}" alt="{{ $.UniformItem.Name }}">
+              {{ if gt .ID 0 }}
+                <span class="card-badge">Drag</span>
+                <form class="remove-form" method="post" action="/admin/locations/{{ $.Location.Number }}/uniform-items/{{ $.UniformItem.ID }}/images/{{ .ID }}/delete" onsubmit="return confirm('Remove this image?');">
+                  <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                  <button class="remove-btn" type="submit" aria-label="Remove image">&times;</button>
+                </form>
+              {{ end }}
+            </div>
+          {{ end }}
+        {{ else }}
+          <p>No gallery images found.</p>
+        {{ end }}
+      </div>
+    </section>
+  </section>
+  <script>
+    const photoFile = document.getElementById("photo_file");
+    const preview = document.getElementById("photo-preview");
+    const cropTools = document.getElementById("crop-tools");
+    const cropResultBox = document.getElementById("crop-result-box");
+    const cropCanvas = document.getElementById("crop-result");
+    const cropCtx = cropCanvas.getContext("2d");
+    const cropSelection = document.getElementById("crop-selection");
+    const cropHandle = document.getElementById("crop-handle");
+    const cropX = document.getElementById("crop_x");
+    const cropY = document.getElementById("crop_y");
+    const cropSize = document.getElementById("crop_size");
+    const confirmCropBtn = document.getElementById("confirm-crop");
+    const addImageBtn = document.getElementById("add-image-btn");
+    let naturalWidth = 0;
+    let naturalHeight = 0;
+    let fileSelected = false;
+    let cropRect = { x: 0, y: 0, size: 0 };
+    let dragMode = "";
+    let pointerStart = { x: 0, y: 0 };
+    let rectStart = { x: 0, y: 0, size: 0 };
+    let cropConfirmed = false;
+    let cropLocked = false;
+    const galleryEl = document.getElementById("gallery");
+    let draggedItemEl = null;
+    let reorderInFlight = false;
+    const hubButtons = Array.from(document.querySelectorAll(".hub-btn"));
+    const panels = Array.from(document.querySelectorAll('.section[data-panel]'));
+
+    function showPanel(panelName) {
+      hubButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.target === panelName));
+      panels.forEach((panel) => panel.classList.toggle("active", panel.dataset.panel === panelName));
+      if (window.location.hash !== "#" + panelName) {
+        window.history.replaceState(null, "", "#" + panelName);
+      }
+    }
+
+    hubButtons.forEach((btn) => {
+      btn.addEventListener("click", () => showPanel(btn.dataset.target));
+    });
+    const initialPanel = (window.location.hash || "").replace("#", "");
+    if (initialPanel && panels.some((panel) => panel.dataset.panel === initialPanel)) {
+      showPanel(initialPanel);
+    } else {
+      showPanel("gallery-panel");
+    }
+
+    function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+    function setCropModeActive(active) {
+      cropTools.classList.toggle("is-active", active);
+      cropResultBox.classList.toggle("is-active", active);
+      cropSelection.classList.toggle("is-active", active);
+      if (!active) cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+      setCropConfirmed(false);
+    }
+    function setCropConfirmed(value) {
+      cropConfirmed = value;
+      cropLocked = value;
+      cropSelection.classList.toggle("is-locked", value);
+      addImageBtn.disabled = !value;
+      confirmCropBtn.textContent = value ? "Crop Confirmed" : "Confirm Crop";
+    }
+    function syncCropToHidden() {
+      const displayWidth = preview.clientWidth || 0;
+      const displayHeight = preview.clientHeight || 0;
+      if (displayWidth <= 0 || displayHeight <= 0 || naturalWidth <= 0 || naturalHeight <= 0) return;
+      const scaleX = naturalWidth / displayWidth;
+      const scaleY = naturalHeight / displayHeight;
+      cropX.value = String(Math.round(cropRect.x * scaleX));
+      cropY.value = String(Math.round(cropRect.y * scaleY));
+      cropSize.value = String(Math.round(cropRect.size * Math.min(scaleX, scaleY)));
+    }
+    function renderCropSelection() {
+      cropSelection.style.left = `${cropRect.x}px`;
+      cropSelection.style.top = `${cropRect.y}px`;
+      cropSelection.style.width = `${cropRect.size}px`;
+      cropSelection.style.height = `${cropRect.size}px`;
+    }
+    function drawCropPreview() {
+      syncCropToHidden();
+      const x = Number(cropX.value || "0");
+      const y = Number(cropY.value || "0");
+      const size = Number(cropSize.value || "0");
+      if (size <= 0) return;
+      cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+      cropCtx.drawImage(preview, x, y, size, size, 0, 0, cropCanvas.width, cropCanvas.height);
+    }
+    function initializeCropControls() {
+      const displayWidth = preview.clientWidth || 0;
+      const displayHeight = preview.clientHeight || 0;
+      const minDim = Math.min(displayWidth, displayHeight);
+      const initial = Math.max(48, Math.floor(minDim * 0.72));
+      cropRect.size = Math.min(initial, minDim);
+      cropRect.x = Math.floor((displayWidth - cropRect.size) / 2);
+      cropRect.y = Math.floor((displayHeight - cropRect.size) / 2);
+      renderCropSelection();
+      drawCropPreview();
+    }
+    function onPointerMove(event) {
+      if (!dragMode || cropLocked) return;
+      const dx = event.clientX - pointerStart.x;
+      const dy = event.clientY - pointerStart.y;
+      const displayWidth = preview.clientWidth || 0;
+      const displayHeight = preview.clientHeight || 0;
+      if (dragMode === "move") {
+        cropRect.x = clamp(rectStart.x + dx, 0, displayWidth - rectStart.size);
+        cropRect.y = clamp(rectStart.y + dy, 0, displayHeight - rectStart.size);
+      } else if (dragMode === "resize") {
+        const maxSize = Math.min(displayWidth - rectStart.x, displayHeight - rectStart.y);
+        cropRect.size = clamp(rectStart.size + Math.max(dx, dy), 48, maxSize);
+      }
+      setCropConfirmed(false);
+      renderCropSelection();
+      drawCropPreview();
+      event.preventDefault();
+    }
+    function onPointerUp() {
+      dragMode = "";
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    }
+    cropSelection.addEventListener("pointerdown", (event) => {
+      if (!fileSelected || cropLocked) return;
+      dragMode = event.target === cropHandle ? "resize" : "move";
+      pointerStart = { x: event.clientX, y: event.clientY };
+      rectStart = { x: cropRect.x, y: cropRect.y, size: cropRect.size };
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+      event.preventDefault();
+    });
+    photoFile.addEventListener("change", () => {
+      const file = photoFile.files && photoFile.files[0];
+      if (!file) {
+        fileSelected = false;
+        setCropModeActive(false);
+        cropX.value = "0";
+        cropY.value = "0";
+        cropSize.value = "0";
+        return;
+      }
+      fileSelected = true;
+      const reader = new FileReader();
+      reader.onload = () => { preview.src = String(reader.result || ""); };
+      reader.readAsDataURL(file);
+    });
+    preview.addEventListener("load", () => {
+      if (!fileSelected) return;
+      naturalWidth = preview.naturalWidth || preview.width;
+      naturalHeight = preview.naturalHeight || preview.height;
+      if (naturalWidth <= 0 || naturalHeight <= 0) return;
+      setCropModeActive(true);
+      initializeCropControls();
+      setCropConfirmed(false);
+    });
+    confirmCropBtn.addEventListener("click", () => {
+      if (!fileSelected) return;
+      drawCropPreview();
+      setCropConfirmed(true);
+    });
+
+    async function moveImageByDirection(locationNumber, itemID, imageID, direction, csrfToken) {
+      const body = new URLSearchParams();
+      body.set("csrf_token", csrfToken);
+      body.set("direction", direction);
+      body.set("next", window.location.pathname);
+      const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/uniform-items/${encodeURIComponent(itemID)}/images/${encodeURIComponent(imageID)}/move`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+        body: body.toString()
+      });
+      if (!response.ok) {
+        throw new Error("Unable to reorder image");
+      }
+    }
+
+    async function persistDraggedOrder(imageID, fromIndex, toIndex) {
+      if (!galleryEl) return;
+      if (fromIndex === toIndex) return;
+      const locationNumber = galleryEl.dataset.locationNumber || "";
+      const itemID = galleryEl.dataset.itemId || "";
+      const csrfToken = galleryEl.dataset.csrf || "";
+      if (!locationNumber || !itemID || !csrfToken) return;
+      const steps = Math.abs(toIndex - fromIndex);
+      const direction = toIndex > fromIndex ? "down" : "up";
+      for (let i = 0; i < steps; i++) {
+        await moveImageByDirection(locationNumber, itemID, imageID, direction, csrfToken);
+      }
+    }
+
+    if (galleryEl) {
+      const draggableItems = () => Array.from(galleryEl.querySelectorAll('.gallery-card[data-image-id]'));
+      galleryEl.addEventListener("dragstart", (event) => {
+        const target = event.target.closest(".gallery-card[data-image-id]");
+        if (!target || reorderInFlight) return;
+        draggedItemEl = target;
+        target.classList.add("dragging");
+        event.dataTransfer.effectAllowed = "move";
+      });
+      galleryEl.addEventListener("dragend", (event) => {
+        const target = event.target.closest(".gallery-card[data-image-id]");
+        if (target) target.classList.remove("dragging");
+        galleryEl.querySelectorAll(".gallery-card.drag-over").forEach((el) => el.classList.remove("drag-over"));
+      });
+      galleryEl.addEventListener("dragover", (event) => {
+        const target = event.target.closest(".gallery-card[data-image-id]");
+        if (!draggedItemEl || !target || draggedItemEl === target || reorderInFlight) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        galleryEl.querySelectorAll(".gallery-card.drag-over").forEach((el) => el.classList.remove("drag-over"));
+        target.classList.add("drag-over");
+      });
+      galleryEl.addEventListener("drop", async (event) => {
+        const target = event.target.closest(".gallery-card[data-image-id]");
+        if (!draggedItemEl || !target || draggedItemEl === target || reorderInFlight) return;
+        event.preventDefault();
+        galleryEl.querySelectorAll(".gallery-card.drag-over").forEach((el) => el.classList.remove("drag-over"));
+        const itemsBefore = draggableItems();
+        const fromIndex = itemsBefore.indexOf(draggedItemEl);
+        const toIndex = itemsBefore.indexOf(target);
+        if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
+
+        reorderInFlight = true;
+        const imageID = draggedItemEl.dataset.imageId;
+        try {
+          await persistDraggedOrder(imageID, fromIndex, toIndex);
+          window.location.reload();
+        } catch (_) {
+          window.alert("Unable to reorder image right now.");
+          window.location.reload();
+        } finally {
+          reorderInFlight = false;
+        }
+      });
+    }
+    setCropModeActive(false);
+  </script>
+</body>
+</html>

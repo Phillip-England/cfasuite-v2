@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ .CSRF }}">
+  <title>Business Days</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#f3eee6; --surface:#fffaf3; --ink:#1f232a; --line:#e4d6c0; --muted:#69717c; --accent:#b2472a; --shadow:0 24px 45px rgba(35,29,21,.14); }
+    * { box-sizing: border-box; }
+    body { margin:0; padding:12px; font-family:"Manrope",sans-serif; color:var(--ink); background:radial-gradient(70rem 50rem at 120% -10%,#ffd8b6 0,transparent 55%),radial-gradient(50rem 40rem at -10% 120%,#f9d8bd 0,transparent 52%),var(--bg); }
+    .card { max-width: 860px; margin: 0 auto; background: linear-gradient(155deg,var(--surface),#fff); border: 1px solid var(--line); border-radius: 18px; padding: 16px; box-shadow: var(--shadow); }
+    .back { color: var(--accent); text-decoration: none; font-weight: 800; font-size: 0.9rem; }
+    h1 { margin: 10px 0 6px; font: 800 clamp(1.5rem, 4vw, 2.2rem)/1.1 "Space Grotesk",sans-serif; }
+    .sub { margin: 0 0 14px; color: var(--muted); font-weight: 700; }
+    .notice { margin: 0 0 10px; font-weight: 700; font-size: 0.9rem; }
+    .notice.error { color: #9f1e1e; }
+    .notice.ok { color: #186243; }
+    .hint { font-size: 0.84rem; color: #69717c; margin: 8px 0 0; max-width: 72ch; }
+
+    .legend { margin: 14px 0 10px; display: flex; gap: 10px; flex-wrap: wrap; }
+    .legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; color: #4b5562; }
+    .legend-swatch { width: 14px; height: 14px; border-radius: 4px; border: 1px solid #d8c9b4; }
+    .sw-none { background: #f4f6f8; }
+    .sw-incomplete { background: #fff1c7; }
+    .sw-complete { background: #d9f3df; }
+    .sw-sunday { background: #efefef; }
+
+    .calendar-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 10px 0; }
+    .month-label { font-weight: 800; font-size: 1.05rem; color: #3e4551; }
+    .month-btn { border: 1px solid #d6c6b1; background: #fff; color: #4a2f24; border-radius: 10px; min-height: 40px; padding: 8px 12px; font-size: 0.84rem; font-weight: 700; cursor: pointer; }
+
+    .weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+    .weekdays div { text-align: center; font-size: 0.72rem; letter-spacing: 0.03em; text-transform: uppercase; color: #6e7784; font-weight: 800; padding: 4px 0; }
+
+    .day-cell { border: 1px solid #e2d4c1; border-radius: 10px; min-height: 64px; padding: 8px; font-size: 0.86rem; background: #fff; text-align: left; cursor: pointer; font-weight: 700; }
+    .day-cell:hover { border-color: #caa789; }
+    .day-cell.outside { visibility: hidden; pointer-events: none; }
+    .day-cell.sunday { background: #efefef; color: #8b8f97; cursor: not-allowed; border-color: #dfdfdf; }
+    .day-cell.future { background: #efefef; color: #8b8f97; cursor: not-allowed; border-color: #dfdfdf; }
+    .day-cell.status-none { background: #f4f6f8; }
+    .day-cell.status-incomplete { background: #fff1c7; }
+    .day-cell.status-complete { background: #d9f3df; }
+    .day-cell.today { box-shadow: inset 0 0 0 2px #4b7bc5; }
+    .editor { margin-top: 14px; border-top: 1px dashed #e4d6c0; padding-top: 12px; display: none; }
+    .editor.active { display: block; }
+    .editor-title { margin: 0 0 8px; font-size: 1rem; color: #3b424d; }
+    .editor-grid { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 420px; }
+    .editor-grid label { display: grid; gap: 6px; font-size: 0.86rem; font-weight: 700; color: #4a525e; }
+    .editor-grid input { border: 1px solid #dbcab4; border-radius: 10px; min-height: 44px; padding: 9px 10px; font: 600 0.92rem/1.2 "Manrope",sans-serif; background: #fffefb; }
+    .editor-status { min-height: 1.1em; margin: 8px 0 0; font-size: 0.82rem; font-weight: 700; color: #69717c; }
+    .editor-status.ok { color: #186243; }
+    .editor-status.error { color: #9f1e1e; }
+    @media (min-width: 760px) {
+      body { padding:24px; }
+      .card { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <section class="card">
+    <a class="back" href="/admin/locations/{{ .Location.Number }}">Back to Apps</a>
+    <h1>Business Days</h1>
+    <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})</p>
+    {{ if .SuccessMessage }}<p class="notice ok">{{ .SuccessMessage }}</p>{{ end }}
+    {{ if .Error }}<p class="notice error">{{ .Error }}</p>{{ end }}
+
+    <div class="legend">
+      <span class="legend-item"><span class="legend-swatch sw-none"></span>Not Created</span>
+      <span class="legend-item"><span class="legend-swatch sw-incomplete"></span>Created, Incomplete</span>
+      <span class="legend-item"><span class="legend-swatch sw-complete"></span>Created, Complete</span>
+      <span class="legend-item"><span class="legend-swatch sw-sunday"></span>Sunday (Unavailable)</span>
+    </div>
+
+    <div class="calendar-head">
+      <button id="prev-month" class="month-btn" type="button">Previous</button>
+      <div id="month-label" class="month-label"></div>
+      <button id="next-month" class="month-btn" type="button">Next</button>
+    </div>
+
+    <div class="weekdays">
+      <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+    </div>
+    <div id="calendar-grid" class="calendar-grid"></div>
+
+    <p class="hint">Click any non-Sunday day to open its business day metrics below. If it does not exist yet, it is created automatically with sales and labor initialized to 0.</p>
+
+    <section id="day-editor" class="editor">
+      <h2 class="editor-title">Business Day: <span id="editor-date"></span></h2>
+      <div class="editor-grid">
+        <label>
+          Total Sales
+          <input id="editor-sales" type="number" min="0" step="0.01" value="0">
+        </label>
+        <label>
+          Labor Hours
+          <input id="editor-labor" type="number" min="0" step="0.01" value="0">
+        </label>
+      </div>
+      <p id="editor-status" class="editor-status"></p>
+    </section>
+  </section>
+
+  <script>
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+    const locationNumber = "{{ .Location.Number }}";
+    const businessDays = [
+      {{- range .BusinessDays }}
+      {
+        businessDate: "{{ .BusinessDate }}",
+        totalSales: Number("{{ .TotalSales }}"),
+        laborHours: Number("{{ .LaborHours }}")
+      },
+      {{- end }}
+    ];
+    const byDate = new Map();
+    for (const day of businessDays) {
+      byDate.set(day.businessDate, day);
+    }
+
+    const monthLabelEl = document.getElementById("month-label");
+    const calendarGridEl = document.getElementById("calendar-grid");
+    const prevBtn = document.getElementById("prev-month");
+    const nextBtn = document.getElementById("next-month");
+    const editorEl = document.getElementById("day-editor");
+    const editorDateEl = document.getElementById("editor-date");
+    const editorSalesEl = document.getElementById("editor-sales");
+    const editorLaborEl = document.getElementById("editor-labor");
+    const editorStatusEl = document.getElementById("editor-status");
+    let selectedDate = "";
+
+    const now = new Date();
+    let currentYear = now.getFullYear();
+    let currentMonth = now.getMonth();
+
+    function fmtDate(year, monthIndex, day) {
+      const m = String(monthIndex + 1).padStart(2, "0");
+      const d = String(day).padStart(2, "0");
+      return `${year}-${m}-${d}`;
+    }
+
+    function statusFor(dateStr) {
+      const existing = byDate.get(dateStr);
+      if (!existing) return "status-none";
+      const complete = Number(existing.totalSales) > 0 && Number(existing.laborHours) > 0;
+      return complete ? "status-complete" : "status-incomplete";
+    }
+
+    function setEditorStatus(message, isError) {
+      editorStatusEl.textContent = message;
+      editorStatusEl.className = "editor-status";
+      if (message) editorStatusEl.classList.add(isError ? "error" : "ok");
+    }
+
+    async function openBusinessDay(dateStr) {
+      setEditorStatus("Loading...", false);
+      try {
+        const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/business-days/open`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": csrfToken
+          },
+          body: JSON.stringify({ businessDate: dateStr })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(result.error || "Unable to open business day.");
+        }
+        const day = result.businessDay || {};
+        selectedDate = day.businessDate || dateStr;
+        editorDateEl.textContent = selectedDate;
+        editorSalesEl.value = String(day.totalSales ?? 0);
+        editorLaborEl.value = String(day.laborHours ?? 0);
+        editorEl.classList.add("active");
+        byDate.set(selectedDate, {
+          businessDate: selectedDate,
+          totalSales: Number(day.totalSales || 0),
+          laborHours: Number(day.laborHours || 0),
+          createdAt: day.createdAt || ""
+        });
+        renderCalendar();
+        setEditorStatus("Loaded", false);
+      } catch (error) {
+        setEditorStatus(error.message || "Unable to open business day.", true);
+      }
+    }
+
+    async function saveEditor() {
+      if (!selectedDate) return;
+      const payload = {
+        totalSales: String(editorSalesEl.value || "").trim(),
+        laborHours: String(editorLaborEl.value || "").trim()
+      };
+      setEditorStatus("Saving...", false);
+      try {
+        const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/business-days/${encodeURIComponent(selectedDate)}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": csrfToken
+          },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(result.error || "Unable to save business day.");
+        }
+        byDate.set(selectedDate, {
+          businessDate: selectedDate,
+          totalSales: Number(payload.totalSales || 0),
+          laborHours: Number(payload.laborHours || 0),
+          createdAt: byDate.get(selectedDate)?.createdAt || ""
+        });
+        renderCalendar();
+        setEditorStatus("Saved", false);
+      } catch (error) {
+        setEditorStatus(error.message || "Unable to save business day.", true);
+      }
+    }
+
+    function renderCalendar() {
+      const first = new Date(currentYear, currentMonth, 1);
+      const firstWeekday = first.getDay();
+      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+      const todayStr = fmtDate(now.getFullYear(), now.getMonth(), now.getDate());
+      const monthName = first.toLocaleString(undefined, { month: "long", year: "numeric" });
+      monthLabelEl.textContent = monthName;
+      calendarGridEl.innerHTML = "";
+
+      for (let i = 0; i < firstWeekday; i++) {
+        const empty = document.createElement("button");
+        empty.type = "button";
+        empty.className = "day-cell outside";
+        calendarGridEl.appendChild(empty);
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(currentYear, currentMonth, day);
+        const dateStr = fmtDate(currentYear, currentMonth, day);
+        const isSunday = date.getDay() === 0;
+        const isFuture = dateStr > todayStr;
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "day-cell";
+        btn.textContent = String(day);
+        if (dateStr === todayStr) btn.classList.add("today");
+        if (isSunday || isFuture) {
+          btn.classList.add("sunday");
+          if (isFuture) btn.classList.add("future");
+          btn.disabled = true;
+        } else {
+          btn.classList.add(statusFor(dateStr));
+          btn.addEventListener("click", () => openBusinessDay(dateStr));
+        }
+        calendarGridEl.appendChild(btn);
+      }
+    }
+
+    prevBtn.addEventListener("click", () => {
+      currentMonth -= 1;
+      if (currentMonth < 0) {
+        currentMonth = 11;
+        currentYear -= 1;
+      }
+      renderCalendar();
+    });
+
+    nextBtn.addEventListener("click", () => {
+      currentMonth += 1;
+      if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear += 1;
+      }
+      renderCalendar();
+    });
+
+    editorSalesEl.addEventListener("change", saveEditor);
+    editorLaborEl.addEventListener("change", saveEditor);
+
+    renderCalendar();
+  </script>
+</body>
+</html>

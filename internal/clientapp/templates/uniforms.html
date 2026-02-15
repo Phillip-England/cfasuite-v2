@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Uniforms</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#f3eee6; --surface:#fffaf3; --ink:#1f232a; --line:#e4d6c0; --muted:#69717c; --accent:#b2472a; --shadow:0 24px 45px rgba(35,29,21,.14); }
+    * { box-sizing: border-box; }
+    body { font-family:"Manrope",sans-serif; margin:0; padding:12px; color:var(--ink); background:radial-gradient(70rem 50rem at 120% -10%,#ffd8b6 0,transparent 55%),radial-gradient(50rem 40rem at -10% 120%,#f9d8bd 0,transparent 52%),var(--bg); }
+    .card { width:100%; max-width:1080px; margin:0 auto; background:linear-gradient(155deg,var(--surface),#fff); border:1px solid var(--line); border-radius:18px; padding:14px; box-shadow:var(--shadow); }
+    .back { color:var(--accent); text-decoration:none; font-weight:800; font-size:0.92rem; }
+    h1 { margin:10px 0 8px; font:800 clamp(1.5rem,4vw,2.2rem)/1.1 "Space Grotesk",sans-serif; }
+    p.sub { margin:0 0 14px; color:var(--muted); }
+    .msg { font-weight:700; margin:0 0 10px; }
+    .msg.error { color:#9f1e1e; }
+    .msg.ok { color:#186243; }
+
+    .hub { display:grid; gap:10px; grid-template-columns:1fr; margin-bottom:12px; }
+    .hub-btn {
+      border:1px solid #d8c7b2;
+      background:#fff;
+      color:#2d3038;
+      border-radius:12px;
+      text-align:left;
+      padding:12px;
+      cursor:pointer;
+      min-height:64px;
+    }
+    .hub-btn strong { display:block; font:800 1.02rem/1.1 "Space Grotesk",sans-serif; margin-bottom:4px; }
+    .hub-btn span { display:block; color:#646c77; font-size:0.86rem; font-weight:700; }
+    .hub-btn.active { border-color:#c69b78; background:#fff6ec; }
+
+    .section { display:none; border:1px solid #e4d6c0; border-radius:12px; padding:14px; background:#fff; }
+    .section.active { display:block; }
+    .section h2 { margin:0 0 10px; font-size:1.08rem; }
+    .section-top { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+
+    form { display:grid; gap:10px; }
+    label { display:grid; gap:6px; font-size:0.9rem; font-weight:700; color:#3b424d; }
+    input, button { border-radius:10px; padding:10px 11px; font:600 0.94rem/1.2 "Manrope",sans-serif; }
+    input { border:1px solid #dbcab4; background:#fffefb; min-height:44px; }
+    button { border:0; background:var(--accent); color:#fff; font-weight:700; cursor:pointer; min-height:44px; }
+    .small-btn { background:#41566e; font-size:0.84rem; min-height:40px; }
+
+    .link-row { display:flex; gap:8px; flex-wrap:wrap; }
+    .link-row input { flex:1; min-width:240px; }
+    .section-link { color:#8d391f; text-decoration:none; font-size:0.86rem; font-weight:800; }
+    .section-link:hover { text-decoration:underline; }
+
+    .crop-tools { display:none; gap:8px; position:relative; z-index:20; }
+    .crop-tools.is-active { display:grid; }
+    .preview-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 180px)); gap:10px; margin-top:10px; }
+    .preview-box { border:1px dashed #dbcab4; border-radius:10px; background:#fffefb; padding:8px; }
+    .preview-label { display:block; font-size:0.72rem; font-weight:700; text-transform:uppercase; color:#69717c; margin-bottom:6px; letter-spacing:0.05em; }
+    .preview-image { width:100%; max-height:320px; border-radius:8px; object-fit:contain; background:#f4f0ea; border:1px solid #e4d6c0; display:block; }
+    .crop-result-box { display:none; }
+    .crop-result-box.is-active { display:block; }
+    .crop-stage { position:relative; width:100%; }
+    .crop-selection {
+      position:absolute;
+      border:2px solid #fff;
+      box-shadow:0 0 0 9999px rgba(0,0,0,.38);
+      border-radius:8px;
+      cursor:move;
+      touch-action:none;
+      display:none;
+    }
+    .crop-selection.is-active { display:block; }
+    .crop-selection.is-locked { box-shadow:none; cursor:default; }
+    .crop-selection.is-locked .crop-handle { display:none; }
+    .crop-handle {
+      position:absolute;
+      width:18px;
+      height:18px;
+      right:-9px;
+      bottom:-9px;
+      border-radius:999px;
+      border:2px solid #fff;
+      background:#b2472a;
+      cursor:nwse-resize;
+      touch-action:none;
+    }
+
+    .item-cards { display:grid; gap:10px; grid-template-columns:1fr; }
+    .item-card {
+      display:grid;
+      grid-template-columns:72px 1fr;
+      gap:10px;
+      align-items:center;
+      text-decoration:none;
+      color:inherit;
+      border:1px solid #e4d6c0;
+      border-radius:12px;
+      background:#fffefb;
+      padding:10px;
+      transition:border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+    }
+    .item-card:hover { border-color:#c69b78; box-shadow:0 10px 18px rgba(45,37,29,.08); transform:translateY(-1px); }
+    .item-card img { width:72px; height:72px; border-radius:10px; object-fit:cover; border:1px solid #dbcab4; background:#f5efe5; }
+    .item-name { font:800 1rem/1.2 "Space Grotesk",sans-serif; margin-bottom:4px; }
+    .item-meta { font-size:0.84rem; color:#646c77; font-weight:700; }
+
+    .table-wrap { overflow-x:auto; border-radius:10px; }
+    table { width:100%; border-collapse:collapse; border:1px solid #e4d6c0; border-radius:10px; overflow:hidden; min-width:760px; }
+    th, td { text-align:left; padding:9px 10px; border-bottom:1px solid #efdfca; vertical-align:top; }
+    th { background:#faf2e5; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.04em; color:#69717c; }
+    .item-cell { min-width:220px; }
+    .item-title { font-weight:800; font-size:.88rem; color:#2f3640; }
+    .item-note { font-size:.78rem; color:#646c77; margin-top:2px; }
+    .purchase-cell { width:96px; white-space:nowrap; }
+    .charge-cell { width:140px; white-space:nowrap; }
+    .charge-input { max-width:120px; min-height:38px; padding:7px 8px; }
+
+    @media (min-width: 760px) {
+      .hub { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (min-width: 860px) {
+      .card { padding:20px; }
+      body { padding:24px; }
+      .item-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <section class="card">
+    <a class="back" href="/admin/locations/{{ .Location.Number }}">Back to Apps</a>
+    <h1>Uniform Admin</h1>
+    <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})</p>
+    {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
+    {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
+
+    <section class="hub">
+      <button class="hub-btn" type="button" data-target="new-item">
+        <strong>New Item</strong>
+        <span>Create a uniform item with image, price, and sizes.</span>
+      </button>
+      <button class="hub-btn" type="button" data-target="existing-items">
+        <strong>Existing Items</strong>
+        <span>Browse configured items and open a dedicated item page.</span>
+      </button>
+      <button class="hub-btn" type="button" data-target="submitted-requests">
+        <strong>Submitted Requests</strong>
+        <span>Review submitted orders, mark items purchased, and track chargebacks.</span>
+      </button>
+    </section>
+
+    <section class="section" data-panel="new-item">
+      <h2>Create Uniform Item</h2>
+      <form id="uniform-create-form" method="post" enctype="multipart/form-data" action="/admin/locations/{{ .Location.Number }}/uniform-items">
+        <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+        <input type="hidden" id="crop_x" name="crop_x" value="0">
+        <input type="hidden" id="crop_y" name="crop_y" value="0">
+        <input type="hidden" id="crop_size" name="crop_size" value="0">
+        <label>Item Name<input type="text" name="name" required></label>
+        <label>Price (USD)<input type="text" name="price" placeholder="19.99" required></label>
+        <label>Sizes (optional, comma-separated)<input type="text" name="sizes" placeholder="XS,S,M,L,XL"></label>
+        <label>Image (png, jpeg, webp)<input id="photo_file" type="file" name="photo_file" accept="image/png,image/jpeg,image/webp" required></label>
+        <div class="preview-row">
+          <div class="preview-box">
+            <span class="preview-label">Selected Image</span>
+            <div id="crop-stage" class="crop-stage">
+              <img id="photo-preview" class="preview-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='100%25' height='100%25' fill='%23f4f0ea'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2369717c' font-size='12' font-family='sans-serif'%3ESelect Image%3C/text%3E%3C/svg%3E" alt="Selected image preview">
+              <div id="crop-selection" class="crop-selection">
+                <div id="crop-handle" class="crop-handle"></div>
+              </div>
+            </div>
+          </div>
+          <div id="crop-result-box" class="preview-box crop-result-box">
+            <span class="preview-label">Cropped Result</span>
+            <canvas id="crop-result" class="preview-image" width="180" height="180"></canvas>
+          </div>
+        </div>
+        <div id="crop-tools" class="crop-tools">
+          <p class="sub" style="margin:0;">Drag the crop box. Use the bottom-right handle to resize.</p>
+          <button id="confirm-crop" type="button" class="small-btn">Confirm Crop</button>
+        </div>
+        <button id="create-item-btn" type="submit" disabled>Create Item</button>
+      </form>
+    </section>
+
+    <section class="section" data-panel="existing-items">
+      <h2>Existing Uniform Items</h2>
+      {{ if .UniformItems }}
+        <div class="item-cards">
+          {{ range .UniformItems }}
+            <a class="item-card" href="/admin/locations/{{ $.Location.Number }}/uniform-items/{{ .ID }}">
+              <img src="data:{{ if .Images }}{{ (index .Images 0).ImageMime }}{{ else }}{{ .ImageMime }}{{ end }};base64,{{ if .Images }}{{ (index .Images 0).ImageData }}{{ else }}{{ .ImageData }}{{ end }}" alt="{{ .Name }}">
+              <div>
+                <div class="item-name">{{ .Name }}</div>
+                <div class="item-meta">Price: ${{ printf "%.2f" .Price }}</div>
+                <div class="item-meta">Sizes: {{ if .Sizes }}{{ range $idx, $size := .Sizes }}{{ if $idx }}, {{ end }}{{ $size }}{{ end }}{{ else }}N/A{{ end }}</div>
+              </div>
+            </a>
+          {{ end }}
+        </div>
+      {{ else }}
+        <p class="sub">No uniform items yet.</p>
+      {{ end }}
+    </section>
+
+    <section class="section" data-panel="submitted-requests">
+      <div class="section-top">
+        <h2>Submitted Requests</h2>
+        <a class="section-link" href="/admin/locations/{{ .Location.Number }}/uniform-orders/archived">View Archived Orders</a>
+      </div>
+      <div class="section-top">
+        <strong style="font-size:.86rem;color:#4e5561;">Secret Team Member Form</strong>
+      </div>
+      <div class="link-row" style="margin-bottom:12px;">
+        <input id="uniform-link" type="text" readonly value="{{ .UniformLink }}">
+        <button class="small-btn" id="copy-link" type="button">Copy Link</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Submitted At (UTC)</th>
+              <th>Employee</th>
+              <th>Item</th>
+              <th>Purchased</th>
+              <th>Charged Back ($)</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ if .UniformOrders }}
+              {{ range .UniformOrders }}
+                {{ $order := . }}
+                {{ if .Lines }}
+                  {{ range .Lines }}
+                    {{ $formID := printf "settlement-%d-%d" $order.ID .ID }}
+                    <tr>
+                      <td>{{ $order.CreatedAt }}</td>
+                      <td>{{ $order.TimePunchName }}</td>
+                      <td class="item-cell">
+                        <div class="item-title">
+                          {{ .ItemName }}{{ if .SizeOption }} ({{ .SizeOption }}){{ end }} x{{ .Quantity }}
+                        </div>
+                        {{ if .Note }}<div class="item-note">Note: {{ .Note }}</div>{{ end }}
+                      </td>
+                      <td class="purchase-cell">
+                        <form id="{{ $formID }}" class="auto-settlement-form" method="post" action="/admin/locations/{{ $.Location.Number }}/uniform-orders/{{ $order.ID }}/lines/{{ .ID }}/settlement">
+                          <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                        </form>
+                        <input type="checkbox" name="purchased" value="on" form="{{ $formID }}" {{ if .Purchased }}checked{{ end }} style="min-height:auto; width:auto;" data-autosave-form="{{ $formID }}">
+                      </td>
+                      <td class="charge-cell">
+                        <input class="charge-input" type="text" name="charged_back" form="{{ $formID }}" value="{{ printf "%.2f" .ChargedBack }}" placeholder="0.00" inputmode="decimal" data-autosave-form="{{ $formID }}">
+                      </td>
+                      <td>${{ printf "%.2f" $order.Total }}</td>
+                    </tr>
+                  {{ end }}
+                {{ else }}
+                  <tr>
+                    <td>{{ .CreatedAt }}</td>
+                    <td>{{ .TimePunchName }}</td>
+                    <td>{{ .ItemsSummary }}</td>
+                    <td></td>
+                    <td></td>
+                    <td>${{ printf "%.2f" .Total }}</td>
+                  </tr>
+                {{ end }}
+              {{ end }}
+            {{ else }}
+              <tr><td colspan="6">No uniform orders submitted yet.</td></tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </section>
+  <script>
+    const copyBtn = document.getElementById("copy-link");
+    const linkInput = document.getElementById("uniform-link");
+    const photoFile = document.getElementById("photo_file");
+    const preview = document.getElementById("photo-preview");
+    const cropTools = document.getElementById("crop-tools");
+    const cropResultBox = document.getElementById("crop-result-box");
+    const cropCanvas = document.getElementById("crop-result");
+    const cropCtx = cropCanvas.getContext("2d");
+    const cropStage = document.getElementById("crop-stage");
+    const cropSelection = document.getElementById("crop-selection");
+    const cropHandle = document.getElementById("crop-handle");
+    const cropX = document.getElementById("crop_x");
+    const cropY = document.getElementById("crop_y");
+    const cropSize = document.getElementById("crop_size");
+    const confirmCropBtn = document.getElementById("confirm-crop");
+    const createItemBtn = document.getElementById("create-item-btn");
+    const hubButtons = Array.from(document.querySelectorAll(".hub-btn"));
+    const panels = Array.from(document.querySelectorAll(".section[data-panel]"));
+    let naturalWidth = 0;
+    let naturalHeight = 0;
+    let fileSelected = false;
+    let cropRect = { x: 0, y: 0, size: 0 };
+    let dragMode = "";
+    let pointerStart = { x: 0, y: 0 };
+    let rectStart = { x: 0, y: 0, size: 0 };
+    let cropConfirmed = false;
+    let cropLocked = false;
+
+    function showPanel(panelName) {
+      hubButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.target === panelName));
+      panels.forEach((panel) => panel.classList.toggle("active", panel.dataset.panel === panelName));
+      if (window.location.hash !== "#" + panelName) {
+        window.history.replaceState(null, "", "#" + panelName);
+      }
+    }
+
+    hubButtons.forEach((btn) => {
+      btn.addEventListener("click", () => showPanel(btn.dataset.target));
+    });
+    const initialPanel = (window.location.hash || "").replace("#", "");
+    if (initialPanel && panels.some((panel) => panel.dataset.panel === initialPanel)) {
+      showPanel(initialPanel);
+    } else {
+      showPanel("existing-items");
+    }
+
+    copyBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(linkInput.value);
+        copyBtn.textContent = "Copied";
+        window.setTimeout(() => { copyBtn.textContent = "Copy Link"; }, 1200);
+      } catch (_) {
+        linkInput.select();
+        document.execCommand("copy");
+      }
+    });
+
+    document.querySelectorAll("[data-autosave-form]").forEach((control) => {
+      const formId = control.getAttribute("data-autosave-form");
+      if (!formId) return;
+      const form = document.getElementById(formId);
+      if (!form) return;
+      control.addEventListener("change", () => {
+        if (typeof form.requestSubmit === "function") {
+          form.requestSubmit();
+        } else {
+          form.submit();
+        }
+      });
+    });
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+    function setCropModeActive(active) {
+      cropTools.classList.toggle("is-active", active);
+      cropResultBox.classList.toggle("is-active", active);
+      cropSelection.classList.toggle("is-active", active);
+      if (!active) {
+        cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+      }
+      setCropConfirmed(false);
+    }
+    function setCropConfirmed(value) {
+      cropConfirmed = value;
+      cropLocked = value;
+      cropSelection.classList.toggle("is-locked", value);
+      createItemBtn.disabled = !value;
+      confirmCropBtn.textContent = value ? "Crop Confirmed" : "Confirm Crop";
+    }
+    function syncCropToHidden() {
+      const displayWidth = preview.clientWidth || 0;
+      const displayHeight = preview.clientHeight || 0;
+      if (displayWidth <= 0 || displayHeight <= 0 || naturalWidth <= 0 || naturalHeight <= 0) return;
+      const scaleX = naturalWidth / displayWidth;
+      const scaleY = naturalHeight / displayHeight;
+      cropX.value = String(Math.round(cropRect.x * scaleX));
+      cropY.value = String(Math.round(cropRect.y * scaleY));
+      cropSize.value = String(Math.round(cropRect.size * Math.min(scaleX, scaleY)));
+    }
+    function renderCropSelection() {
+      cropSelection.style.left = `${cropRect.x}px`;
+      cropSelection.style.top = `${cropRect.y}px`;
+      cropSelection.style.width = `${cropRect.size}px`;
+      cropSelection.style.height = `${cropRect.size}px`;
+    }
+    function drawCropPreview() {
+      syncCropToHidden();
+      const x = Number(cropX.value || "0");
+      const y = Number(cropY.value || "0");
+      const size = Number(cropSize.value || "0");
+      if (size <= 0) return;
+      cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+      cropCtx.drawImage(preview, x, y, size, size, 0, 0, cropCanvas.width, cropCanvas.height);
+    }
+    function initializeCropControls() {
+      const displayWidth = preview.clientWidth || 0;
+      const displayHeight = preview.clientHeight || 0;
+      const minDim = Math.min(displayWidth, displayHeight);
+      const initial = Math.max(48, Math.floor(minDim * 0.72));
+      cropRect.size = Math.min(initial, minDim);
+      cropRect.x = Math.floor((displayWidth - cropRect.size) / 2);
+      cropRect.y = Math.floor((displayHeight - cropRect.size) / 2);
+      renderCropSelection();
+      drawCropPreview();
+    }
+    function onPointerMove(event) {
+      if (!dragMode || cropLocked) return;
+      const dx = event.clientX - pointerStart.x;
+      const dy = event.clientY - pointerStart.y;
+      const displayWidth = preview.clientWidth || 0;
+      const displayHeight = preview.clientHeight || 0;
+      if (dragMode === "move") {
+        cropRect.x = clamp(rectStart.x + dx, 0, displayWidth - rectStart.size);
+        cropRect.y = clamp(rectStart.y + dy, 0, displayHeight - rectStart.size);
+      } else if (dragMode === "resize") {
+        const maxSize = Math.min(displayWidth - rectStart.x, displayHeight - rectStart.y);
+        cropRect.size = clamp(rectStart.size + Math.max(dx, dy), 48, maxSize);
+      }
+      setCropConfirmed(false);
+      renderCropSelection();
+      drawCropPreview();
+      event.preventDefault();
+    }
+    function onPointerUp() {
+      dragMode = "";
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    }
+    cropSelection.addEventListener("pointerdown", (event) => {
+      if (!fileSelected || cropLocked) return;
+      dragMode = event.target === cropHandle ? "resize" : "move";
+      pointerStart = { x: event.clientX, y: event.clientY };
+      rectStart = { x: cropRect.x, y: cropRect.y, size: cropRect.size };
+      window.addEventListener("pointermove", onPointerMove);
+      window.addEventListener("pointerup", onPointerUp);
+      event.preventDefault();
+    });
+
+    photoFile.addEventListener("change", () => {
+      const file = photoFile.files && photoFile.files[0];
+      if (!file) {
+        fileSelected = false;
+        setCropModeActive(false);
+        preview.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='100%25' height='100%25' fill='%23f4f0ea'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2369717c' font-size='12' font-family='sans-serif'%3ESelect Image%3C/text%3E%3C/svg%3E";
+        cropX.value = "0";
+        cropY.value = "0";
+        cropSize.value = "0";
+        cropSelection.classList.remove("is-active");
+        return;
+      }
+      fileSelected = true;
+      const reader = new FileReader();
+      reader.onload = () => { preview.src = String(reader.result || ""); };
+      reader.readAsDataURL(file);
+    });
+    preview.addEventListener("load", () => {
+      if (!fileSelected) return;
+      naturalWidth = preview.naturalWidth || preview.width;
+      naturalHeight = preview.naturalHeight || preview.height;
+      if (naturalWidth <= 0 || naturalHeight <= 0) return;
+      setCropModeActive(true);
+      initializeCropControls();
+      setCropConfirmed(false);
+    });
+    confirmCropBtn.addEventListener("click", () => {
+      if (!fileSelected) return;
+      drawCropPreview();
+      setCropConfirmed(true);
+    });
+    setCropModeActive(false);
+  </script>
+</body>
+</html>

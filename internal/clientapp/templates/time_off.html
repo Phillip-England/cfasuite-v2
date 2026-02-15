@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ .CSRF }}">
+  <title>Time Off</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#f3eee6; --surface:#fffaf3; --ink:#1f232a; --line:#e4d6c0; --muted:#69717c; --accent:#b2472a; --shadow:0 24px 45px rgba(35,29,21,.14); }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:"Manrope",sans-serif; color:var(--ink); background:radial-gradient(70rem 50rem at 120% -10%,#ffd8b6 0,transparent 55%),radial-gradient(50rem 40rem at -10% 120%,#f9d8bd 0,transparent 52%),var(--bg); min-height:100vh; display:grid; place-items:center; padding:12px; }
+    .card { width:min(980px,100%); border:1px solid var(--line); border-radius:22px; background:linear-gradient(155deg,var(--surface),#fff); box-shadow:var(--shadow); padding:16px; }
+    .back { color:var(--accent); text-decoration:none; font-weight:800; font-size:.9rem; }
+    h1 { margin:12px 0 8px; font:800 clamp(1.6rem,3.5vw,2.4rem)/1.1 "Space Grotesk",sans-serif; }
+    .sub { margin:0 0 16px; color:var(--muted); font-weight:700; }
+    .notice { margin:0 0 10px; font-weight:700; font-size:.9rem; }
+    .notice.error { color:#9f1e1e; }
+    .notice.ok { color:#186243; }
+    .link-box { border:1px solid var(--line); border-radius:12px; background:#fff; padding:12px; margin-bottom:16px; }
+    .link-box label { display:block; font-size:.8rem; color:var(--muted); font-weight:700; margin-bottom:6px; }
+    .link-row { display:flex; gap:8px; flex-wrap:wrap; }
+    .link-row input { flex:1; min-width:220px; border:1px solid var(--line); border-radius:10px; min-height:44px; padding:10px; font:600 .85rem/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .link-row button { border:1px solid #d2c1ab; background:#fff; color:#3d251c; border-radius:10px; min-height:44px; padding:10px 12px; font:800 .82rem/1 "Space Grotesk",sans-serif; cursor:pointer; }
+    h2 { margin:12px 0 8px; font:800 1.1rem/1.2 "Space Grotesk",sans-serif; }
+    .table-wrap { overflow-x:auto; border-radius:12px; }
+    table { width:100%; border-collapse:collapse; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#fff; min-width:760px; }
+    th, td { text-align:left; padding:9px 11px; border-bottom:1px solid #efdfca; font-size:.9rem; }
+    th { text-transform:uppercase; letter-spacing:.05em; font-size:.76rem; background:#faf2e5; color:var(--muted); }
+    tbody tr:last-child td { border-bottom:0; }
+    td button { border:1px solid #d8c6b0; border-radius:8px; background:#fff; color:#5f2f1f; font:700 .78rem/1 "Space Grotesk",sans-serif; min-height:32px; padding:6px 10px; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <section class="card">
+    <a class="back" href="/admin/locations/{{ .Location.Number }}">Back to Apps</a>
+    <h1>Time Off Requests</h1>
+    <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})</p>
+    {{ if .SuccessMessage }}<p class="notice ok">{{ .SuccessMessage }}</p>{{ end }}
+    {{ if .Error }}<p class="notice error">{{ .Error }}</p>{{ end }}
+
+    <section class="link-box">
+      <label>Secret Team Member Time Off Link</label>
+      <div class="link-row">
+        <input id="pto-link" type="text" readonly value="{{ .TimeOffLink }}">
+        <button id="copy-btn" type="button">Copy Link</button>
+      </div>
+    </section>
+
+    <h2>Open Requests</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Submitted At (UTC)</th>
+            <th>Employee</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ if .TimeOffRequests }}
+            {{ range .TimeOffRequests }}
+              <tr>
+                <td>{{ .CreatedAt }}</td>
+                <td>{{ .TimePunchName }}</td>
+                <td>{{ .StartDate }}</td>
+                <td>{{ .EndDate }}</td>
+                <td>
+                  <form method="post" action="/admin/locations/{{ $.Location.Number }}/time-off/{{ .ID }}/archive" onsubmit="return confirm('Archive this time off request?');">
+                    <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                    <button type="submit">Archive</button>
+                  </form>
+                </td>
+              </tr>
+            {{ end }}
+          {{ else }}
+            <tr><td colspan="5">No open time off requests.</td></tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Archived Requests</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Submitted At (UTC)</th>
+            <th>Archived At (UTC)</th>
+            <th>Employee</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ if .ArchivedTimeOffRequests }}
+            {{ range .ArchivedTimeOffRequests }}
+              <tr>
+                <td>{{ .CreatedAt }}</td>
+                <td>{{ .ArchivedAt }}</td>
+                <td>{{ .TimePunchName }}</td>
+                <td>{{ .StartDate }}</td>
+                <td>{{ .EndDate }}</td>
+              </tr>
+            {{ end }}
+          {{ else }}
+            <tr><td colspan="5">No archived time off requests yet.</td></tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <script>
+    const copyBtn = document.getElementById("copy-btn");
+    const linkInput = document.getElementById("pto-link");
+    copyBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(linkInput.value);
+        copyBtn.textContent = "Copied";
+        window.setTimeout(() => { copyBtn.textContent = "Copy Link"; }, 1200);
+      } catch (_) {
+        linkInput.select();
+        document.execCommand("copy");
+      }
+    });
+  </script>
+  <style>
+    @media (min-width: 780px) {
+      body { padding:24px; }
+      .card { padding:28px; }
+    }
+  </style>
+</body>
+</html>

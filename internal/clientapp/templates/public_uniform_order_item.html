@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Order Uniform Item</title>
+  <style>
+    :root {
+      --bg: #f4f1ec;
+      --card: #ffffff;
+      --line: #e2d5c4;
+      --ink: #1f232a;
+      --muted: #68707b;
+      --accent: #b2472a;
+      --accent-dark: #913820;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 18px;
+      background: radial-gradient(55rem 30rem at 110% -10%, #f1d9bf 0, transparent 52%), var(--bg);
+      color: var(--ink);
+      font-family: "Manrope", "Segoe UI", sans-serif;
+    }
+    .wrap {
+      max-width: 760px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 14px 30px rgba(33, 28, 23, 0.08);
+    }
+    .back {
+      text-decoration: none;
+      color: #34414d;
+      font-weight: 700;
+      font-size: 0.86rem;
+    }
+    h1 {
+      margin: 8px 0 4px;
+      font-size: clamp(1.2rem, 5vw, 1.45rem);
+      line-height: 1.14;
+    }
+    .sub {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .msg { margin: 0 0 10px; font-weight: 700; font-size: 0.9rem; }
+    .msg.error { color: #9f1e1e; }
+    .msg.ok { color: #186243; }
+
+    .item {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .gallery {
+      width: 100%;
+      max-width: 200px;
+    }
+    .gallery img {
+      width: 100%;
+      aspect-ratio: 1/1;
+      max-width: 200px;
+      max-height: 200px;
+      border-radius: 12px;
+      object-fit: cover;
+      border: 1px solid #d8c9b7;
+      display: block;
+      background: #fff;
+    }
+    .gallery img.is-hidden { display: none; }
+    .gallery-controls {
+      margin-top: 6px;
+      display: flex;
+      gap: 6px;
+    }
+    .gallery-controls button {
+      flex: 1;
+      border: 1px solid #d8c9b7;
+      border-radius: 8px;
+      background: #fff;
+      color: #3d251c;
+      font: 700 0.78rem/1 "Manrope", sans-serif;
+      padding: 6px 8px;
+      cursor: pointer;
+    }
+    .gallery-thumbs {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+      align-items: end;
+      flex-wrap: wrap;
+    }
+    .thumb-btn {
+      border: 0;
+      padding: 0;
+      background: transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .thumb {
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+      border: 1px solid #d8c9b7;
+      object-fit: cover;
+      background: #fff;
+      opacity: 0.74;
+      transition: transform 120ms ease, opacity 120ms ease, border-color 120ms ease, width 120ms ease, height 120ms ease;
+    }
+    .thumb-btn:hover .thumb,
+    .thumb-btn:focus-visible .thumb {
+      opacity: 1;
+      transform: translateY(-1px);
+      border-color: #b98a67;
+    }
+    .thumb-btn:focus-visible {
+      outline: none;
+    }
+    .thumb.is-active {
+      width: 56px;
+      height: 56px;
+      opacity: 1;
+      border-width: 2px;
+      border-color: #b2472a;
+      transform: translateY(-1px);
+    }
+    .name {
+      margin: 0;
+      font-size: 1.06rem;
+      font-weight: 800;
+    }
+    .price {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+
+    form { display: grid; gap: 12px; }
+    .field { display: grid; gap: 6px; }
+    label {
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #404854;
+    }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid #d7c9b6;
+      border-radius: 10px;
+      padding: 10px 11px;
+      font: 600 0.94rem/1.2 "Manrope", sans-serif;
+      background: #fffefc;
+      color: var(--ink);
+    }
+    textarea {
+      min-height: 92px;
+      resize: vertical;
+    }
+    .search-note {
+      margin: -1px 0 2px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .member-select-wrap {
+      position: relative;
+    }
+
+    .submit {
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 13px;
+      background: var(--accent);
+      color: #fff;
+      font: 800 0.95rem/1 "Manrope", sans-serif;
+      cursor: pointer;
+    }
+    .submit:hover { background: var(--accent-dark); }
+    .total-box {
+      border: 1px solid #e0d2be;
+      background: #fff8f1;
+      border-radius: 10px;
+      padding: 10px 11px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      color: #2b313a;
+    }
+    .total-box .label {
+      margin: 0;
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #5a6470;
+    }
+    .total-box .amount {
+      margin: 0;
+      font-size: 1.02rem;
+      font-family: "Space Grotesk", "Manrope", sans-serif;
+    }
+
+    @media (min-width: 760px) {
+      .item {
+        grid-template-columns: 200px 1fr;
+        align-items: start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <section class="wrap">
+    <a class="back" href="/uniform-order/{{ .Token }}">Back to Items</a>
+    <h1>Order {{ .UniformItem.Name }}</h1>
+    <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})</p>
+    {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
+    {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
+
+    <div class="item">
+      <div class="gallery" data-gallery>
+        {{ if .UniformItem.Images }}
+          {{ range $idx, $img := .UniformItem.Images }}
+            <img class="gallery-image{{ if ne $idx 0 }} is-hidden{{ end }}" src="data:{{ $img.ImageMime }};base64,{{ $img.ImageData }}" alt="{{ $.UniformItem.Name }}">
+          {{ end }}
+          {{ if gt (len .UniformItem.Images) 1 }}
+            <div class="gallery-controls">
+              <button type="button" class="gallery-prev">Prev</button>
+              <button type="button" class="gallery-next">Next</button>
+            </div>
+            <div class="gallery-thumbs" data-gallery-thumbs></div>
+          {{ end }}
+        {{ else }}
+          <img class="gallery-image" src="data:{{ .UniformItem.ImageMime }};base64,{{ .UniformItem.ImageData }}" alt="{{ .UniformItem.Name }}">
+        {{ end }}
+      </div>
+      <div>
+        <p class="name">{{ .UniformItem.Name }}</p>
+        <p class="price">${{ printf "%.2f" .UniformItem.Price }}</p>
+      </div>
+    </div>
+
+    <form method="post" action="/uniform-order/{{ .Token }}/item/{{ .UniformItem.ID }}">
+      <div class="field">
+        <label for="member_search">Find Team Member</label>
+        <input id="member_search" type="text" data-member-search placeholder="Start typing your name">
+        <p class="search-note" data-member-results>You can type to filter or open the dropdown and select.</p>
+      </div>
+
+      <div class="field">
+        <label for="time_punch_name">Team Member</label>
+        <div class="member-select-wrap">
+          <select id="time_punch_name" name="time_punch_name" data-member-select required>
+            <option value="">Select your name</option>
+            {{ range .Employees }}
+              <option value="{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }}</option>
+            {{ end }}
+          </select>
+        </div>
+      </div>
+
+      {{ if .UniformItem.Sizes }}
+      <div class="field">
+        <label for="size">Size</label>
+        <select id="size" name="size" required>
+          <option value="">Select a size</option>
+          {{ range .UniformItem.Sizes }}
+            <option value="{{ . }}">{{ . }}</option>
+          {{ end }}
+        </select>
+      </div>
+      {{ end }}
+
+      <div class="field">
+        <label for="quantity">Quantity</label>
+        <input id="quantity" name="quantity" type="number" min="1" step="1" value="1" required>
+      </div>
+
+      <div class="total-box">
+        <p class="label">Order Total</p>
+        <p class="amount" id="order-total">${{ printf "%.2f" .UniformItem.Price }}</p>
+      </div>
+
+      <div class="field">
+        <label for="note">Notes (Optional)</label>
+        <textarea id="note" name="note" maxlength="500" placeholder="Add any details for this purchase."></textarea>
+      </div>
+
+      <button class="submit" type="submit">Submit Uniform Order</button>
+    </form>
+  </section>
+
+  <script>
+    const gallery = document.querySelector("[data-gallery]");
+    if (gallery) {
+      const images = Array.from(gallery.querySelectorAll(".gallery-image"));
+      if (images.length > 1) {
+        let index = 0;
+        const thumbs = gallery.querySelector("[data-gallery-thumbs]");
+        const renderThumbs = () => {
+          if (!thumbs) return;
+          thumbs.innerHTML = "";
+          images.forEach((img, thumbIndex) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "thumb-btn";
+            button.setAttribute("aria-label", "View image " + (thumbIndex + 1));
+            const thumb = document.createElement("img");
+            thumb.className = "thumb" + (thumbIndex === index ? " is-active" : "");
+            thumb.src = img.src;
+            thumb.alt = "Thumbnail " + (thumbIndex + 1);
+            thumb.loading = "lazy";
+            thumb.decoding = "async";
+            button.appendChild(thumb);
+            button.addEventListener("click", () => show(thumbIndex));
+            thumbs.appendChild(button);
+          });
+        };
+        const show = (nextIndex) => {
+          index = (nextIndex + images.length) % images.length;
+          images.forEach((img, idx) => img.classList.toggle("is-hidden", idx !== index));
+          renderThumbs();
+        };
+        const prev = gallery.querySelector(".gallery-prev");
+        const next = gallery.querySelector(".gallery-next");
+        if (prev) prev.addEventListener("click", () => show(index - 1));
+        if (next) next.addEventListener("click", () => show(index + 1));
+        show(0);
+      }
+    }
+
+    (() => {
+      const searchInput = document.querySelector("[data-member-search]");
+      const memberSelect = document.querySelector("[data-member-select]");
+      const resultText = document.querySelector("[data-member-results]");
+      if (!searchInput || !memberSelect) return;
+
+      const options = Array.from(memberSelect.options)
+        .filter((opt) => opt.value !== "");
+      const normalize = (value) => value.toLowerCase().trim();
+
+      const filterOptions = () => {
+        const query = normalize(searchInput.value.trim());
+        let matches = 0;
+        options.forEach((opt) => {
+          const label = normalize(opt.textContent || "");
+          const isMatch = !query || label.includes(query);
+          opt.hidden = !isMatch;
+          if (isMatch) matches += 1;
+        });
+
+        if (memberSelect.value) {
+          const selected = options.find((opt) => opt.value === memberSelect.value);
+          if (selected && selected.hidden) {
+            memberSelect.value = "";
+          }
+        }
+
+        if (resultText) {
+          if (!query) {
+            resultText.textContent = "You can type to filter or open the dropdown and select.";
+          } else if (matches === 0) {
+            resultText.textContent = "No matching names.";
+          } else {
+            resultText.textContent = matches + " match" + (matches === 1 ? "" : "es") + ".";
+          }
+        }
+      };
+
+      searchInput.addEventListener("input", filterOptions);
+      searchInput.addEventListener("focus", () => {
+        options.forEach((opt) => {
+          opt.hidden = false;
+        });
+      });
+      memberSelect.addEventListener("change", () => {
+        if (!memberSelect.value) return;
+        const selected = options.find((opt) => opt.value === memberSelect.value);
+        if (selected) {
+          searchInput.value = selected.textContent || "";
+          filterOptions();
+        }
+      });
+      filterOptions();
+    })();
+
+    (() => {
+      const quantityInput = document.getElementById("quantity");
+      const totalNode = document.getElementById("order-total");
+      const unitPrice = {{ printf "%.2f" .UniformItem.Price }};
+      if (!quantityInput || !totalNode) return;
+      const updateTotal = () => {
+        const raw = Number.parseInt(quantityInput.value, 10);
+        const qty = Number.isFinite(raw) && raw > 0 ? raw : 1;
+        totalNode.textContent = "$" + (unitPrice * qty).toFixed(2);
+      };
+      quantityInput.addEventListener("input", updateTotal);
+      quantityInput.addEventListener("change", updateTotal);
+      updateTotal();
+    })();
+  </script>
+</body>
+</html>
