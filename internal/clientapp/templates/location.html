@@ -186,6 +186,26 @@
       flex-wrap: wrap;
       margin-bottom: 10px;
     }
+    .employee-search {
+      display: grid;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .employee-search input {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      min-height: 40px;
+      padding: 9px 10px;
+      width: 100%;
+      font: 700 0.9rem/1 "Manrope", sans-serif;
+      color: var(--ink);
+    }
+    .employee-search-meta {
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
     .archive-link {
       color: #9d3d23;
       text-decoration: none;
@@ -325,6 +345,10 @@
         <h2>View All Employees ({{ len .Employees }})</h2>
         <a class="archive-link" href="/admin/locations/{{ .Location.Number }}/employees/archived">View Archived Employees</a>
       </div>
+      <div class="employee-search">
+        <input id="employee-search-input" type="text" placeholder="Search employee by name">
+        <div id="employee-search-meta" class="employee-search-meta">Showing {{ len .Employees }} of {{ len .Employees }}</div>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -338,7 +362,7 @@
           <tbody>
             {{ if .Employees }}
               {{ range .Employees }}
-                <tr>
+                <tr class="employee-row" data-search-name="{{ .FirstName }} {{ .LastName }}">
                   <td><a class="location-link" href="/admin/locations/{{ $.Location.Number }}/employees/{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }}{{ if eq .Department "INIT" }} *{{ end }}</a></td>
                   <td>{{ .TimePunchName }}</td>
                   <td>
@@ -365,6 +389,9 @@
     const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
     const locationNumber = "{{ .Location.Number }}";
     const selects = document.querySelectorAll(".department-select");
+    const employeeRows = Array.from(document.querySelectorAll(".employee-row"));
+    const employeeSearchInput = document.getElementById("employee-search-input");
+    const employeeSearchMeta = document.getElementById("employee-search-meta");
     const hubButtons = Array.from(document.querySelectorAll(".hub-btn"));
     const panels = Array.from(document.querySelectorAll(".section[data-panel]"));
 
@@ -415,6 +442,34 @@
         }
       });
     });
+
+    function normalizeSearchText(value) {
+      return (value || "").toLowerCase().trim();
+    }
+
+    function filterEmployeesByName() {
+      if (!employeeSearchInput || employeeRows.length === 0) {
+        return;
+      }
+      const query = normalizeSearchText(employeeSearchInput.value);
+      let visible = 0;
+      employeeRows.forEach((row) => {
+        const fullName = normalizeSearchText(row.dataset.searchName);
+        const match = query === "" || fullName.includes(query);
+        row.style.display = match ? "" : "none";
+        if (match) {
+          visible += 1;
+        }
+      });
+      if (employeeSearchMeta) {
+        employeeSearchMeta.textContent = "Showing " + visible + " of " + employeeRows.length;
+      }
+    }
+
+    if (employeeSearchInput) {
+      employeeSearchInput.addEventListener("input", filterEmployeesByName);
+      filterEmployeesByName();
+    }
   </script>
 </body>
 </html>

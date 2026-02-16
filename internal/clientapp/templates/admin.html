@@ -297,7 +297,7 @@
   <section class="panel">
     <p class="eyebrow">Admin Portal</p>
     <h1>Create Chick-fil-A Location</h1>
-    <p class="subtext">Use this form to add a location with a friendly display name and store number. You can rename or delete locations from the table below.</p>
+    <p class="subtext">Use this form to add a location with a friendly display name, store number, and business details used in employee paperwork. You can rename or delete locations from the table below.</p>
 
     <form id="create-location-form">
       <div class="grid">
@@ -308,6 +308,22 @@
         <label>
           Location Number
           <input id="number" name="number" type="text" placeholder="Example: TN-1024" required>
+        </label>
+        <label>
+          Business or Organization Name
+          <input id="business_name" name="business_name" type="text" placeholder="Example: Chick-fil-A Downtown Nashville LLC" required>
+        </label>
+        <label>
+          Business Street Address
+          <input id="business_street" name="business_street" type="text" placeholder="Example: 123 Main St" required>
+        </label>
+        <label>
+          Business City
+          <input id="business_city" name="business_city" type="text" placeholder="Example: Nashville" required>
+        </label>
+        <label>
+          Business State
+          <input id="business_state" name="business_state" type="text" placeholder="Example: TN" required>
         </label>
       </div>
 
@@ -386,7 +402,11 @@
 
       const payload = {
         name: document.getElementById("name").value.trim(),
-        number: document.getElementById("number").value.trim()
+        number: document.getElementById("number").value.trim(),
+        businessName: document.getElementById("business_name").value.trim(),
+        businessStreet: document.getElementById("business_street").value.trim(),
+        businessCity: document.getElementById("business_city").value.trim(),
+        businessState: document.getElementById("business_state").value.trim()
       };
 
       try {

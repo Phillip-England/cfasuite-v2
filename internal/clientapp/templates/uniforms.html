@@ -213,6 +213,7 @@
       <div class="link-row" style="margin-bottom:12px;">
         <input id="uniform-link" type="text" readonly value="{{ .UniformLink }}">
         <button class="small-btn" id="copy-link" type="button">Copy Link</button>
+        <button class="small-btn" id="open-link" type="button">Open Form</button>
       </div>
       <div class="table-wrap">
         <table>
@@ -275,6 +276,7 @@
   </section>
   <script>
     const copyBtn = document.getElementById("copy-link");
+    const openBtn = document.getElementById("open-link");
     const linkInput = document.getElementById("uniform-link");
     const photoFile = document.getElementById("photo_file");
     const preview = document.getElementById("photo-preview");
@@ -329,6 +331,11 @@
         linkInput.select();
         document.execCommand("copy");
       }
+    });
+    openBtn.addEventListener("click", () => {
+      const target = (linkInput.value || "").trim();
+      if (!target) return;
+      window.location.href = target;
     });
 
     document.querySelectorAll("[data-autosave-form]").forEach((control) => {

@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ .CSRF }}">
+  <title>Location Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f3eee6;
+      --surface: #fffaf3;
+      --ink: #1f232a;
+      --line: #e4d6c0;
+      --muted: #69717c;
+      --accent: #b2472a;
+      --shadow: 0 24px 45px rgba(35, 29, 21, 0.14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Manrope", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(70rem 50rem at 120% -10%, #ffd8b6 0, transparent 55%),
+        radial-gradient(50rem 40rem at -10% 120%, #f9d8bd 0, transparent 52%),
+        var(--bg);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 12px;
+    }
+    .card {
+      width: min(720px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: linear-gradient(155deg, var(--surface), #fff);
+      box-shadow: var(--shadow);
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+    }
+    .back {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 0.9rem;
+    }
+    h1 {
+      margin: 2px 0;
+      font: 800 clamp(1.5rem, 3.4vw, 2.2rem)/1.1 "Space Grotesk", sans-serif;
+    }
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+    label {
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #4a515c;
+      font-weight: 800;
+    }
+    input, textarea {
+      width: 100%;
+      min-height: 46px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 11px 12px;
+      font: 700 0.95rem/1.2 "Manrope", sans-serif;
+      background: #fff;
+      color: var(--ink);
+    }
+    textarea {
+      min-height: 140px;
+      resize: vertical;
+      line-height: 1.4;
+    }
+    .hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.4;
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      min-height: 44px;
+      padding: 10px 13px;
+      font: 800 0.9rem/1 "Manrope", sans-serif;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+    }
+    .status {
+      min-height: 1.3em;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .status.ok { color: #136a49; }
+    .status.error { color: #a52222; }
+  </style>
+</head>
+<body>
+  <section class="card">
+    <a class="back" href="/admin/locations/{{ .Location.Number }}">Back to Apps</a>
+    <h1>Admin Settings</h1>
+    <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})</p>
+
+    <div class="field">
+      <label for="employer_signature">Employer Representative Signature</label>
+      <input id="employer_signature" type="text" maxlength="120" value="{{ if .LocationSettings }}{{ .LocationSettings.EmployerRepSignature }}{{ end }}" placeholder="Example: Jane Smith, HR Manager">
+      <p class="hint">This value is automatically applied to I-9 and W-4 signatures. Paperwork dates are automatically set to today.</p>
+    </div>
+    <div class="field">
+      <label for="business_name">Business or Organization Name</label>
+      <input id="business_name" type="text" maxlength="160" value="{{ if .LocationSettings }}{{ .LocationSettings.BusinessName }}{{ end }}" placeholder="Example: Acme Foods LLC">
+    </div>
+    <div class="field">
+      <label for="business_street">Business Street Address</label>
+      <input id="business_street" type="text" maxlength="180" value="{{ if .LocationSettings }}{{ .LocationSettings.BusinessStreet }}{{ end }}" placeholder="Example: 123 Main St">
+    </div>
+    <div class="field">
+      <label for="business_city">Business City</label>
+      <input id="business_city" type="text" maxlength="100" value="{{ if .LocationSettings }}{{ .LocationSettings.BusinessCity }}{{ end }}" placeholder="Example: Springfield">
+    </div>
+    <div class="field">
+      <label for="business_state">Business State</label>
+      <input id="business_state" type="text" maxlength="60" value="{{ if .LocationSettings }}{{ .LocationSettings.BusinessState }}{{ end }}" placeholder="Example: IL">
+      <p class="hint">These values auto-fill I-9 employer business fields and the W-4 employer field.</p>
+    </div>
+
+    <div class="field">
+      <label for="departments">Departments (One Per Line)</label>
+      <textarea id="departments" placeholder="INIT&#10;FOH&#10;BOH">{{ if .LocationSettings }}{{ range .LocationSettings.Departments }}{{ . }}
+{{ end }}{{ end }}</textarea>
+      <p class="hint">Department names are uppercased automatically. INIT always exists and cannot be removed.</p>
+    </div>
+
+    <div class="row">
+      <button id="save-btn" class="btn" type="button">Save Settings</button>
+      <div id="status" class="status">{{ if .SuccessMessage }}{{ .SuccessMessage }}{{ end }}{{ if .Error }}{{ .Error }}{{ end }}</div>
+    </div>
+  </section>
+
+  <script>
+    (() => {
+      const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+      const locationNumber = "{{ .Location.Number }}";
+      const input = document.getElementById("employer_signature");
+      const businessNameInput = document.getElementById("business_name");
+      const businessStreetInput = document.getElementById("business_street");
+      const businessCityInput = document.getElementById("business_city");
+      const businessStateInput = document.getElementById("business_state");
+      const departmentsInput = document.getElementById("departments");
+      const saveBtn = document.getElementById("save-btn");
+      const status = document.getElementById("status");
+
+      function setStatus(text, kind) {
+        status.textContent = text;
+        status.className = "status" + (kind ? (" " + kind) : "");
+      }
+
+      saveBtn.addEventListener("click", async () => {
+        setStatus("", "");
+        saveBtn.disabled = true;
+        try {
+          const departments = (departmentsInput?.value || "")
+            .split(/\r?\n|,/)
+            .map((value) => value.trim())
+            .filter((value) => value !== "");
+          const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/settings`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": csrfToken
+            },
+            body: JSON.stringify({
+              employerRepSignature: (input.value || "").trim(),
+              businessName: (businessNameInput?.value || "").trim(),
+              businessStreet: (businessStreetInput?.value || "").trim(),
+              businessCity: (businessCityInput?.value || "").trim(),
+              businessState: (businessStateInput?.value || "").trim(),
+              departments
+            })
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(result.error || "Unable to save settings.");
+          }
+          setStatus("Settings saved.", "ok");
+        } catch (error) {
+          setStatus(error.message || "Unable to save settings.", "error");
+        } finally {
+          saveBtn.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

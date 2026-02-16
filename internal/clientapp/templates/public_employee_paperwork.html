@@ -1,0 +1,1059 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Employee Paperwork</title>
+  <style>
+    :root {
+      --bg: #f4f1ec;
+      --card: #ffffff;
+      --line: #e2d5c4;
+      --ink: #1f232a;
+      --muted: #68707b;
+      --accent: #b2472a;
+      --accent-dark: #913820;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 14px;
+      background: radial-gradient(50rem 25rem at 110% -10%, #f1d9bf 0, transparent 52%), var(--bg);
+      color: var(--ink);
+      font-family: "Manrope", "Segoe UI", sans-serif;
+    }
+    .card {
+      width: 100%;
+      max-width: 680px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px 16px 20px;
+      box-shadow: 0 12px 28px rgba(33, 28, 23, 0.08);
+    }
+    h1 {
+      margin: 0 0 4px;
+      font-size: clamp(1.3rem, 5vw, 1.65rem);
+      line-height: 1.15;
+    }
+    .sub {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .msg { margin: 0 0 10px; font-weight: 700; font-size: 0.9rem; }
+    .msg.error { color: #9f1e1e; }
+    .msg.ok { color: #186243; }
+    .required-legend {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .req {
+      color: #a52222;
+      font-weight: 900;
+      margin-left: 2px;
+    }
+    .completion-strip {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .completion-item {
+      border: 1px solid #d7c9b6;
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+    .completion-item.complete {
+      border-color: #91c6a7;
+      background: #ecf8f0;
+      color: #186243;
+    }
+    .completion-item.incomplete {
+      border-color: #e0c3a4;
+      background: #fff6eb;
+      color: #7b4a1e;
+    }
+    .completion-item .state {
+      font-size: 0.78rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .personal-card {
+      border: 1px solid #ecdcc8;
+      border-radius: 10px;
+      background: #fffaf3;
+      padding: 10px;
+      margin-bottom: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .personal-card h2 {
+      margin: 0;
+      font-size: 0.95rem;
+      letter-spacing: 0.02em;
+    }
+    .personal-grid {
+      display: grid;
+      gap: 10px;
+    }
+    @media (min-width: 720px) {
+      .personal-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    .switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .switch button {
+      border: 1px solid #d7c9b6;
+      border-radius: 10px;
+      min-height: 40px;
+      padding: 9px 10px;
+      background: #fff;
+      color: var(--ink);
+      font: 800 0.86rem/1 "Manrope", sans-serif;
+      cursor: pointer;
+    }
+    .switch button.active {
+      border-color: #c89161;
+      background: #fff3e5;
+    }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    form { display: grid; gap: 12px; }
+    .field {
+      display: grid;
+      gap: 7px;
+      margin: 0;
+    }
+    .label {
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #404854;
+      line-height: 1.25;
+      display: block;
+    }
+    input, select, textarea {
+      width: 100%;
+      min-height: 46px;
+      border: 1px solid #d7c9b6;
+      border-radius: 10px;
+      padding: 12px 12px;
+      font: 600 0.94rem/1.2 "Manrope", sans-serif;
+      background: #fffefc;
+      color: var(--ink);
+    }
+    .segment-row {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      gap: 6px;
+      align-items: center;
+    }
+    .segment-sep {
+      text-align: center;
+      color: var(--muted);
+      font-weight: 800;
+      user-select: none;
+    }
+    .segment {
+      text-align: center;
+      letter-spacing: 0.06em;
+    }
+    textarea {
+      min-height: 84px;
+      resize: vertical;
+      line-height: 1.35;
+    }
+    .signature-pad-shell {
+      border: 1px dashed #d7c9b6;
+      border-radius: 12px;
+      padding: 10px;
+      background: #fff9f2;
+      display: grid;
+      gap: 8px;
+    }
+    .signature-pad {
+      width: 100%;
+      height: 170px;
+      border: 1px solid #d7c9b6;
+      border-radius: 10px;
+      background: #fff;
+      touch-action: none;
+    }
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      min-height: 44px;
+      padding: 11px 13px;
+      background: var(--accent);
+      color: #fff;
+      font: 800 0.94rem/1 "Manrope", sans-serif;
+      cursor: pointer;
+    }
+    .btn:hover { background: var(--accent-dark); }
+    .btn.secondary {
+      border: 1px solid #d7c9b6;
+      background: #fff;
+      color: var(--ink);
+    }
+    .signature-status {
+      min-height: 18px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .instruction-card {
+      border: 1px solid #ecdcc8;
+      border-radius: 10px;
+      background: #fffaf3;
+      padding: 10px;
+      display: grid;
+      gap: 6px;
+    }
+    .instruction-title {
+      margin: 0;
+      font-size: 0.84rem;
+      font-weight: 900;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #4a515c;
+    }
+    .instruction-text {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+    .counter-row {
+      display: grid;
+      grid-template-columns: auto 48px auto;
+      align-items: center;
+      gap: 8px;
+      max-width: 220px;
+    }
+    .counter-btn {
+      min-height: 40px;
+      border: 1px solid #d7c9b6;
+      border-radius: 10px;
+      background: #fff;
+      color: var(--ink);
+      font: 900 1.05rem/1 "Manrope", sans-serif;
+      cursor: pointer;
+    }
+    .counter-value {
+      min-height: 40px;
+      border: 1px solid #d7c9b6;
+      border-radius: 10px;
+      background: #fffefc;
+      display: grid;
+      place-items: center;
+      font: 800 1rem/1 "Manrope", sans-serif;
+      color: var(--ink);
+    }
+    .total-value {
+      min-height: 46px;
+      border: 1px solid #d7c9b6;
+      border-radius: 10px;
+      background: #f7f3ed;
+      display: grid;
+      align-items: center;
+      padding: 12px;
+      font: 800 0.94rem/1.2 "Manrope", sans-serif;
+      color: var(--ink);
+    }
+    .doc-upload-grid {
+      border: 1px solid #ecdcc8;
+      border-radius: 10px;
+      background: #fffaf3;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .doc-upload-row {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 140px 1fr auto;
+      align-items: end;
+    }
+    .doc-remove-btn {
+      min-height: 46px;
+      border: 1px solid #d7c9b6;
+      border-radius: 10px;
+      background: #fff;
+      color: var(--ink);
+      font: 700 0.9rem/1 "Manrope", sans-serif;
+      padding: 0 12px;
+      cursor: pointer;
+    }
+    .panel.panel-grid { display: none; }
+    .panel.panel-grid.active {
+      display: grid;
+      gap: 12px;
+    }
+    .wizard-step {
+      display: grid;
+      gap: 12px;
+    }
+    @media (min-width: 720px) {
+      body { padding: 22px; }
+      .card { padding: 22px; }
+    }
+    @media (max-width: 680px) {
+      .doc-upload-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <section class="card">
+    <h1>Employee Paperwork</h1>
+    <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})<br>Employee: <strong>{{ .Employee.FirstName }} {{ .Employee.LastName }}</strong></p>
+    {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
+    {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
+    <p class="required-legend"><span class="req">*</span> Required fields</p>
+
+    <section class="completion-strip">
+      <div id="status-i9" class="completion-item incomplete">
+        <span>I-9</span>
+        <span class="state">Incomplete</span>
+      </div>
+      <div id="status-w4" class="completion-item incomplete">
+        <span>W-4</span>
+        <span class="state">Incomplete</span>
+      </div>
+      <div id="status-signature" class="completion-item incomplete">
+        <span>Signature</span>
+        <span class="state">Incomplete</span>
+      </div>
+    </section>
+
+    <div class="switch">
+      <button id="show-i9" type="button" class="active">I-9</button>
+      <button id="show-w4" type="button">W-4</button>
+      <button id="show-signature" type="button">Signature</button>
+    </div>
+
+    <form id="paperwork-form" method="post" action="/employee/paperwork/{{ .Token }}" enctype="multipart/form-data">
+      <input id="paperwork_target" type="hidden" name="paperwork_target" value="all">
+      <section id="panel-i9" class="panel panel-grid active">
+        <section class="personal-card">
+          <h2>I-9 Personal Info</h2>
+          <div class="personal-grid">
+            <div class="field"><label class="label" for="personal_first_name">First Name<span class="req">*</span></label><input id="personal_first_name" type="text" value="{{ .Employee.FirstName }}"></div>
+            <div class="field"><label class="label" for="personal_middle_initial">Middle Initial</label><input id="personal_middle_initial" type="text"></div>
+            <div class="field"><label class="label" for="personal_last_name">Last Name<span class="req">*</span></label><input id="personal_last_name" type="text" value="{{ .Employee.LastName }}"></div>
+            <div class="field">
+              <label class="label" for="personal_dob_month">Date of Birth<span class="req">*</span></label>
+              <input id="personal_dob" type="hidden">
+              <div class="segment-row">
+                <select id="personal_dob_month" class="segment">
+                  <option value="">MM</option>
+                </select>
+                <span class="segment-sep">/</span>
+                <select id="personal_dob_day" class="segment">
+                  <option value="">DD</option>
+                </select>
+                <span class="segment-sep">/</span>
+                <select id="personal_dob_year" class="segment">
+                  <option value="">YYYY</option>
+                </select>
+              </div>
+            </div>
+            <div class="field"><label class="label" for="personal_address">Street Address<span class="req">*</span></label><input id="personal_address" type="text"></div>
+            <div class="field"><label class="label" for="personal_apt">Apt Number</label><input id="personal_apt" type="text"></div>
+            <div class="field"><label class="label" for="personal_city">City<span class="req">*</span></label><input id="personal_city" type="text"></div>
+            <div class="field"><label class="label" for="personal_state">State<span class="req">*</span></label><input id="personal_state" type="text"></div>
+            <div class="field"><label class="label" for="personal_zip">ZIP Code<span class="req">*</span></label><input id="personal_zip" type="text"></div>
+            <div class="field"><label class="label" for="personal_email">Email<span class="req">*</span></label><input id="personal_email" type="email"></div>
+            <div class="field">
+              <label class="label" for="personal_phone_1">Phone<span class="req">*</span></label>
+              <input id="personal_phone" type="hidden">
+              <div class="segment-row">
+                <input id="personal_phone_1" class="segment" type="text" inputmode="numeric" maxlength="3" autocomplete="off">
+                <span class="segment-sep">-</span>
+                <input id="personal_phone_2" class="segment" type="text" inputmode="numeric" maxlength="3" autocomplete="off">
+                <span class="segment-sep">-</span>
+                <input id="personal_phone_3" class="segment" type="text" inputmode="numeric" maxlength="4" autocomplete="off">
+              </div>
+            </div>
+            <div class="field">
+              <label class="label" for="personal_ssn_1">SSN<span class="req">*</span></label>
+              <input id="personal_ssn" type="hidden">
+              <div class="segment-row">
+                <input id="personal_ssn_1" class="segment" type="text" inputmode="numeric" maxlength="3" autocomplete="off">
+                <span class="segment-sep">-</span>
+                <input id="personal_ssn_2" class="segment" type="text" inputmode="numeric" maxlength="2" autocomplete="off">
+                <span class="segment-sep">-</span>
+                <input id="personal_ssn_3" class="segment" type="text" inputmode="numeric" maxlength="4" autocomplete="off">
+              </div>
+            </div>
+            <div class="field">
+              <label class="label" for="i9_status">Citizenship/Immigration Status<span class="req">*</span></label>
+              <select id="i9_status" name="citizenship_status">
+                <option value="">Select Status</option>
+                <option value="citizen">A citizen of the United States</option>
+                <option value="noncitizen_national">A noncitizen national of the United States</option>
+                <option value="lpr">A lawful permanent resident</option>
+                <option value="alien_authorized">An alien authorized to work</option>
+              </select>
+            </div>
+          </div>
+          <section class="doc-upload-grid">
+            <p class="instruction-title" style="margin:0;">I-9 Supporting Documents<span class="req">*</span></p>
+            <p class="instruction-text">Upload at least one List A document, or one List B and one List C document. Accepted files: PDF, PNG, JPG, JPEG, WEBP. Images are converted to PDF automatically.</p>
+            <div id="i9-doc-rows"></div>
+            <div class="row" style="gap:8px;">
+              <button id="i9-add-doc-row" type="button" class="btn secondary">Add Another Document</button>
+            </div>
+          </section>
+        </section>
+      </section>
+
+      <section id="panel-signature" class="panel panel-grid">
+        <section class="wizard-step">
+        <p class="sub" style="margin:0;">Use your typed or drawn signature to sign all submitted paperwork.</p>
+        <input id="i9_last_name" type="hidden" name="last_name" value="{{ .Employee.LastName }}">
+        <input id="i9_first_name" type="hidden" name="first_name" value="{{ .Employee.FirstName }}">
+        <input id="i9_middle_initial" type="hidden" name="middle_initial">
+        <input id="i9_dob" type="hidden" name="date_of_birth">
+        <input id="i9_address" type="hidden" name="address">
+        <input id="i9_apt" type="hidden" name="apt_number">
+        <input id="i9_city" type="hidden" name="city">
+        <input id="i9_state" type="hidden" name="state">
+        <input id="i9_zip" type="hidden" name="zip_code">
+        <input id="i9_ssn" type="hidden" name="ssn">
+        <input id="i9_email" type="hidden" name="email">
+        <input id="i9_phone" type="hidden" name="phone">
+        <div class="field"><label class="label" for="i9_employee_signature">Signature (Typed)</label><input id="i9_employee_signature" type="text" name="employee_signature"></div>
+        <section class="signature-pad-shell">
+          <div class="label" style="text-transform:none;letter-spacing:0;font-size:0.86rem;">Digital Signature (Draw)</div>
+          <canvas id="i9-signature-pad" class="signature-pad" width="560" height="170"></canvas>
+          <input id="i9_employee_signature_drawn" type="hidden" name="employee_signature_drawn" value="">
+          <div class="button-row">
+            <button id="i9-signature-clear" type="button" class="btn secondary">Clear</button>
+          </div>
+          <div id="i9-signature-status" class="signature-status"></div>
+        </section>
+        </section>
+        <button id="paperwork-submit-btn" class="btn" type="submit">Submit Paperwork</button>
+      </section>
+
+      <section id="panel-w4" class="panel panel-grid">
+        <section class="wizard-step">
+        <p class="sub" style="margin:0;">Name, address, and SSN are pulled from Personal Info. Employer name and address are set by admin.</p>
+        <input id="w4_first_name_middle" type="hidden" name="first_name_middle" value="{{ .Employee.FirstName }}">
+        <input id="w4_last_name" type="hidden" name="last_name" value="{{ .Employee.LastName }}">
+        <input id="w4_address" type="hidden" name="address">
+        <input id="w4_city_state_zip" type="hidden" name="city_state_zip">
+        <input id="w4_ssn" type="hidden" name="ssn">
+        <input id="w4_employer_name_addr" type="hidden" name="employer_name_addr" value="">
+        <div class="field">
+          <label class="label" for="w4_filing_status">Filing Status<span class="req">*</span></label>
+          <select id="w4_filing_status" name="filing_status">
+            <option value="">Select Filing Status</option>
+            <option value="single">Single or Married filing separately</option>
+            <option value="married">Married filing jointly</option>
+            <option value="head">Head of household</option>
+          </select>
+        </div>
+        <div class="field"><label class="label" for="w4_multiple_jobs">Multiple jobs/spouse works</label><select id="w4_multiple_jobs" name="multiple_jobs"><option value="">No</option><option value="1">Yes</option></select></div>
+        <section class="instruction-card">
+          <p class="instruction-title">Step 3: Claim Dependents and Other Credits</p>
+          <p class="instruction-text">If your total income is $200,000 or less ($400,000 or less if married filing jointly):</p>
+          <p class="instruction-text">(a) Multiply the number of qualifying children under age 17 by $2,200 and enter the total amount.</p>
+          <p class="instruction-text">(b) Multiply the number of other dependents by $500 and enter the total amount.</p>
+          <p class="instruction-text">Add amounts from (a), (b), plus any other credits, then enter each applicable amount below.</p>
+        </section>
+        <input id="w4_dep_under17" type="hidden" name="dependents_under17" value="">
+        <input id="w4_other_dep" type="hidden" name="other_dependents" value="">
+        <div class="field">
+          <label class="label">Step 3(a) Qualifying Children Under 17 (Count)</label>
+          <div class="counter-row">
+            <button id="w4_dep_under17_dec" class="counter-btn" type="button" aria-label="Decrease qualifying children count">-</button>
+            <div id="w4_dep_under17_count" class="counter-value" aria-live="polite">0</div>
+            <button id="w4_dep_under17_inc" class="counter-btn" type="button" aria-label="Increase qualifying children count">+</button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="label">Step 3(a) Total ($2,200 x count)</label>
+          <div id="w4_dep_under17_total" class="total-value" aria-live="polite">$0</div>
+        </div>
+        <div class="field">
+          <label class="label">Step 3(b) Other Dependents (Count)</label>
+          <div class="counter-row">
+            <button id="w4_other_dep_dec" class="counter-btn" type="button" aria-label="Decrease other dependents count">-</button>
+            <div id="w4_other_dep_count" class="counter-value" aria-live="polite">0</div>
+            <button id="w4_other_dep_inc" class="counter-btn" type="button" aria-label="Increase other dependents count">+</button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="label">Step 3(b) Total ($500 x count)</label>
+          <div id="w4_other_dep_total" class="total-value" aria-live="polite">$0</div>
+        </div>
+        <div class="field"><label class="label" for="w4_other_income">Other income</label><input id="w4_other_income" type="text" name="other_income"></div>
+        <div class="field"><label class="label" for="w4_deductions">Deductions</label><input id="w4_deductions" type="text" name="deductions"></div>
+        <div class="field"><label class="label" for="w4_extra">Extra withholding per pay period</label><input id="w4_extra" type="text" name="extra_withholding"></div>
+        <div class="field"><label class="label" for="w4_exempt">Exempt</label><select id="w4_exempt" name="exempt"><option value="">No</option><option value="1">Yes</option></select></div>
+        </section>
+      </section>
+
+    </form>
+  </section>
+
+  <script>
+    (() => {
+      const i9Btn = document.getElementById("show-i9");
+      const w4Btn = document.getElementById("show-w4");
+      const signatureBtn = document.getElementById("show-signature");
+      const i9Panel = document.getElementById("panel-i9");
+      const w4Panel = document.getElementById("panel-w4");
+      const signaturePanel = document.getElementById("panel-signature");
+      const paperworkTarget = document.getElementById("paperwork_target");
+      const paperworkSubmitBtn = document.getElementById("paperwork-submit-btn");
+      const statusI9 = document.getElementById("status-i9");
+      const statusW4 = document.getElementById("status-w4");
+      const statusSignature = document.getElementById("status-signature");
+      let ink = false;
+      function hasText(id) {
+        return (document.getElementById(id)?.value || "").trim() !== "";
+      }
+      function hasSegmented(ids, lengths) {
+        return ids.every((id, idx) => digitsOnly(document.getElementById(id)?.value || "").length === lengths[idx]);
+      }
+      function setCompletionState(el, complete, missingCount) {
+        if (!el) return;
+        el.classList.toggle("complete", complete);
+        el.classList.toggle("incomplete", !complete);
+        const state = el.querySelector(".state");
+        if (!state) return;
+        state.textContent = complete ? "Complete" : `Missing ${missingCount}`;
+      }
+      function getI9Completion() {
+        let missing = 0;
+        if (!hasText("personal_first_name")) missing += 1;
+        if (!hasText("personal_last_name")) missing += 1;
+        if ((document.getElementById("personal_dob_month")?.value || "") === "") missing += 1;
+        if ((document.getElementById("personal_dob_day")?.value || "") === "") missing += 1;
+        if ((document.getElementById("personal_dob_year")?.value || "") === "") missing += 1;
+        if (!hasText("personal_address")) missing += 1;
+        if (!hasText("personal_city")) missing += 1;
+        if (!hasText("personal_state")) missing += 1;
+        if (!hasText("personal_zip")) missing += 1;
+        if (!hasText("personal_email")) missing += 1;
+        if (!hasSegmented(["personal_phone_1", "personal_phone_2", "personal_phone_3"], [3, 3, 4])) missing += 1;
+        if (!hasSegmented(["personal_ssn_1", "personal_ssn_2", "personal_ssn_3"], [3, 2, 4])) missing += 1;
+        if ((document.getElementById("i9_status")?.value || "") === "") missing += 1;
+        if (!hasText("i9_first_name")) missing += 1;
+        if (!hasText("i9_last_name")) missing += 1;
+        if (!hasText("i9_dob")) missing += 1;
+        if (!hasText("i9_address")) missing += 1;
+        if (!hasText("i9_city")) missing += 1;
+        if (!hasText("i9_state")) missing += 1;
+        if (!hasText("i9_zip")) missing += 1;
+        if (!hasText("i9_ssn")) missing += 1;
+        if (!hasText("i9_email")) missing += 1;
+        if (!hasText("i9_phone")) missing += 1;
+        const docCompletion = getI9DocumentCompletion();
+        if (!docCompletion.complete) missing += 1;
+        return { complete: missing === 0, missing };
+      }
+      function getI9DocumentCompletion() {
+        const rows = Array.from(document.querySelectorAll(".doc-upload-row"));
+        if (rows.length === 0) return { complete: false, reason: "Add at least one supporting document." };
+        let hasA = false;
+        let hasB = false;
+        let hasC = false;
+        let validRowCount = 0;
+        for (const row of rows) {
+          const listSelect = row.querySelector("select[name='i9_document_list[]']");
+          const fileInput = row.querySelector("input[name='i9_document_file[]']");
+          const list = (listSelect?.value || "").trim().toLowerCase();
+          const hasFile = (fileInput?.files?.length || 0) > 0;
+          if (!list && !hasFile) {
+            continue;
+          }
+          validRowCount += 1;
+          if (!list || !hasFile) {
+            return { complete: false, reason: "Each supporting document row must include a list and file." };
+          }
+          if (list === "a") hasA = true;
+          if (list === "b") hasB = true;
+          if (list === "c") hasC = true;
+        }
+        if (validRowCount === 0) {
+          return { complete: false, reason: "Upload at least one supporting document." };
+        }
+        if (hasA || (hasB && hasC)) {
+          return { complete: true, reason: "" };
+        }
+        return { complete: false, reason: "Upload one List A document, or both List B and List C documents." };
+      }
+      function getSignatureCompletion() {
+        let missing = 0;
+        const typedSig = hasText("i9_employee_signature");
+        const drawnSig = hasText("i9_employee_signature_drawn");
+        if (!typedSig && !drawnSig) missing += 1;
+        return { complete: missing === 0, missing };
+      }
+      function getW4Completion() {
+        let missing = 0;
+        if ((document.getElementById("w4_filing_status")?.value || "") === "") missing += 1;
+        return { complete: missing === 0, missing };
+      }
+      function updateCompletionStatus() {
+        const i9 = getI9Completion();
+        const w4 = getW4Completion();
+        const signature = getSignatureCompletion();
+        setCompletionState(statusI9, i9.complete, i9.missing);
+        setCompletionState(statusW4, w4.complete, w4.missing);
+        setCompletionState(statusSignature, signature.complete, signature.missing);
+      }
+      function show(panel) {
+        const i9Active = panel === "i9";
+        const w4Active = panel === "w4";
+        const signatureActive = panel === "signature";
+        i9Btn.classList.toggle("active", i9Active);
+        w4Btn.classList.toggle("active", w4Active);
+        if (signatureBtn) signatureBtn.classList.toggle("active", signatureActive);
+        i9Panel.classList.toggle("active", i9Active);
+        w4Panel.classList.toggle("active", w4Active);
+        if (signaturePanel) signaturePanel.classList.toggle("active", signatureActive);
+        if (paperworkTarget) paperworkTarget.value = "all";
+        if (paperworkSubmitBtn) {
+          paperworkSubmitBtn.style.display = signatureActive ? "" : "none";
+        }
+        updateCompletionStatus();
+      }
+      i9Btn.addEventListener("click", () => show("i9"));
+      w4Btn.addEventListener("click", () => show("w4"));
+      if (signatureBtn) signatureBtn.addEventListener("click", () => show("signature"));
+      show("i9");
+
+      const i9DocRows = document.getElementById("i9-doc-rows");
+      const i9AddDocRowBtn = document.getElementById("i9-add-doc-row");
+      function buildI9DocRow() {
+        const row = document.createElement("div");
+        row.className = "doc-upload-row";
+        row.innerHTML = `
+          <div class="field">
+            <label class="label">Document List<span class="req">*</span></label>
+            <select name="i9_document_list[]">
+              <option value="">Choose</option>
+              <option value="a">List A</option>
+              <option value="b">List B</option>
+              <option value="c">List C</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="label">Document File<span class="req">*</span></label>
+            <input name="i9_document_file[]" type="file" accept=".pdf,image/png,image/jpeg,image/webp,application/pdf">
+          </div>
+          <button type="button" class="doc-remove-btn">Remove</button>
+        `;
+        const select = row.querySelector("select[name='i9_document_list[]']");
+        const file = row.querySelector("input[name='i9_document_file[]']");
+        const removeBtn = row.querySelector(".doc-remove-btn");
+        select?.addEventListener("change", updateCompletionStatus);
+        file?.addEventListener("change", updateCompletionStatus);
+        removeBtn?.addEventListener("click", () => {
+          row.remove();
+          if (i9DocRows && i9DocRows.children.length === 0) {
+            i9DocRows.appendChild(buildI9DocRow());
+          }
+          updateCompletionStatus();
+        });
+        return row;
+      }
+      function addI9DocRow() {
+        if (!i9DocRows) return;
+        i9DocRows.appendChild(buildI9DocRow());
+        updateCompletionStatus();
+      }
+      if (i9DocRows && i9DocRows.children.length === 0) {
+        addI9DocRow();
+      }
+      i9AddDocRowBtn?.addEventListener("click", addI9DocRow);
+
+      function digitsOnly(value) {
+        return (value || "").replace(/\D+/g, "");
+      }
+      function splitToSegments(value, lengths) {
+        const d = digitsOnly(value);
+        const parts = [];
+        let cursor = 0;
+        lengths.forEach((len) => {
+          parts.push(d.slice(cursor, cursor + len));
+          cursor += len;
+        });
+        return parts;
+      }
+      function setSegmentValues(ids, values) {
+        ids.forEach((id, idx) => {
+          const el = document.getElementById(id);
+          if (el) el.value = values[idx] || "";
+        });
+      }
+      function personalValue(id) {
+        return document.getElementById(id)?.value.trim() || "";
+      }
+      function segmentedValue(ids, separator = "-") {
+        return ids
+          .map((id) => digitsOnly(document.getElementById(id)?.value || ""))
+          .filter((part) => part !== "")
+          .join(separator);
+      }
+      function setupSegmentedInputs(ids) {
+        const inputs = ids.map((id) => document.getElementById(id)).filter(Boolean);
+        inputs.forEach((input, index) => {
+          input.addEventListener("input", () => {
+            input.value = digitsOnly(input.value).slice(0, Number(input.maxLength || 32));
+            if (input.value.length === Number(input.maxLength || 0) && inputs[index + 1]) {
+              inputs[index + 1].focus();
+            }
+            updateCompletionStatus();
+          });
+          input.addEventListener("keydown", (event) => {
+            if (event.key === "Backspace" && input.value === "" && inputs[index - 1]) {
+              inputs[index - 1].focus();
+            }
+          });
+        });
+      }
+      function parseWholeNumber(value) {
+        const num = Number.parseInt(String(value || "").trim(), 10);
+        if (!Number.isFinite(num) || num < 0) return 0;
+        return num;
+      }
+      function formatMoney(value) {
+        return `$${value.toLocaleString("en-US")}`;
+      }
+      function updateW4DependentTotals() {
+        const under17CountLabel = document.getElementById("w4_dep_under17_count");
+        const otherCountLabel = document.getElementById("w4_other_dep_count");
+        const under17TotalLabel = document.getElementById("w4_dep_under17_total");
+        const otherTotalLabel = document.getElementById("w4_other_dep_total");
+        const under17Hidden = document.getElementById("w4_dep_under17");
+        const otherHidden = document.getElementById("w4_other_dep");
+        if (!under17CountLabel || !otherCountLabel || !under17TotalLabel || !otherTotalLabel || !under17Hidden || !otherHidden) {
+          return;
+        }
+        const under17Count = parseWholeNumber(under17CountLabel.textContent);
+        const otherCount = parseWholeNumber(otherCountLabel.textContent);
+        const under17Total = under17Count * 2200;
+        const otherTotal = otherCount * 500;
+        under17TotalLabel.textContent = formatMoney(under17Total);
+        otherTotalLabel.textContent = formatMoney(otherTotal);
+        under17Hidden.value = under17Total > 0 ? String(under17Total) : "";
+        otherHidden.value = otherTotal > 0 ? String(otherTotal) : "";
+      }
+      setupSegmentedInputs(["personal_phone_1", "personal_phone_2", "personal_phone_3"]);
+      setupSegmentedInputs(["personal_ssn_1", "personal_ssn_2", "personal_ssn_3"]);
+      function adjustDependentCount(countId, delta) {
+        const el = document.getElementById(countId);
+        if (!el) return;
+        const current = parseWholeNumber(el.textContent);
+        const next = Math.max(0, Math.min(999, current + delta));
+        el.textContent = String(next);
+        updateW4DependentTotals();
+        updateCompletionStatus();
+      }
+      document.getElementById("w4_dep_under17_inc")?.addEventListener("click", () => {
+        adjustDependentCount("w4_dep_under17_count", 1);
+      });
+      document.getElementById("w4_dep_under17_dec")?.addEventListener("click", () => {
+        adjustDependentCount("w4_dep_under17_count", -1);
+      });
+      document.getElementById("w4_other_dep_inc")?.addEventListener("click", () => {
+        adjustDependentCount("w4_other_dep_count", 1);
+      });
+      document.getElementById("w4_other_dep_dec")?.addEventListener("click", () => {
+        adjustDependentCount("w4_other_dep_count", -1);
+      });
+      updateW4DependentTotals();
+
+      const personalFields = [
+        "personal_first_name", "personal_middle_initial", "personal_last_name",
+        "personal_address", "personal_apt", "personal_city", "personal_state", "personal_zip", "personal_email"
+      ];
+      const personalDOBSegments = ["personal_dob_month", "personal_dob_day", "personal_dob_year"];
+      const personalPhoneSegments = ["personal_phone_1", "personal_phone_2", "personal_phone_3"];
+      const personalSSNSegments = ["personal_ssn_1", "personal_ssn_2", "personal_ssn_3"];
+      const personalDOBMonth = document.getElementById("personal_dob_month");
+      const personalDOBDay = document.getElementById("personal_dob_day");
+      const personalDOBYear = document.getElementById("personal_dob_year");
+      function pad2(value) {
+        return String(value).padStart(2, "0");
+      }
+      function daysInMonth(month, year) {
+        const m = Number(month);
+        const y = Number(year);
+        if (!Number.isFinite(m) || m < 1 || m > 12) return 31;
+        if (!Number.isFinite(y) || y < 1) return new Date(2024, m, 0).getDate();
+        return new Date(y, m, 0).getDate();
+      }
+      function populateDOBDropdowns() {
+        if (!personalDOBMonth || !personalDOBDay || !personalDOBYear) return;
+        for (let month = 1; month <= 12; month += 1) {
+          const option = document.createElement("option");
+          option.value = pad2(month);
+          option.textContent = pad2(month);
+          personalDOBMonth.appendChild(option);
+        }
+        const currentYear = new Date().getFullYear();
+        for (let year = currentYear; year >= 1900; year -= 1) {
+          const option = document.createElement("option");
+          option.value = String(year);
+          option.textContent = String(year);
+          personalDOBYear.appendChild(option);
+        }
+      }
+      function rebuildDOBDayOptions() {
+        if (!personalDOBDay || !personalDOBMonth || !personalDOBYear) return;
+        const selected = personalDOBDay.value;
+        const maxDays = daysInMonth(personalDOBMonth.value, personalDOBYear.value);
+        personalDOBDay.innerHTML = "";
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "DD";
+        personalDOBDay.appendChild(placeholder);
+        for (let day = 1; day <= maxDays; day += 1) {
+          const option = document.createElement("option");
+          option.value = pad2(day);
+          option.textContent = pad2(day);
+          personalDOBDay.appendChild(option);
+        }
+        if (selected !== "" && Number(selected) <= maxDays) {
+          personalDOBDay.value = selected;
+        }
+      }
+      populateDOBDropdowns();
+      rebuildDOBDayOptions();
+      function syncPersonalInfoToForms() {
+        const firstName = personalValue("personal_first_name");
+        const middleInitial = personalValue("personal_middle_initial");
+        const lastName = personalValue("personal_last_name");
+        const dob = segmentedValue(personalDOBSegments, "/");
+        const address = personalValue("personal_address");
+        const apt = personalValue("personal_apt");
+        const city = personalValue("personal_city");
+        const state = personalValue("personal_state");
+        const zip = personalValue("personal_zip");
+        const email = personalValue("personal_email");
+        const phone = segmentedValue(personalPhoneSegments);
+        const ssn = segmentedValue(personalSSNSegments);
+        const personalDOBHidden = document.getElementById("personal_dob");
+        const personalPhoneHidden = document.getElementById("personal_phone");
+        const personalSSNHidden = document.getElementById("personal_ssn");
+        if (personalDOBHidden) personalDOBHidden.value = dob;
+        if (personalPhoneHidden) personalPhoneHidden.value = phone;
+        if (personalSSNHidden) personalSSNHidden.value = ssn;
+
+        const i9First = document.getElementById("i9_first_name");
+        const i9Middle = document.getElementById("i9_middle_initial");
+        const i9Last = document.getElementById("i9_last_name");
+        const i9Dob = document.getElementById("i9_dob");
+        const i9Address = document.getElementById("i9_address");
+        const i9Apt = document.getElementById("i9_apt");
+        const i9City = document.getElementById("i9_city");
+        const i9State = document.getElementById("i9_state");
+        const i9Zip = document.getElementById("i9_zip");
+        const i9Email = document.getElementById("i9_email");
+        const i9Phone = document.getElementById("i9_phone");
+        const i9SSN = document.getElementById("i9_ssn");
+        if (i9First) i9First.value = firstName;
+        if (i9Middle) i9Middle.value = middleInitial;
+        if (i9Last) i9Last.value = lastName;
+        if (i9Dob) i9Dob.value = dob;
+        if (i9Address) i9Address.value = address;
+        if (i9Apt) i9Apt.value = apt;
+        if (i9City) i9City.value = city;
+        if (i9State) i9State.value = state;
+        if (i9Zip) i9Zip.value = zip;
+        if (i9Email) i9Email.value = email;
+        if (i9Phone) i9Phone.value = phone;
+        if (i9SSN) i9SSN.value = ssn;
+
+        const w4FirstMiddle = document.getElementById("w4_first_name_middle");
+        const w4Last = document.getElementById("w4_last_name");
+        const w4Address = document.getElementById("w4_address");
+        const w4CityStateZip = document.getElementById("w4_city_state_zip");
+        if (w4FirstMiddle) {
+          const middle = middleInitial === "" ? "" : ` ${middleInitial}`;
+          w4FirstMiddle.value = `${firstName}${middle}`.trim();
+        }
+        if (w4Last) w4Last.value = lastName;
+        if (w4Address) w4Address.value = apt === "" ? address : `${address}, Apt ${apt}`;
+        if (w4CityStateZip) {
+          const cityState = [city, state].filter(Boolean).join(", ");
+          w4CityStateZip.value = [cityState, zip].filter(Boolean).join(" ");
+        }
+        const w4SSN = document.getElementById("w4_ssn");
+        if (w4SSN) w4SSN.value = ssn;
+        updateCompletionStatus();
+      }
+      personalFields.forEach((id) => {
+        const input = document.getElementById(id);
+        if (!input) return;
+        input.addEventListener("input", () => {
+          syncPersonalInfoToForms();
+          updateCompletionStatus();
+        });
+      });
+      [...personalDOBSegments, ...personalPhoneSegments, ...personalSSNSegments].forEach((id) => {
+        const input = document.getElementById(id);
+        if (!input) return;
+        if (personalDOBSegments.includes(id)) {
+          input.addEventListener("change", () => {
+            if (id === "personal_dob_month" || id === "personal_dob_year") {
+              rebuildDOBDayOptions();
+            }
+            syncPersonalInfoToForms();
+            updateCompletionStatus();
+          });
+          return;
+        }
+        input.addEventListener("input", () => {
+          syncPersonalInfoToForms();
+          updateCompletionStatus();
+        });
+      });
+      syncPersonalInfoToForms();
+
+      const canvas = document.getElementById("i9-signature-pad");
+      const clearBtn = document.getElementById("i9-signature-clear");
+      const hidden = document.getElementById("i9_employee_signature_drawn");
+      const textSig = document.getElementById("i9_employee_signature");
+      const status = document.getElementById("i9-signature-status");
+      if (!canvas || !clearBtn || !hidden || !textSig) return;
+      const ctx = canvas.getContext("2d");
+      let drawing = false;
+      let lastX = 0;
+      let lastY = 0;
+      function buildSignatureName() {
+        const first = (document.getElementById("personal_first_name")?.value || "").trim();
+        const last = (document.getElementById("personal_last_name")?.value || "").trim();
+        return `${first} ${last}`.trim();
+      }
+      function pos(event) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: ((event.clientX - rect.left) * canvas.width) / rect.width,
+          y: ((event.clientY - rect.top) * canvas.height) / rect.height
+        };
+      }
+      canvas.addEventListener("pointerdown", (event) => {
+        drawing = true;
+        const p = pos(event);
+        lastX = p.x;
+        lastY = p.y;
+        canvas.setPointerCapture(event.pointerId);
+        event.preventDefault();
+      });
+      canvas.addEventListener("pointermove", (event) => {
+        if (!drawing) return;
+        const p = pos(event);
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = 2.4;
+        ctx.strokeStyle = "#1f232a";
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        lastX = p.x;
+        lastY = p.y;
+        ink = true;
+        event.preventDefault();
+      });
+      const stopDraw = () => { drawing = false; };
+      canvas.addEventListener("pointerup", stopDraw);
+      canvas.addEventListener("pointercancel", stopDraw);
+      canvas.addEventListener("pointerup", () => {
+        if (!ink) return;
+        hidden.value = canvas.toDataURL("image/png");
+        if (textSig.value.trim() === "") {
+          const fallbackName = buildSignatureName();
+          if (fallbackName !== "") {
+            textSig.value = fallbackName;
+          }
+        }
+        if (status) status.textContent = "Drawn signature will be submitted automatically.";
+        updateCompletionStatus();
+      });
+      clearBtn.addEventListener("click", () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ink = false;
+        hidden.value = "";
+        if (status) status.textContent = "Signature cleared.";
+        updateCompletionStatus();
+      });
+      textSig.addEventListener("input", updateCompletionStatus);
+      document.getElementById("i9_status")?.addEventListener("change", updateCompletionStatus);
+      document.getElementById("w4_filing_status")?.addEventListener("change", updateCompletionStatus);
+      [
+        "w4_filing_status", "w4_multiple_jobs", "w4_other_income", "w4_deductions", "w4_extra", "w4_exempt"
+      ].forEach((id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener("input", updateCompletionStatus);
+      });
+      document.getElementById("paperwork-form").addEventListener("submit", (event) => {
+        syncPersonalInfoToForms();
+        if (ink && hidden.value === "") {
+          hidden.value = canvas.toDataURL("image/png");
+          if (textSig.value.trim() === "") {
+            const fallbackName = buildSignatureName();
+            if (fallbackName !== "") {
+              textSig.value = fallbackName;
+            }
+          }
+        }
+        if (paperworkTarget) paperworkTarget.value = "all";
+        updateW4DependentTotals();
+        const i9Completion = getI9Completion();
+        const w4Completion = getW4Completion();
+        const signatureCompletion = getSignatureCompletion();
+        const i9DocCompletion = getI9DocumentCompletion();
+        if (!i9Completion.complete || !w4Completion.complete || !signatureCompletion.complete) {
+          event.preventDefault();
+          const parts = [];
+          if (!i9Completion.complete) parts.push(`I-9 (${i9Completion.missing} remaining)`);
+          if (!w4Completion.complete) parts.push(`W-4 (${w4Completion.missing} remaining)`);
+          if (!signatureCompletion.complete) parts.push(`Signature (${signatureCompletion.missing} remaining)`);
+          let msg = `Please complete required fields in: ${parts.join(", ")}.`;
+          if (!i9DocCompletion.complete && i9DocCompletion.reason) {
+            msg += `\n\nI-9 documents: ${i9DocCompletion.reason}`;
+          }
+          window.alert(msg);
+          return;
+        }
+        updateCompletionStatus();
+      });
+    })();
+  </script>
+</body>
+</html>

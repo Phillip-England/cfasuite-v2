@@ -65,6 +65,17 @@
       background: #fffefc;
       color: var(--ink);
     }
+    textarea {
+      width: 100%;
+      min-height: 88px;
+      border: 1px solid #d7c9b6;
+      border-radius: 10px;
+      padding: 10px 11px;
+      font: 600 0.94rem/1.35 "Manrope", sans-serif;
+      background: #fffefc;
+      color: var(--ink);
+      resize: vertical;
+    }
     .search-note {
       margin: -1px 0 2px;
       color: var(--muted);
@@ -134,6 +145,12 @@
         <input id="time_out" type="time" name="time_out" required>
       </div>
 
+      <div class="field">
+        <label class="label" for="note">Note (Optional)</label>
+        <textarea id="note" name="note" maxlength="255" rows="4" placeholder="Add a quick note about this correction (max 255 characters)."></textarea>
+        <p class="search-note"><span id="note_count">0</span>/255</p>
+      </div>
+
       <button class="submit-btn" type="submit">Submit Correction</button>
     </form>
   </section>
@@ -190,6 +207,17 @@
           filterOptions();
         }
       });
+
+      const noteInput = document.getElementById("note");
+      const noteCount = document.getElementById("note_count");
+      if (noteInput && noteCount) {
+        const syncCount = () => {
+          noteCount.textContent = String(noteInput.value.length);
+        };
+        noteInput.addEventListener("input", syncCount);
+        syncCount();
+      }
+
       filterOptions();
     })();
   </script>

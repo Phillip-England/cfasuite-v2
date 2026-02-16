@@ -45,6 +45,7 @@
       <div class="link-row">
         <input id="punch-link" type="text" readonly value="{{ .TimePunchLink }}">
         <button id="copy-btn" type="button">Copy Link</button>
+        <button id="open-btn" type="button">Open Form</button>
       </div>
     </section>
 
@@ -57,6 +58,7 @@
             <th>Date</th>
             <th>Time In</th>
             <th>Time Out</th>
+            <th>Note</th>
             <th>Action</th>
           </tr>
         </thead>
@@ -69,6 +71,7 @@
                 <td>{{ .PunchDate }}</td>
                 <td>{{ .TimeIn }}</td>
                 <td>{{ .TimeOut }}</td>
+                <td>{{ .Note }}</td>
                 <td>
                   <form method="post" action="/admin/locations/{{ $.Location.Number }}/time-punch/{{ .ID }}/delete" onsubmit="return confirm('Delete this time punch entry?');">
                     <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
@@ -78,7 +81,7 @@
               </tr>
             {{ end }}
           {{ else }}
-            <tr><td colspan="6">No time punch corrections submitted yet.</td></tr>
+            <tr><td colspan="7">No time punch corrections submitted yet.</td></tr>
           {{ end }}
         </tbody>
       </table>
@@ -86,6 +89,7 @@
   </section>
   <script>
     const copyBtn = document.getElementById("copy-btn");
+    const openBtn = document.getElementById("open-btn");
     const linkInput = document.getElementById("punch-link");
     copyBtn.addEventListener("click", async () => {
       try {
@@ -96,6 +100,11 @@
         linkInput.select();
         document.execCommand("copy");
       }
+    });
+    openBtn.addEventListener("click", () => {
+      const target = (linkInput.value || "").trim();
+      if (!target) return;
+      window.location.href = target;
     });
   </script>
   <style>

@@ -66,6 +66,8 @@ type pageData struct {
 	Departments             []string
 	SuccessMessage          string
 	UploadLink              string
+	EmployeePaperworkLink   string
+	LocationSettings        *locationSettingsView
 	TimePunchLink           string
 	TimeOffLink             string
 	UniformLink             string
@@ -106,6 +108,7 @@ type employeeI9DocumentView struct {
 	ID             int64  `json:"id"`
 	LocationNumber string `json:"locationNumber"`
 	TimePunchName  string `json:"timePunchName"`
+	ListType       string `json:"listType"`
 	FileName       string `json:"fileName"`
 	FileMime       string `json:"fileMime"`
 	CreatedAt      string `json:"createdAt"`
@@ -162,6 +165,22 @@ type publicPhotoTokenResponse struct {
 	ExpiresAt      string `json:"expiresAt"`
 }
 
+type publicPaperworkTokenResponse struct {
+	LocationNumber string `json:"locationNumber"`
+	LocationName   string `json:"locationName"`
+	TimePunchName  string `json:"timePunchName"`
+	FirstName      string `json:"firstName"`
+	LastName       string `json:"lastName"`
+	ExpiresAt      string `json:"expiresAt"`
+}
+
+type publicPaperworkSubmitResponse struct {
+	Message        string `json:"message"`
+	AllSubmitted   bool   `json:"allSubmitted"`
+	LocationNumber string `json:"locationNumber"`
+	TimePunchName  string `json:"timePunchName"`
+}
+
 type authTokenResponse struct {
 	CSRFToken string `json:"csrfToken"`
 }
@@ -172,6 +191,7 @@ type timePunchEntryView struct {
 	PunchDate     string `json:"punchDate"`
 	TimeIn        string `json:"timeIn"`
 	TimeOut       string `json:"timeOut"`
+	Note          string `json:"note"`
 	CreatedAt     string `json:"createdAt"`
 }
 
@@ -290,6 +310,25 @@ type uniformLinkResponse struct {
 	Token string `json:"token"`
 }
 
+type locationSettingsView struct {
+	EmployerRepSignature string   `json:"employerRepSignature"`
+	BusinessName         string   `json:"businessName"`
+	BusinessStreet       string   `json:"businessStreet"`
+	BusinessCity         string   `json:"businessCity"`
+	BusinessState        string   `json:"businessState"`
+	BusinessAddress      string   `json:"businessAddress"`
+	W4EmployerName       string   `json:"w4EmployerName"`
+	W4EmployerStreet     string   `json:"w4EmployerStreet"`
+	W4EmployerCity       string   `json:"w4EmployerCity"`
+	W4EmployerState      string   `json:"w4EmployerState"`
+	W4EmployerAddress    string   `json:"w4EmployerAddress"`
+	Departments          []string `json:"departments"`
+}
+
+type locationSettingsResponse struct {
+	Settings locationSettingsView `json:"settings"`
+}
+
 type publicUniformOrderResponse struct {
 	LocationNumber string            `json:"locationNumber"`
 	LocationName   string            `json:"locationName"`
@@ -302,7 +341,7 @@ type updateBusinessDayRequest struct {
 	LaborHours string `json:"laborHours"`
 }
 
-//go:embed templates/admin.html templates/login.html templates/location_apps.html templates/location.html templates/archived_employees.html templates/time_punch.html templates/time_off.html templates/business_days.html templates/business_day.html templates/employee.html templates/uniforms.html templates/uniform_orders_archived.html templates/uniform_item.html templates/public_photo_upload.html templates/public_time_punch.html templates/public_time_off.html templates/public_uniform_order.html templates/public_uniform_order_item.html
+//go:embed templates/admin.html templates/login.html templates/location_apps.html templates/location.html templates/location_settings.html templates/archived_employees.html templates/time_punch.html templates/time_off.html templates/business_days.html templates/business_day.html templates/employee.html templates/uniforms.html templates/uniform_orders_archived.html templates/uniform_item.html templates/public_photo_upload.html templates/public_employee_paperwork.html templates/public_time_punch.html templates/public_time_off.html templates/public_uniform_order.html templates/public_uniform_order_item.html
 var templatesFS embed.FS
 
 type server struct {
@@ -312,6 +351,7 @@ type server struct {
 	loginTmpl             *template.Template
 	locationAppsTmpl      *template.Template
 	locationTmpl          *template.Template
+	locationSettingsTmpl  *template.Template
 	archivedEmployeesTmpl *template.Template
 	timePunchTmpl         *template.Template
 	timeOffTmpl           *template.Template
@@ -322,6 +362,7 @@ type server struct {
 	uniformArchivedTmpl   *template.Template
 	uniformItemTmpl       *template.Template
 	publicUploadTmpl      *template.Template
+	publicPaperworkTmpl   *template.Template
 	publicTimePunchTmpl   *template.Template
 	publicTimeOffTmpl     *template.Template
 	publicUniformTmpl     *template.Template
@@ -347,6 +388,7 @@ func Run(ctx context.Context, cfg Config) error {
 		loginTmpl:             template.Must(template.ParseFS(templatesFS, "templates/login.html")),
 		locationAppsTmpl:      template.Must(template.ParseFS(templatesFS, "templates/location_apps.html")),
 		locationTmpl:          template.Must(template.ParseFS(templatesFS, "templates/location.html")),
+		locationSettingsTmpl:  template.Must(template.ParseFS(templatesFS, "templates/location_settings.html")),
 		archivedEmployeesTmpl: template.Must(template.ParseFS(templatesFS, "templates/archived_employees.html")),
 		timePunchTmpl:         template.Must(template.ParseFS(templatesFS, "templates/time_punch.html")),
 		timeOffTmpl:           template.Must(template.ParseFS(templatesFS, "templates/time_off.html")),
@@ -357,6 +399,7 @@ func Run(ctx context.Context, cfg Config) error {
 		uniformArchivedTmpl:   template.Must(template.ParseFS(templatesFS, "templates/uniform_orders_archived.html")),
 		uniformItemTmpl:       template.Must(template.ParseFS(templatesFS, "templates/uniform_item.html")),
 		publicUploadTmpl:      template.Must(template.ParseFS(templatesFS, "templates/public_photo_upload.html")),
+		publicPaperworkTmpl:   template.Must(template.ParseFS(templatesFS, "templates/public_employee_paperwork.html")),
 		publicTimePunchTmpl:   template.Must(template.ParseFS(templatesFS, "templates/public_time_punch.html")),
 		publicTimeOffTmpl:     template.Must(template.ParseFS(templatesFS, "templates/public_time_off.html")),
 		publicUniformTmpl:     template.Must(template.ParseFS(templatesFS, "templates/public_uniform_order.html")),
@@ -375,6 +418,7 @@ func Run(ctx context.Context, cfg Config) error {
 	mux.Handle("/assets/i9-template.pdf", middleware.Chain(http.HandlerFunc(s.i9TemplateFile), s.requireAdmin))
 	mux.Handle("/assets/w4-template.pdf", middleware.Chain(http.HandlerFunc(s.w4TemplateFile), s.requireAdmin))
 	mux.Handle("/employee/photo-upload/", http.HandlerFunc(s.publicPhotoUploadRoutes))
+	mux.Handle("/employee/paperwork/", http.HandlerFunc(s.publicEmployeePaperworkRoutes))
 	mux.Handle("/time-punch/", http.HandlerFunc(s.publicTimePunchRoutes))
 	mux.Handle("/time-off/", http.HandlerFunc(s.publicTimeOffRoutes))
 	mux.Handle("/uniform-order/", http.HandlerFunc(s.publicUniformOrderRoutes))
@@ -651,6 +695,10 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if r.Method == http.MethodPut {
+		if locationNumber, ok := parseLocationSettingsPath(r.URL.Path); ok {
+			s.updateLocationSettingsProxy(w, r, locationNumber)
+			return
+		}
 		if locationNumber, businessDate, ok := parseLocationBusinessDayDetailPath(r.URL.Path); ok {
 			s.updateBusinessDayProxy(w, r, locationNumber, businessDate)
 			return
@@ -658,6 +706,10 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.Contains(r.URL.Path, "/employees/") && strings.HasSuffix(r.URL.Path, "/photo-link") {
 		s.createEmployeePhotoLinkProxy(w, r)
+		return
+	}
+	if strings.Contains(r.URL.Path, "/employees/") && strings.HasSuffix(r.URL.Path, "/paperwork-link") {
+		s.createEmployeePaperworkLinkProxy(w, r)
 		return
 	}
 	if strings.Contains(r.URL.Path, "/employees/") && strings.HasSuffix(r.URL.Path, "/i9/file") {
@@ -731,6 +783,10 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 			s.locationBusinessDaysPage(w, r, locationNumber)
 			return
 		}
+		if locationNumber, ok := parseLocationSettingsPath(r.URL.Path); ok {
+			s.locationSettingsPage(w, r, locationNumber)
+			return
+		}
 		if locationNumber, businessDate, ok := parseLocationBusinessDayDetailPath(r.URL.Path); ok {
 			s.locationBusinessDayPage(w, r, locationNumber, businessDate)
 			return
@@ -767,17 +823,50 @@ func (s *server) locationEmployeesPage(w http.ResponseWriter, r *http.Request, l
 		http.Error(w, "unable to load location employees", http.StatusBadGateway)
 		return
 	}
+	settings, err := s.fetchLocationSettings(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load location settings", http.StatusBadGateway)
+		return
+	}
 
 	if err := renderHTMLTemplate(w, s.locationTmpl, pageData{
 		Location:       location,
 		CSRF:           csrfToken,
 		Employees:      employees,
-		Departments:    departmentOptions(),
+		Departments:    normalizeDepartments(settings.Departments),
 		SuccessMessage: r.URL.Query().Get("message"),
 		Error:          r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("location template render failed: %v", err)
+	}
+}
+
+func (s *server) locationSettingsPage(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	location, err := s.fetchLocation(r, locationNumber)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil {
+		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
+		return
+	}
+	settings, err := s.fetchLocationSettings(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load location settings", http.StatusBadGateway)
+		return
+	}
+	if err := renderHTMLTemplate(w, s.locationSettingsTmpl, pageData{
+		Location:         location,
+		CSRF:             csrfToken,
+		LocationSettings: settings,
+		SuccessMessage:   r.URL.Query().Get("message"),
+		Error:            r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("location settings template render failed: %v", err)
 	}
 }
 
@@ -793,6 +882,23 @@ func (s *server) publicPhotoUploadRoutes(w http.ResponseWriter, r *http.Request)
 		s.publicPhotoUploadPage(w, r, token)
 	case http.MethodPost:
 		s.publicPhotoUploadSubmit(w, r, token)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *server) publicEmployeePaperworkRoutes(w http.ResponseWriter, r *http.Request) {
+	pathTail := strings.TrimPrefix(r.URL.Path, "/employee/paperwork/")
+	pathTail = strings.TrimSpace(strings.Trim(pathTail, "/"))
+	if pathTail == "" {
+		http.NotFound(w, r)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		s.publicEmployeePaperworkPage(w, r, pathTail)
+	case http.MethodPost:
+		s.publicEmployeePaperworkSubmit(w, r, pathTail)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -900,23 +1006,29 @@ func (s *server) employeeDetailPage(w http.ResponseWriter, r *http.Request, loca
 		http.Error(w, "unable to load employee w4 records", http.StatusBadGateway)
 		return
 	}
+	settings, err := s.fetchLocationSettings(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load location settings", http.StatusBadGateway)
+		return
+	}
 	paperworkSections := []paperworkSectionView{
 		{Type: "i9", Label: "I-9", HasDocuments: true, Form: i9, Documents: docs},
 		{Type: "w4", Label: "W-4", HasDocuments: false, Form: w4, Documents: nil},
 	}
 
 	if err := renderHTMLTemplate(w, s.employeeTmpl, pageData{
-		CSRF:                csrfToken,
-		Location:            location,
-		Employee:            employee,
-		Departments:         departmentOptions(),
-		EmployeeI9:          i9,
-		EmployeeI9Documents: docs,
-		EmployeeW4:          w4,
-		PaperworkSections:   paperworkSections,
-		IsArchivedEmployee:  false,
-		SuccessMessage:      r.URL.Query().Get("message"),
-		Error:               r.URL.Query().Get("error"),
+		CSRF:                  csrfToken,
+		Location:              location,
+		Employee:              employee,
+		EmployeePaperworkLink: employeePaperworkLink(r, locationNumber, timePunchName),
+		Departments:           normalizeDepartments(settings.Departments),
+		EmployeeI9:            i9,
+		EmployeeI9Documents:   docs,
+		EmployeeW4:            w4,
+		PaperworkSections:     paperworkSections,
+		IsArchivedEmployee:    false,
+		SuccessMessage:        r.URL.Query().Get("message"),
+		Error:                 r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("employee template render failed: %v", err)
@@ -977,6 +1089,11 @@ func (s *server) archivedEmployeeDetailPage(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "unable to load archived employee w4 records", http.StatusBadGateway)
 		return
 	}
+	settings, err := s.fetchLocationSettings(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load location settings", http.StatusBadGateway)
+		return
+	}
 	paperworkSections := []paperworkSectionView{
 		{Type: "i9", Label: "I-9", HasDocuments: true, Form: i9, Documents: docs},
 		{Type: "w4", Label: "W-4", HasDocuments: false, Form: w4, Documents: nil},
@@ -985,7 +1102,7 @@ func (s *server) archivedEmployeeDetailPage(w http.ResponseWriter, r *http.Reque
 		CSRF:                csrfToken,
 		Location:            location,
 		Employee:            employee,
-		Departments:         departmentOptions(),
+		Departments:         normalizeDepartments(settings.Departments),
 		EmployeeI9:          i9,
 		EmployeeI9Documents: docs,
 		EmployeeW4:          w4,
@@ -2154,6 +2271,15 @@ func (s *server) createEmployeeProxy(w http.ResponseWriter, r *http.Request, loc
 		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error="+url.QueryEscape(msg), http.StatusFound)
 		return
 	}
+	type createEmployeeResponse struct {
+		Message  string       `json:"message"`
+		Employee employeeView `json:"employee"`
+	}
+	var payload createEmployeeResponse
+	if err := json.Unmarshal(respBody, &payload); err == nil && strings.TrimSpace(payload.Employee.TimePunchName) != "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(payload.Employee.TimePunchName)+"?message="+url.QueryEscape("Employee created"), http.StatusFound)
+		return
+	}
 	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?message="+url.QueryEscape("Employee created"), http.StatusFound)
 }
 
@@ -2243,6 +2369,42 @@ func (s *server) updateLocationProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(apiResp.StatusCode)
+	_, _ = w.Write(respBody)
+}
+
+func (s *server) updateLocationSettingsProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	csrfToken := strings.TrimSpace(r.Header.Get(csrfHeaderName))
+	if csrfToken == "" {
+		http.Error(w, `{"error":"csrf token is required"}`, http.StatusForbidden)
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/settings", bytes.NewReader(body))
+	if err != nil {
+		http.Error(w, `{"error":"upstream request failed"}`, http.StatusInternalServerError)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, `{"error":"upstream service unavailable"}`, http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, err := io.ReadAll(apiResp.Body)
+	if err != nil {
+		http.Error(w, `{"error":"upstream response failed"}`, http.StatusBadGateway)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(apiResp.StatusCode)
 	_, _ = w.Write(respBody)
@@ -2498,6 +2660,60 @@ func (s *server) createEmployeePhotoLinkProxy(w http.ResponseWriter, r *http.Req
 			scheme = "https"
 		}
 		link := scheme + "://" + r.Host + "/employee/photo-upload/" + url.PathEscape(payload.Token)
+		writeJSON(w, http.StatusOK, map[string]string{
+			"uploadLink": link,
+			"expiresAt":  payload.ExpiresAt,
+		})
+		return
+	}
+	respBody, _ := io.ReadAll(apiResp.Body)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(apiResp.StatusCode)
+	_, _ = w.Write(respBody)
+}
+
+func (s *server) createEmployeePaperworkLinkProxy(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	locationNumber, timePunchName, ok := parseLocationEmployeeActionPath(r.URL.Path, "paperwork-link")
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.Header.Get(csrfHeaderName))
+	if csrfToken == "" {
+		http.Error(w, `{"error":"csrf token is required"}`, http.StatusForbidden)
+		return
+	}
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/" + url.PathEscape(timePunchName) + "/paperwork-link"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, bytes.NewReader([]byte(`{}`)))
+	if err != nil {
+		http.Error(w, `{"error":"upstream request failed"}`, http.StatusInternalServerError)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, `{"error":"upstream service unavailable"}`, http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+	var payload photoLinkResponse
+	if apiResp.StatusCode == http.StatusOK {
+		if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+			http.Error(w, `{"error":"invalid upstream response"}`, http.StatusBadGateway)
+			return
+		}
+		scheme := "http"
+		if r.TLS != nil {
+			scheme = "https"
+		}
+		link := scheme + "://" + r.Host + "/employee/paperwork/" + url.PathEscape(payload.Token)
 		writeJSON(w, http.StatusOK, map[string]string{
 			"uploadLink": link,
 			"expiresAt":  payload.ExpiresAt,
@@ -2829,6 +3045,190 @@ func (s *server) publicPhotoUploadPage(w http.ResponseWriter, r *http.Request, t
 	}
 }
 
+func (s *server) publicEmployeePaperworkPage(w http.ResponseWriter, r *http.Request, pathTail string) {
+	apiURL := s.apiBaseURL + "/api/public/employee-paperwork/" + encodePathTail(pathTail)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil)
+	if err != nil {
+		http.Error(w, "request failed", http.StatusInternalServerError)
+		return
+	}
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, "service unavailable", http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode == http.StatusGone {
+		s.renderPublicPaperworkClosedPage(w, r)
+		return
+	}
+	if apiResp.StatusCode != http.StatusOK {
+		http.NotFound(w, r)
+		return
+	}
+	var payload publicPaperworkTokenResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		http.Error(w, "invalid response", http.StatusBadGateway)
+		return
+	}
+	if err := renderHTMLTemplate(w, s.publicPaperworkTmpl, pageData{
+		Token: encodePathTail(pathTail),
+		Location: &locationView{
+			Number: payload.LocationNumber,
+			Name:   payload.LocationName,
+		},
+		Employee: &employeeView{
+			TimePunchName: payload.TimePunchName,
+			FirstName:     payload.FirstName,
+			LastName:      payload.LastName,
+		},
+		SuccessMessage: r.URL.Query().Get("message"),
+		Error:          r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("public employee paperwork template render failed: %v", err)
+	}
+}
+
+func (s *server) publicEmployeePaperworkSubmit(w http.ResponseWriter, r *http.Request, pathTail string) {
+	apiURL := s.apiBaseURL + "/api/public/employee-paperwork/" + encodePathTail(pathTail)
+	contentType := strings.ToLower(strings.TrimSpace(r.Header.Get("Content-Type")))
+
+	var (
+		apiReq *http.Request
+		err    error
+	)
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		if err := r.ParseMultipartForm(36 << 20); err != nil {
+			http.Redirect(w, r, "/employee/paperwork/"+encodePathTail(pathTail)+"?error=Invalid+form+submission", http.StatusFound)
+			return
+		}
+		var body bytes.Buffer
+		writer := multipart.NewWriter(&body)
+		if r.MultipartForm != nil {
+			for key, items := range r.MultipartForm.Value {
+				for _, item := range items {
+					_ = writer.WriteField(key, strings.TrimSpace(item))
+				}
+			}
+			for key, files := range r.MultipartForm.File {
+				for _, header := range files {
+					if header == nil {
+						continue
+					}
+					src, openErr := header.Open()
+					if openErr != nil {
+						_ = writer.Close()
+						http.Redirect(w, r, "/employee/paperwork/"+encodePathTail(pathTail)+"?error=Unable+to+read+uploaded+document", http.StatusFound)
+						return
+					}
+					part, createErr := writer.CreateFormFile(key, header.Filename)
+					if createErr != nil {
+						_ = src.Close()
+						_ = writer.Close()
+						http.Redirect(w, r, "/employee/paperwork/"+encodePathTail(pathTail)+"?error=Unable+to+prepare+uploaded+document", http.StatusFound)
+						return
+					}
+					if _, copyErr := io.Copy(part, src); copyErr != nil {
+						_ = src.Close()
+						_ = writer.Close()
+						http.Redirect(w, r, "/employee/paperwork/"+encodePathTail(pathTail)+"?error=Unable+to+read+uploaded+document", http.StatusFound)
+						return
+					}
+					_ = src.Close()
+				}
+			}
+		}
+		if err := writer.Close(); err != nil {
+			http.Redirect(w, r, "/employee/paperwork/"+encodePathTail(pathTail)+"?error=Unable+to+finalize+submission", http.StatusFound)
+			return
+		}
+		apiReq, err = http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, &body)
+		if err != nil {
+			http.Redirect(w, r, "/employee/paperwork/"+encodePathTail(pathTail)+"?error=Unable+to+submit+paperwork", http.StatusFound)
+			return
+		}
+		apiReq.Header.Set("Content-Type", writer.FormDataContentType())
+	} else {
+		if err := r.ParseForm(); err != nil {
+			http.Redirect(w, r, "/employee/paperwork/"+encodePathTail(pathTail)+"?error=Invalid+form+submission", http.StatusFound)
+			return
+		}
+		values := url.Values{}
+		for key, items := range r.PostForm {
+			for _, item := range items {
+				values.Add(key, strings.TrimSpace(item))
+			}
+		}
+		apiReq, err = http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, strings.NewReader(values.Encode()))
+		if err != nil {
+			http.Redirect(w, r, "/employee/paperwork/"+encodePathTail(pathTail)+"?error=Unable+to+submit+paperwork", http.StatusFound)
+			return
+		}
+		apiReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/employee/paperwork/"+encodePathTail(pathTail)+"?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to submit paperwork"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/employee/paperwork/"+encodePathTail(pathTail)+"?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	target := strings.ToLower(strings.TrimSpace(r.PostForm.Get("paperwork_target")))
+	submittedFormLabel := "paperwork"
+	if target == "i9" {
+		submittedFormLabel = "I-9"
+	} else if target == "w4" {
+		submittedFormLabel = "W-4"
+	}
+	var payload publicPaperworkSubmitResponse
+	if err := json.Unmarshal(respBody, &payload); err != nil {
+		payload = publicPaperworkSubmitResponse{}
+	}
+	if payload.AllSubmitted {
+		if strings.TrimSpace(payload.LocationNumber) != "" && strings.TrimSpace(payload.TimePunchName) != "" {
+			http.Redirect(
+				w,
+				r,
+				"/admin/locations/"+url.PathEscape(payload.LocationNumber)+"/employees/"+url.PathEscape(payload.TimePunchName)+"?message="+url.QueryEscape("Paperwork submitted"),
+				http.StatusFound,
+			)
+			return
+		}
+		http.Redirect(w, r, "/employee/paperwork/"+encodePathTail(pathTail)+"?submitted=1", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/employee/paperwork/"+encodePathTail(pathTail)+"?message="+url.QueryEscape(submittedFormLabel+" submitted. Please complete the remaining form."), http.StatusFound)
+}
+
+func (s *server) renderPublicPaperworkClosedPage(w http.ResponseWriter, r *http.Request) {
+	submitted := shouldRenderPaperworkSubmittedFromQuery(r)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	if submitted {
+		_, _ = io.WriteString(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Paperwork Submitted</title><style>body{margin:0;padding:16px;background:#f4f1ec;font-family:Manrope,Segoe UI,sans-serif;color:#1f232a}.card{max-width:640px;margin:40px auto;background:#fff;border:1px solid #e2d5c4;border-radius:14px;padding:18px;box-shadow:0 10px 24px rgba(33,28,23,.08)}h1{margin:0 0 8px;font-size:1.3rem}p{margin:0 0 10px;color:#68707b;line-height:1.4}</style></head><body><section class="card"><h1>Paperwork Submitted</h1><p>Thank you. Your paperwork was submitted successfully.</p><p>This link is now closed.</p></section></body></html>`)
+		return
+	}
+	_, _ = io.WriteString(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Link Closed</title><style>body{margin:0;padding:16px;background:#f4f1ec;font-family:Manrope,Segoe UI,sans-serif;color:#1f232a}.card{max-width:640px;margin:40px auto;background:#fff;border:1px solid #e2d5c4;border-radius:14px;padding:18px;box-shadow:0 10px 24px rgba(33,28,23,.08)}h1{margin:0 0 8px;font-size:1.3rem}p{margin:0 0 10px;color:#68707b;line-height:1.4}</style></head><body><section class="card"><h1>Link Closed</h1><p>This paperwork link has already been used and is no longer active.</p><p>Please contact your admin if updates are needed.</p></section></body></html>`)
+}
+
+func shouldRenderPaperworkSubmittedFromQuery(r *http.Request) bool {
+	if strings.TrimSpace(r.URL.Query().Get("submitted")) == "1" {
+		return true
+	}
+	msg := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("message")))
+	return strings.Contains(msg, "paperwork submitted")
+}
+
 func (s *server) publicTimePunchPage(w http.ResponseWriter, r *http.Request, token string) {
 	apiURL := s.apiBaseURL + "/api/public/time-punch/" + url.PathEscape(token)
 	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil)
@@ -2873,6 +3273,7 @@ func (s *server) publicTimePunchSubmit(w http.ResponseWriter, r *http.Request, t
 		"punchDate":     strings.TrimSpace(r.FormValue("punch_date")),
 		"timeIn":        strings.TrimSpace(r.FormValue("time_in")),
 		"timeOut":       strings.TrimSpace(r.FormValue("time_out")),
+		"note":          strings.TrimSpace(r.FormValue("note")),
 	}
 	body, _ := json.Marshal(payload)
 	apiURL := s.apiBaseURL + "/api/public/time-punch/" + url.PathEscape(token)
@@ -3253,6 +3654,61 @@ func (s *server) fetchLocation(r *http.Request, number string) (*locationView, e
 		return nil, err
 	}
 	return &payload.Location, nil
+}
+
+func (s *server) fetchLocationSettings(r *http.Request, number string) (*locationSettingsView, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number)+"/settings",
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to fetch location settings")
+	}
+	var payload locationSettingsResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(payload.Settings.BusinessName) == "" {
+		payload.Settings.BusinessName = strings.TrimSpace(payload.Settings.W4EmployerName)
+	}
+	if strings.TrimSpace(payload.Settings.BusinessStreet) == "" {
+		payload.Settings.BusinessStreet = strings.TrimSpace(payload.Settings.W4EmployerStreet)
+	}
+	if strings.TrimSpace(payload.Settings.BusinessCity) == "" {
+		payload.Settings.BusinessCity = strings.TrimSpace(payload.Settings.W4EmployerCity)
+	}
+	if strings.TrimSpace(payload.Settings.BusinessState) == "" {
+		payload.Settings.BusinessState = strings.TrimSpace(payload.Settings.W4EmployerState)
+	}
+	if strings.TrimSpace(payload.Settings.BusinessAddress) == "" {
+		addressParts := make([]string, 0, 3)
+		if strings.TrimSpace(payload.Settings.BusinessStreet) != "" {
+			addressParts = append(addressParts, strings.TrimSpace(payload.Settings.BusinessStreet))
+		}
+		if strings.TrimSpace(payload.Settings.BusinessCity) != "" {
+			addressParts = append(addressParts, strings.TrimSpace(payload.Settings.BusinessCity))
+		}
+		if strings.TrimSpace(payload.Settings.BusinessState) != "" {
+			addressParts = append(addressParts, strings.TrimSpace(payload.Settings.BusinessState))
+		}
+		payload.Settings.BusinessAddress = strings.Join(addressParts, ", ")
+	}
+	if strings.TrimSpace(payload.Settings.BusinessAddress) == "" {
+		payload.Settings.BusinessAddress = strings.TrimSpace(payload.Settings.W4EmployerAddress)
+	}
+	payload.Settings.Departments = normalizeDepartments(payload.Settings.Departments)
+	return &payload.Settings, nil
 }
 
 func (s *server) fetchLocationEmployees(r *http.Request, number string) ([]employeeView, error) {
@@ -3783,8 +4239,31 @@ func locationNumberFromAdminPath(path string) (string, bool) {
 	return number, true
 }
 
-func departmentOptions() []string {
-	return []string{"INIT", "NONE", "FOH", "BOH", "LEADERSHIP", "RLT", "CST", "EXECUTIVE", "PARTNER", "OPERATOR"}
+func normalizeDepartments(values []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values)+1)
+	for _, value := range values {
+		department := strings.ToUpper(strings.TrimSpace(value))
+		if department == "" {
+			continue
+		}
+		if _, exists := seen[department]; exists {
+			continue
+		}
+		seen[department] = struct{}{}
+		out = append(out, department)
+	}
+	if _, exists := seen["INIT"]; exists {
+		reordered := []string{"INIT"}
+		for _, department := range out {
+			if department == "INIT" {
+				continue
+			}
+			reordered = append(reordered, department)
+		}
+		return reordered
+	}
+	return append([]string{"INIT"}, out...)
 }
 
 func parseLocationEmployeePath(path string) (string, string, bool) {
@@ -3870,6 +4349,20 @@ func parseLocationTimePunchPath(path string) (string, bool) {
 	trimmed = strings.Trim(trimmed, "/")
 	parts := strings.Split(trimmed, "/")
 	if len(parts) != 2 || parts[1] != "time-punch" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
+func parseLocationSettingsPath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 2 || parts[1] != "settings" {
 		return "", false
 	}
 	locationNumber, err := url.PathUnescape(parts[0])
@@ -4207,6 +4700,27 @@ func parseLocationEmployeeActionPath(path, action string) (string, string, bool)
 		return "", "", false
 	}
 	return locationNumber, timePunchName, true
+}
+
+func employeePaperworkLink(r *http.Request, locationNumber, timePunchName string) string {
+	scheme := "http"
+	if r.TLS != nil {
+		scheme = "https"
+	}
+	return scheme + "://" + r.Host + "/employee/paperwork/" + url.PathEscape(locationNumber) + "/" + url.PathEscape(timePunchName)
+}
+
+func encodePathTail(pathTail string) string {
+	parts := strings.Split(strings.Trim(pathTail, "/"), "/")
+	encoded := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		encoded = append(encoded, url.PathEscape(part))
+	}
+	return strings.Join(encoded, "/")
 }
 
 func parseLocationEmployeeI9UploadPath(path string) (string, string, bool) {
