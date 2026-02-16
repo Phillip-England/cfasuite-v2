@@ -1,0 +1,4 @@
+=== RUN   TestDebugTemplatesRender
+--- PASS: TestDebugTemplatesRender (0.00s)
+PASS
+ok  	github.com/phillip-england/cfasuite/internal/clientapp	0.223s

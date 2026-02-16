@@ -1,0 +1,7 @@
+./dir.go
+./header.go
+./ole.go
+./pss.go
+./sector.go
+./stream.go
+./stream_reader.go

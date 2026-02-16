@@ -159,6 +159,39 @@ type employee struct {
 	Department    string `json:"department"`
 	Birthday      string `json:"birthday,omitempty"`
 	HasPhoto      bool   `json:"hasPhoto"`
+	ArchivedAt    string `json:"archivedAt,omitempty"`
+}
+
+type employeeI9Form struct {
+	LocationNumber string    `json:"locationNumber"`
+	TimePunchName  string    `json:"timePunchName"`
+	FileName       string    `json:"fileName"`
+	FileMime       string    `json:"fileMime"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+	CreatedAt      time.Time `json:"createdAt"`
+	HasFile        bool      `json:"hasFile"`
+}
+
+type employeeI9Document struct {
+	ID             int64     `json:"id"`
+	LocationNumber string    `json:"locationNumber"`
+	TimePunchName  string    `json:"timePunchName"`
+	FileName       string    `json:"fileName"`
+	FileMime       string    `json:"fileMime"`
+	CreatedAt      time.Time `json:"createdAt"`
+}
+
+type archivedEmployeeRecord struct {
+	ID             int64
+	LocationNumber string
+	TimePunchName  string
+	FirstName      string
+	LastName       string
+	Department     string
+	Birthday       string
+	ProfileImage   string
+	ProfileMime    string
+	ArchivedAt     time.Time
 }
 
 var allowedDepartments = map[string]struct{}{
@@ -549,11 +582,25 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	if len(parts) == 2 && parts[1] == "employees" {
+		switch r.Method {
+		case http.MethodGet:
+			s.listLocationEmployees(w, r, locationNumber)
+			return
+		case http.MethodPost:
+			s.createLocationEmployee(w, r, locationNumber)
+			return
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+	}
+
+	if len(parts) == 3 && parts[1] == "employees" && parts[2] == "archived" {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		s.listLocationEmployees(w, r, locationNumber)
+		s.listArchivedLocationEmployees(w, r, locationNumber)
 		return
 	}
 
@@ -825,6 +872,20 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	if len(parts) == 4 && parts[1] == "employees" && parts[2] == "archived" {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		timePunchName, err := url.PathUnescape(parts[3])
+		if err != nil || strings.TrimSpace(timePunchName) == "" {
+			writeError(w, http.StatusBadRequest, "invalid employee identifier")
+			return
+		}
+		s.getArchivedLocationEmployee(w, r, locationNumber, timePunchName)
+		return
+	}
+
 	if len(parts) == 4 && parts[1] == "employees" && parts[3] == "department" {
 		if r.Method != http.MethodPut {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -836,6 +897,187 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		s.updateEmployeeDepartment(w, r, locationNumber, timePunchName)
+		return
+	}
+
+	if len(parts) == 4 && parts[1] == "employees" && parts[3] == "i9" {
+		timePunchName, err := url.PathUnescape(parts[2])
+		if err != nil || strings.TrimSpace(timePunchName) == "" {
+			writeError(w, http.StatusBadRequest, "invalid employee identifier")
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			s.getEmployeeI9(w, r, locationNumber, timePunchName)
+			return
+		case http.MethodPost:
+			s.uploadEmployeeI9(w, r, locationNumber, timePunchName)
+			return
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+	}
+
+	if len(parts) == 4 && parts[1] == "employees" && parts[3] == "w4" {
+		timePunchName, err := url.PathUnescape(parts[2])
+		if err != nil || strings.TrimSpace(timePunchName) == "" {
+			writeError(w, http.StatusBadRequest, "invalid employee identifier")
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			s.getEmployeeW4(w, r, locationNumber, timePunchName)
+			return
+		case http.MethodPost:
+			s.uploadEmployeeW4(w, r, locationNumber, timePunchName)
+			return
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+	}
+
+	if len(parts) == 5 && parts[1] == "employees" && parts[3] == "w4" && parts[4] == "file" {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		timePunchName, err := url.PathUnescape(parts[2])
+		if err != nil || strings.TrimSpace(timePunchName) == "" {
+			writeError(w, http.StatusBadRequest, "invalid employee identifier")
+			return
+		}
+		s.getEmployeeW4File(w, r, locationNumber, timePunchName)
+		return
+	}
+
+	if len(parts) == 5 && parts[1] == "employees" && parts[3] == "i9" && parts[4] == "file" {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		timePunchName, err := url.PathUnescape(parts[2])
+		if err != nil || strings.TrimSpace(timePunchName) == "" {
+			writeError(w, http.StatusBadRequest, "invalid employee identifier")
+			return
+		}
+		s.getEmployeeI9File(w, r, locationNumber, timePunchName)
+		return
+	}
+
+	if len(parts) == 5 && parts[1] == "employees" && parts[3] == "i9" && parts[4] == "documents" {
+		timePunchName, err := url.PathUnescape(parts[2])
+		if err != nil || strings.TrimSpace(timePunchName) == "" {
+			writeError(w, http.StatusBadRequest, "invalid employee identifier")
+			return
+		}
+		if r.Method == http.MethodGet {
+			s.listEmployeeI9Documents(w, r, locationNumber, timePunchName)
+			return
+		}
+		if r.Method == http.MethodPost {
+			s.uploadEmployeeI9Document(w, r, locationNumber, timePunchName)
+			return
+		}
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if len(parts) == 6 && parts[1] == "employees" && parts[3] == "i9" && parts[4] == "documents" {
+		timePunchName, err := url.PathUnescape(parts[2])
+		if err != nil || strings.TrimSpace(timePunchName) == "" {
+			writeError(w, http.StatusBadRequest, "invalid employee identifier")
+			return
+		}
+		docID, err := strconv.ParseInt(strings.TrimSpace(parts[5]), 10, 64)
+		if err != nil || docID <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid i9 document id")
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			s.getEmployeeI9DocumentFile(w, r, locationNumber, timePunchName, docID)
+		case http.MethodDelete:
+			s.deleteEmployeeI9Document(w, r, locationNumber, timePunchName, docID)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	if len(parts) == 5 && parts[1] == "employees" && parts[2] == "archived" && parts[4] == "i9" {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		timePunchName, err := url.PathUnescape(parts[3])
+		if err != nil || strings.TrimSpace(timePunchName) == "" {
+			writeError(w, http.StatusBadRequest, "invalid employee identifier")
+			return
+		}
+		s.getArchivedEmployeeI9(w, r, locationNumber, timePunchName)
+		return
+	}
+
+	if len(parts) == 5 && parts[1] == "employees" && parts[2] == "archived" && parts[4] == "w4" {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		timePunchName, err := url.PathUnescape(parts[3])
+		if err != nil || strings.TrimSpace(timePunchName) == "" {
+			writeError(w, http.StatusBadRequest, "invalid employee identifier")
+			return
+		}
+		s.getArchivedEmployeeW4(w, r, locationNumber, timePunchName)
+		return
+	}
+
+	if len(parts) == 6 && parts[1] == "employees" && parts[2] == "archived" && parts[4] == "w4" && parts[5] == "file" {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		timePunchName, err := url.PathUnescape(parts[3])
+		if err != nil || strings.TrimSpace(timePunchName) == "" {
+			writeError(w, http.StatusBadRequest, "invalid employee identifier")
+			return
+		}
+		s.getArchivedEmployeeW4File(w, r, locationNumber, timePunchName)
+		return
+	}
+
+	if len(parts) == 6 && parts[1] == "employees" && parts[2] == "archived" && parts[4] == "i9" && parts[5] == "file" {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		timePunchName, err := url.PathUnescape(parts[3])
+		if err != nil || strings.TrimSpace(timePunchName) == "" {
+			writeError(w, http.StatusBadRequest, "invalid employee identifier")
+			return
+		}
+		s.getArchivedEmployeeI9File(w, r, locationNumber, timePunchName)
+		return
+	}
+
+	if len(parts) == 7 && parts[1] == "employees" && parts[2] == "archived" && parts[4] == "i9" && parts[5] == "documents" {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		timePunchName, err := url.PathUnescape(parts[3])
+		if err != nil || strings.TrimSpace(timePunchName) == "" {
+			writeError(w, http.StatusBadRequest, "invalid employee identifier")
+			return
+		}
+		docID, err := strconv.ParseInt(strings.TrimSpace(parts[6]), 10, 64)
+		if err != nil || docID <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid i9 document id")
+			return
+		}
+		s.getArchivedEmployeeI9DocumentFile(w, r, locationNumber, timePunchName, docID)
 		return
 	}
 
@@ -1677,6 +1919,99 @@ func (s *server) listLocationEmployees(w http.ResponseWriter, r *http.Request, n
 	})
 }
 
+func (s *server) createLocationEmployee(w http.ResponseWriter, r *http.Request, number string) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	if err := r.ParseMultipartForm(20 << 20); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid form data")
+		return
+	}
+	firstName := strings.TrimSpace(r.FormValue("first_name"))
+	lastName := strings.TrimSpace(r.FormValue("last_name"))
+	if firstName == "" || lastName == "" {
+		writeError(w, http.StatusBadRequest, "first name and last name are required")
+		return
+	}
+	department := normalizeDepartment(strings.TrimSpace(r.FormValue("department")))
+	if _, ok := allowedDepartments[department]; !ok {
+		department = "INIT"
+	}
+	birthday := strings.TrimSpace(r.FormValue("birthday"))
+	if birthday != "" {
+		if normalized, ok := normalizeBirthday(birthday); ok {
+			birthday = normalized
+		} else {
+			writeError(w, http.StatusBadRequest, "birthday must be a valid date")
+			return
+		}
+	}
+	timePunchName := canonicalTimePunchName(firstName, lastName)
+	if strings.TrimSpace(timePunchName) == "" {
+		writeError(w, http.StatusBadRequest, "unable to build time punch name")
+		return
+	}
+	if _, err := s.store.getLocationEmployee(r.Context(), number, timePunchName); err == nil {
+		writeError(w, http.StatusConflict, "employee already exists")
+		return
+	} else if !errors.Is(err, errNotFound) {
+		writeError(w, http.StatusInternalServerError, "unable to check existing employees")
+		return
+	}
+
+	newEmployee := employee{
+		FirstName:     firstName,
+		LastName:      lastName,
+		TimePunchName: timePunchName,
+		Department:    department,
+		Birthday:      birthday,
+	}
+	if err := withSQLiteRetry(func() error {
+		return s.store.upsertLocationEmployee(r.Context(), number, newEmployee)
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to create employee")
+		return
+	}
+
+	i9Data, i9Mime, i9Name, i9Provided, err := parseOptionalUploadedFileWithField(r, "i9_file", 10<<20, []string{"application/pdf"})
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if i9Provided {
+		if err := withSQLiteRetry(func() error {
+			return s.store.upsertEmployeeI9Form(r.Context(), number, timePunchName, i9Data, i9Mime, i9Name)
+		}); err != nil {
+			writeError(w, http.StatusInternalServerError, "unable to persist i9")
+			return
+		}
+	}
+
+	w4Data, w4Mime, w4Name, w4Provided, err := parseOptionalUploadedFileWithField(r, "w4_file", 10<<20, []string{"application/pdf"})
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if w4Provided {
+		if err := withSQLiteRetry(func() error {
+			return s.store.upsertEmployeeW4Form(r.Context(), number, timePunchName, w4Data, w4Mime, w4Name)
+		}); err != nil {
+			writeError(w, http.StatusInternalServerError, "unable to persist w4")
+			return
+		}
+	}
+
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"message":  "employee created",
+		"employee": newEmployee,
+	})
+}
+
 func (s *server) listLocationTimePunchEntries(w http.ResponseWriter, r *http.Request, number string) {
 	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
 		if errors.Is(err, errNotFound) {
@@ -1939,6 +2274,434 @@ func (s *server) getLocationEmployee(w http.ResponseWriter, r *http.Request, num
 	writeJSON(w, http.StatusOK, map[string]any{"employee": emp})
 }
 
+func (s *server) listArchivedLocationEmployees(w http.ResponseWriter, r *http.Request, number string) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	employees, err := s.store.listArchivedLocationEmployees(r.Context(), number)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load archived employees")
+		return
+	}
+	sort.Slice(employees, func(i, j int) bool {
+		if employees[i].LastName == employees[j].LastName {
+			return employees[i].FirstName < employees[j].FirstName
+		}
+		return employees[i].LastName < employees[j].LastName
+	})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"count":     len(employees),
+		"employees": employees,
+	})
+}
+
+func (s *server) getArchivedLocationEmployee(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	emp, err := s.store.getArchivedLocationEmployee(r.Context(), number, timePunchName)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "archived employee not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load archived employee")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"employee": emp})
+}
+
+func (s *server) getEmployeeI9(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
+	if _, err := s.store.getLocationEmployee(r.Context(), number, timePunchName); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "employee not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load employee")
+		return
+	}
+	form, err := s.store.getEmployeeI9Form(r.Context(), number, timePunchName)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load i9 form")
+		return
+	}
+	docs, err := s.store.listEmployeeI9Documents(r.Context(), number, timePunchName)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load i9 documents")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"i9":        form,
+		"paperwork": form,
+		"documents": docs,
+	})
+}
+
+func (s *server) uploadEmployeeI9(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
+	if _, err := s.store.getLocationEmployee(r.Context(), number, timePunchName); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "employee not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load employee")
+		return
+	}
+	data, mime, fileName, provided, err := parseOptionalUploadedFileWithField(r, "i9_file", 10<<20, []string{"application/pdf"})
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid i9 upload")
+		return
+	}
+	var formValues url.Values
+	if !provided {
+		if err := r.ParseForm(); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid i9 form")
+			return
+		}
+		formValues = r.PostForm
+		data, err = generateFilledI9PDF(r.PostForm)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		mime = "application/pdf"
+		fileName = "i9-filled.pdf"
+	}
+	if err := withSQLiteRetry(func() error {
+		return s.store.upsertEmployeeI9Form(r.Context(), number, timePunchName, data, mime, fileName)
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to persist i9 form")
+		return
+	}
+	if !provided && formValues != nil {
+		drawnSignature := strings.TrimSpace(formValues.Get("employee_signature_drawn"))
+		if drawnSignature != "" {
+			imageData, imageMime, err := parseDataURLBinary(drawnSignature, []string{"image/png", "image/jpeg", "image/webp"}, 2<<20)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "invalid drawn signature")
+				return
+			}
+			fileExt := ".png"
+			if imageMime == "image/jpeg" {
+				fileExt = ".jpg"
+			} else if imageMime == "image/webp" {
+				fileExt = ".webp"
+			}
+			signatureName := "i9-signature-" + time.Now().UTC().Format("20060102-150405") + fileExt
+			if err := withSQLiteRetry(func() error {
+				return s.store.addEmployeeI9Document(r.Context(), number, timePunchName, imageData, imageMime, signatureName)
+			}); err != nil {
+				writeError(w, http.StatusInternalServerError, "unable to persist drawn signature")
+				return
+			}
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "i9 saved"})
+}
+
+func (s *server) getEmployeeI9File(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
+	data, mime, fileName, err := s.store.getEmployeeI9File(r.Context(), number, timePunchName)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load i9 file")
+		return
+	}
+	w.Header().Set("Content-Type", mime)
+	w.Header().Set("Cache-Control", "private, max-age=120")
+	if strings.TrimSpace(fileName) != "" {
+		w.Header().Set("Content-Disposition", "inline; filename="+strconv.Quote(fileName))
+	}
+	_, _ = w.Write(data)
+}
+
+func (s *server) listEmployeeI9Documents(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
+	if _, err := s.store.getLocationEmployee(r.Context(), number, timePunchName); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "employee not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load employee")
+		return
+	}
+	docs, err := s.store.listEmployeeI9Documents(r.Context(), number, timePunchName)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load i9 documents")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"count":     len(docs),
+		"documents": docs,
+	})
+}
+
+func (s *server) uploadEmployeeI9Document(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
+	if _, err := s.store.getLocationEmployee(r.Context(), number, timePunchName); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "employee not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load employee")
+		return
+	}
+	data, mime, fileName, err := parseUploadedFileWithField(r, "document_file", 10<<20, []string{"application/pdf", "image/png", "image/jpeg", "image/webp"}, "document file is required")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := withSQLiteRetry(func() error {
+		return s.store.addEmployeeI9Document(r.Context(), number, timePunchName, data, mime, fileName)
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to persist i9 document")
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]string{"message": "document uploaded"})
+}
+
+func (s *server) getEmployeeI9DocumentFile(w http.ResponseWriter, r *http.Request, number, timePunchName string, docID int64) {
+	data, mime, fileName, err := s.store.getEmployeeI9DocumentFile(r.Context(), number, timePunchName, docID)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load i9 document")
+		return
+	}
+	w.Header().Set("Content-Type", mime)
+	w.Header().Set("Cache-Control", "private, max-age=120")
+	if strings.TrimSpace(fileName) != "" {
+		w.Header().Set("Content-Disposition", "inline; filename="+strconv.Quote(fileName))
+	}
+	_, _ = w.Write(data)
+}
+
+func (s *server) deleteEmployeeI9Document(w http.ResponseWriter, r *http.Request, number, timePunchName string, docID int64) {
+	if err := withSQLiteRetry(func() error {
+		return s.store.deleteEmployeeI9Document(r.Context(), number, timePunchName, docID)
+	}); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "i9 document not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to delete i9 document")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "document deleted"})
+}
+
+func (s *server) getArchivedEmployeeI9(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
+	archived, err := s.store.getArchivedEmployeeRecord(r.Context(), number, timePunchName)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "archived employee not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load archived employee")
+		return
+	}
+	form, err := s.store.getArchivedEmployeeI9Form(r.Context(), archived.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load i9 form")
+		return
+	}
+	docs, err := s.store.listArchivedEmployeeI9Documents(r.Context(), archived.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load i9 documents")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"i9":        form,
+		"paperwork": form,
+		"documents": docs,
+	})
+}
+
+func (s *server) getArchivedEmployeeI9File(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
+	archived, err := s.store.getArchivedEmployeeRecord(r.Context(), number, timePunchName)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load archived employee")
+		return
+	}
+	data, mime, fileName, err := s.store.getArchivedEmployeeI9File(r.Context(), archived.ID)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load i9 file")
+		return
+	}
+	w.Header().Set("Content-Type", mime)
+	w.Header().Set("Cache-Control", "private, max-age=120")
+	if strings.TrimSpace(fileName) != "" {
+		w.Header().Set("Content-Disposition", "inline; filename="+strconv.Quote(fileName))
+	}
+	_, _ = w.Write(data)
+}
+
+func (s *server) getArchivedEmployeeI9DocumentFile(w http.ResponseWriter, r *http.Request, number, timePunchName string, docID int64) {
+	archived, err := s.store.getArchivedEmployeeRecord(r.Context(), number, timePunchName)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load archived employee")
+		return
+	}
+	data, mime, fileName, err := s.store.getArchivedEmployeeI9DocumentFile(r.Context(), archived.ID, docID)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load i9 document")
+		return
+	}
+	w.Header().Set("Content-Type", mime)
+	w.Header().Set("Cache-Control", "private, max-age=120")
+	if strings.TrimSpace(fileName) != "" {
+		w.Header().Set("Content-Disposition", "inline; filename="+strconv.Quote(fileName))
+	}
+	_, _ = w.Write(data)
+}
+
+func (s *server) getEmployeeW4(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
+	if _, err := s.store.getLocationEmployee(r.Context(), number, timePunchName); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "employee not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load employee")
+		return
+	}
+	form, err := s.store.getEmployeeW4Form(r.Context(), number, timePunchName)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load w4 form")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"paperwork": form,
+	})
+}
+
+func (s *server) uploadEmployeeW4(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
+	if _, err := s.store.getLocationEmployee(r.Context(), number, timePunchName); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "employee not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load employee")
+		return
+	}
+	data, mime, fileName, provided, err := parseOptionalUploadedFileWithField(r, "w4_file", 10<<20, []string{"application/pdf"})
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid w4 upload")
+		return
+	}
+	if !provided {
+		if err := r.ParseForm(); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid w4 form")
+			return
+		}
+		data, err = generateFilledW4PDF(r.PostForm)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		mime = "application/pdf"
+		fileName = "w4-filled.pdf"
+	}
+	if err := withSQLiteRetry(func() error {
+		return s.store.upsertEmployeeW4Form(r.Context(), number, timePunchName, data, mime, fileName)
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to persist w4 form")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "w4 saved"})
+}
+
+func (s *server) getEmployeeW4File(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
+	data, mime, fileName, err := s.store.getEmployeeW4File(r.Context(), number, timePunchName)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load w4 file")
+		return
+	}
+	w.Header().Set("Content-Type", mime)
+	w.Header().Set("Cache-Control", "private, max-age=120")
+	if strings.TrimSpace(fileName) != "" {
+		w.Header().Set("Content-Disposition", "inline; filename="+strconv.Quote(fileName))
+	}
+	_, _ = w.Write(data)
+}
+
+func (s *server) getArchivedEmployeeW4(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
+	archived, err := s.store.getArchivedEmployeeRecord(r.Context(), number, timePunchName)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "archived employee not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load archived employee")
+		return
+	}
+	form, err := s.store.getArchivedEmployeeW4Form(r.Context(), archived.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load w4 form")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"paperwork": form,
+	})
+}
+
+func (s *server) getArchivedEmployeeW4File(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
+	archived, err := s.store.getArchivedEmployeeRecord(r.Context(), number, timePunchName)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load archived employee")
+		return
+	}
+	data, mime, fileName, err := s.store.getArchivedEmployeeW4File(r.Context(), archived.ID)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			http.NotFound(w, r)
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load w4 file")
+		return
+	}
+	w.Header().Set("Content-Type", mime)
+	w.Header().Set("Cache-Control", "private, max-age=120")
+	if strings.TrimSpace(fileName) != "" {
+		w.Header().Set("Content-Disposition", "inline; filename="+strconv.Quote(fileName))
+	}
+	_, _ = w.Write(data)
+}
+
 func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request, number string) {
 	file, header, err := r.FormFile("bio_file")
 	if err != nil {
@@ -1981,6 +2744,7 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 
 	added := 0
 	updated := 0
+	archived := 0
 	for key, incoming := range activeByKey {
 		current, found := employeesByKey[key]
 		if !found {
@@ -2026,11 +2790,25 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 		}
 	}
 
+	for _, existingEmployee := range existing {
+		if _, ok := activeByKey[existingEmployee.TimePunchName]; ok {
+			continue
+		}
+		if err := withSQLiteRetry(func() error {
+			return s.store.archiveAndDeleteLocationEmployee(r.Context(), number, existingEmployee.TimePunchName)
+		}); err != nil {
+			writeError(w, http.StatusInternalServerError, "unable to archive removed employees")
+			return
+		}
+		archived++
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"message": "employee bio reader imported",
-		"added":   added,
-		"updated": updated,
-		"count":   len(employeesByKey),
+		"message":  "employee bio reader imported",
+		"added":    added,
+		"updated":  updated,
+		"archived": archived,
+		"count":    len(activeByKey),
 	})
 }
 
@@ -2400,6 +3178,82 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			FOREIGN KEY(location_number) REFERENCES locations(number) ON DELETE CASCADE
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_location_employees_location ON location_employees(location_number);`,
+		`CREATE TABLE IF NOT EXISTS archived_location_employees (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			location_number TEXT NOT NULL,
+			time_punch_name TEXT NOT NULL,
+			first_name TEXT NOT NULL,
+			last_name TEXT NOT NULL,
+			department TEXT NOT NULL DEFAULT 'INIT',
+			birthday TEXT NOT NULL DEFAULT '',
+			profile_image_data TEXT NOT NULL DEFAULT '',
+			profile_image_mime TEXT NOT NULL DEFAULT '',
+			archived_at INTEGER NOT NULL,
+			UNIQUE(location_number, time_punch_name),
+			FOREIGN KEY(location_number) REFERENCES locations(number) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_archived_location_employees_location ON archived_location_employees(location_number, archived_at DESC);`,
+		`CREATE TABLE IF NOT EXISTS employee_i9_forms (
+			location_number TEXT NOT NULL,
+			time_punch_name TEXT NOT NULL,
+			file_data TEXT NOT NULL DEFAULT '',
+			file_mime TEXT NOT NULL DEFAULT '',
+			file_name TEXT NOT NULL DEFAULT '',
+			updated_at INTEGER NOT NULL,
+			created_at INTEGER NOT NULL,
+			PRIMARY KEY(location_number, time_punch_name),
+			FOREIGN KEY(location_number, time_punch_name) REFERENCES location_employees(location_number, time_punch_name) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS employee_i9_documents (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			location_number TEXT NOT NULL,
+			time_punch_name TEXT NOT NULL,
+			file_data TEXT NOT NULL DEFAULT '',
+			file_mime TEXT NOT NULL DEFAULT '',
+			file_name TEXT NOT NULL DEFAULT '',
+			created_at INTEGER NOT NULL,
+			FOREIGN KEY(location_number, time_punch_name) REFERENCES location_employees(location_number, time_punch_name) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_employee_i9_documents_employee ON employee_i9_documents(location_number, time_punch_name, created_at DESC);`,
+		`CREATE TABLE IF NOT EXISTS archived_employee_i9_forms (
+			archived_employee_id INTEGER PRIMARY KEY,
+			file_data TEXT NOT NULL DEFAULT '',
+			file_mime TEXT NOT NULL DEFAULT '',
+			file_name TEXT NOT NULL DEFAULT '',
+			updated_at INTEGER NOT NULL,
+			created_at INTEGER NOT NULL,
+			FOREIGN KEY(archived_employee_id) REFERENCES archived_location_employees(id) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS archived_employee_i9_documents (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			archived_employee_id INTEGER NOT NULL,
+			file_data TEXT NOT NULL DEFAULT '',
+			file_mime TEXT NOT NULL DEFAULT '',
+			file_name TEXT NOT NULL DEFAULT '',
+			created_at INTEGER NOT NULL,
+			FOREIGN KEY(archived_employee_id) REFERENCES archived_location_employees(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_archived_employee_i9_documents_employee ON archived_employee_i9_documents(archived_employee_id, created_at DESC);`,
+		`CREATE TABLE IF NOT EXISTS employee_w4_forms (
+			location_number TEXT NOT NULL,
+			time_punch_name TEXT NOT NULL,
+			file_data TEXT NOT NULL DEFAULT '',
+			file_mime TEXT NOT NULL DEFAULT '',
+			file_name TEXT NOT NULL DEFAULT '',
+			updated_at INTEGER NOT NULL,
+			created_at INTEGER NOT NULL,
+			PRIMARY KEY(location_number, time_punch_name),
+			FOREIGN KEY(location_number, time_punch_name) REFERENCES location_employees(location_number, time_punch_name) ON DELETE CASCADE
+		);`,
+		`CREATE TABLE IF NOT EXISTS archived_employee_w4_forms (
+			archived_employee_id INTEGER PRIMARY KEY,
+			file_data TEXT NOT NULL DEFAULT '',
+			file_mime TEXT NOT NULL DEFAULT '',
+			file_name TEXT NOT NULL DEFAULT '',
+			updated_at INTEGER NOT NULL,
+			created_at INTEGER NOT NULL,
+			FOREIGN KEY(archived_employee_id) REFERENCES archived_location_employees(id) ON DELETE CASCADE
+		);`,
 		`CREATE TABLE IF NOT EXISTS employee_photo_tokens (
 			token TEXT PRIMARY KEY,
 			location_number TEXT NOT NULL,
@@ -2642,6 +3496,12 @@ func (s *sqliteStore) deleteLocation(ctx context.Context, number string) error {
 		BEGIN;
 		DELETE FROM employee_photo_tokens
 		WHERE location_number = @number;
+		DELETE FROM employee_i9_documents
+		WHERE location_number = @number;
+		DELETE FROM employee_i9_forms
+		WHERE location_number = @number;
+		DELETE FROM employee_w4_forms
+		WHERE location_number = @number;
 		DELETE FROM location_time_punch_entries
 		WHERE location_number = @number;
 		DELETE FROM location_time_punch_tokens
@@ -2675,6 +3535,26 @@ func (s *sqliteStore) deleteLocation(ctx context.Context, number string) error {
 			WHERE location_number = @number
 		);
 		DELETE FROM location_uniform_items
+		WHERE location_number = @number;
+		DELETE FROM archived_employee_i9_documents
+		WHERE archived_employee_id IN (
+			SELECT id
+			FROM archived_location_employees
+			WHERE location_number = @number
+		);
+		DELETE FROM archived_employee_i9_forms
+		WHERE archived_employee_id IN (
+			SELECT id
+			FROM archived_location_employees
+			WHERE location_number = @number
+		);
+		DELETE FROM archived_employee_w4_forms
+		WHERE archived_employee_id IN (
+			SELECT id
+			FROM archived_location_employees
+			WHERE location_number = @number
+		);
+		DELETE FROM archived_location_employees
 		WHERE location_number = @number;
 		DELETE FROM location_employees
 		WHERE location_number = @number;
@@ -2868,6 +3748,889 @@ func (s *sqliteStore) getLocationEmployee(ctx context.Context, locationNumber, t
 		Birthday:      birthday,
 		HasPhoto:      hasPhotoRaw == 1,
 	}, nil
+}
+
+func (s *sqliteStore) listArchivedLocationEmployees(ctx context.Context, number string) ([]employee, error) {
+	rows, err := s.query(ctx, `
+		SELECT time_punch_name, first_name, last_name, department, birthday,
+			CASE WHEN LENGTH(COALESCE(profile_image_data, '')) > 0 THEN 1 ELSE 0 END AS has_photo,
+			archived_at
+		FROM archived_location_employees
+		WHERE location_number = @location_number
+		ORDER BY archived_at DESC;
+	`, map[string]string{"location_number": number})
+	if err != nil {
+		return nil, err
+	}
+	employees := make([]employee, 0, len(rows))
+	for _, row := range rows {
+		timePunchName, err := valueAsString(row["time_punch_name"])
+		if err != nil {
+			return nil, err
+		}
+		firstName, err := valueAsString(row["first_name"])
+		if err != nil {
+			return nil, err
+		}
+		lastName, err := valueAsString(row["last_name"])
+		if err != nil {
+			return nil, err
+		}
+		department, err := valueAsString(row["department"])
+		if err != nil {
+			return nil, err
+		}
+		birthday, err := valueAsString(row["birthday"])
+		if err != nil {
+			return nil, err
+		}
+		hasPhotoRaw, err := valueAsInt64(row["has_photo"])
+		if err != nil {
+			return nil, err
+		}
+		archivedAtUnix, err := valueAsInt64(row["archived_at"])
+		if err != nil {
+			return nil, err
+		}
+		employees = append(employees, employee{
+			FirstName:     firstName,
+			LastName:      lastName,
+			TimePunchName: timePunchName,
+			Department:    normalizeDepartment(department),
+			Birthday:      birthday,
+			HasPhoto:      hasPhotoRaw == 1,
+			ArchivedAt:    time.Unix(archivedAtUnix, 0).UTC().Format(time.RFC3339),
+		})
+	}
+	return employees, nil
+}
+
+func (s *sqliteStore) getArchivedLocationEmployee(ctx context.Context, locationNumber, timePunchName string) (*employee, error) {
+	rows, err := s.query(ctx, `
+		SELECT time_punch_name, first_name, last_name, department, birthday,
+			CASE WHEN LENGTH(COALESCE(profile_image_data, '')) > 0 THEN 1 ELSE 0 END AS has_photo,
+			archived_at
+		FROM archived_location_employees
+		WHERE location_number = @location_number
+			AND time_punch_name = @time_punch_name
+		LIMIT 1;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, errNotFound
+	}
+	firstName, err := valueAsString(rows[0]["first_name"])
+	if err != nil {
+		return nil, err
+	}
+	lastName, err := valueAsString(rows[0]["last_name"])
+	if err != nil {
+		return nil, err
+	}
+	tpn, err := valueAsString(rows[0]["time_punch_name"])
+	if err != nil {
+		return nil, err
+	}
+	dept, err := valueAsString(rows[0]["department"])
+	if err != nil {
+		return nil, err
+	}
+	birthday, err := valueAsString(rows[0]["birthday"])
+	if err != nil {
+		return nil, err
+	}
+	hasPhotoRaw, err := valueAsInt64(rows[0]["has_photo"])
+	if err != nil {
+		return nil, err
+	}
+	archivedAtUnix, err := valueAsInt64(rows[0]["archived_at"])
+	if err != nil {
+		return nil, err
+	}
+	return &employee{
+		FirstName:     firstName,
+		LastName:      lastName,
+		TimePunchName: tpn,
+		Department:    normalizeDepartment(dept),
+		Birthday:      birthday,
+		HasPhoto:      hasPhotoRaw == 1,
+		ArchivedAt:    time.Unix(archivedAtUnix, 0).UTC().Format(time.RFC3339),
+	}, nil
+}
+
+func (s *sqliteStore) getArchivedEmployeeRecord(ctx context.Context, locationNumber, timePunchName string) (*archivedEmployeeRecord, error) {
+	rows, err := s.query(ctx, `
+		SELECT id, location_number, time_punch_name, first_name, last_name, department, birthday, profile_image_data, profile_image_mime, archived_at
+		FROM archived_location_employees
+		WHERE location_number = @location_number
+			AND time_punch_name = @time_punch_name
+		LIMIT 1;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, errNotFound
+	}
+	id, err := valueAsInt64(rows[0]["id"])
+	if err != nil {
+		return nil, err
+	}
+	firstName, err := valueAsString(rows[0]["first_name"])
+	if err != nil {
+		return nil, err
+	}
+	lastName, err := valueAsString(rows[0]["last_name"])
+	if err != nil {
+		return nil, err
+	}
+	department, err := valueAsString(rows[0]["department"])
+	if err != nil {
+		return nil, err
+	}
+	birthday, err := valueAsString(rows[0]["birthday"])
+	if err != nil {
+		return nil, err
+	}
+	profileData, err := valueAsString(rows[0]["profile_image_data"])
+	if err != nil {
+		return nil, err
+	}
+	profileMime, err := valueAsString(rows[0]["profile_image_mime"])
+	if err != nil {
+		return nil, err
+	}
+	archivedAtUnix, err := valueAsInt64(rows[0]["archived_at"])
+	if err != nil {
+		return nil, err
+	}
+	return &archivedEmployeeRecord{
+		ID:             id,
+		LocationNumber: locationNumber,
+		TimePunchName:  timePunchName,
+		FirstName:      firstName,
+		LastName:       lastName,
+		Department:     normalizeDepartment(department),
+		Birthday:       birthday,
+		ProfileImage:   profileData,
+		ProfileMime:    profileMime,
+		ArchivedAt:     time.Unix(archivedAtUnix, 0).UTC(),
+	}, nil
+}
+
+func (s *sqliteStore) archiveAndDeleteLocationEmployee(ctx context.Context, locationNumber, timePunchName string) error {
+	rows, err := s.query(ctx, `
+		SELECT first_name, last_name, department, birthday, profile_image_data, profile_image_mime
+		FROM location_employees
+		WHERE location_number = @location_number AND time_punch_name = @time_punch_name
+		LIMIT 1;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+	})
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return errNotFound
+	}
+	firstName, err := valueAsString(rows[0]["first_name"])
+	if err != nil {
+		return err
+	}
+	lastName, err := valueAsString(rows[0]["last_name"])
+	if err != nil {
+		return err
+	}
+	department, err := valueAsString(rows[0]["department"])
+	if err != nil {
+		return err
+	}
+	birthday, err := valueAsString(rows[0]["birthday"])
+	if err != nil {
+		return err
+	}
+	profileData, err := valueAsString(rows[0]["profile_image_data"])
+	if err != nil {
+		return err
+	}
+	profileMime, err := valueAsString(rows[0]["profile_image_mime"])
+	if err != nil {
+		return err
+	}
+
+	nowUnix := time.Now().UTC().Unix()
+	stmt := `
+		BEGIN;
+		INSERT INTO archived_location_employees (
+			location_number, time_punch_name, first_name, last_name, department, birthday, profile_image_data, profile_image_mime, archived_at
+		) VALUES (
+			` + sqliteStringLiteral(locationNumber) + `,
+			` + sqliteStringLiteral(timePunchName) + `,
+			` + sqliteStringLiteral(firstName) + `,
+			` + sqliteStringLiteral(lastName) + `,
+			` + sqliteStringLiteral(normalizeDepartment(department)) + `,
+			` + sqliteStringLiteral(birthday) + `,
+			` + sqliteStringLiteral(profileData) + `,
+			` + sqliteStringLiteral(profileMime) + `,
+			` + strconv.FormatInt(nowUnix, 10) + `
+		)
+		ON CONFLICT(location_number, time_punch_name)
+		DO UPDATE SET
+			first_name = excluded.first_name,
+			last_name = excluded.last_name,
+			department = excluded.department,
+			birthday = excluded.birthday,
+			profile_image_data = excluded.profile_image_data,
+			profile_image_mime = excluded.profile_image_mime,
+			archived_at = excluded.archived_at;
+
+		INSERT INTO archived_employee_i9_forms (
+			archived_employee_id, file_data, file_mime, file_name, updated_at, created_at
+		)
+		SELECT a.id, f.file_data, f.file_mime, f.file_name, f.updated_at, f.created_at
+		FROM employee_i9_forms f
+		INNER JOIN archived_location_employees a
+			ON a.location_number = f.location_number
+			AND a.time_punch_name = f.time_punch_name
+		WHERE f.location_number = ` + sqliteStringLiteral(locationNumber) + `
+			AND f.time_punch_name = ` + sqliteStringLiteral(timePunchName) + `
+		ON CONFLICT(archived_employee_id)
+		DO UPDATE SET
+			file_data = excluded.file_data,
+			file_mime = excluded.file_mime,
+			file_name = excluded.file_name,
+			updated_at = excluded.updated_at;
+
+		INSERT INTO archived_employee_w4_forms (
+			archived_employee_id, file_data, file_mime, file_name, updated_at, created_at
+		)
+		SELECT a.id, f.file_data, f.file_mime, f.file_name, f.updated_at, f.created_at
+		FROM employee_w4_forms f
+		INNER JOIN archived_location_employees a
+			ON a.location_number = f.location_number
+			AND a.time_punch_name = f.time_punch_name
+		WHERE f.location_number = ` + sqliteStringLiteral(locationNumber) + `
+			AND f.time_punch_name = ` + sqliteStringLiteral(timePunchName) + `
+		ON CONFLICT(archived_employee_id)
+		DO UPDATE SET
+			file_data = excluded.file_data,
+			file_mime = excluded.file_mime,
+			file_name = excluded.file_name,
+			updated_at = excluded.updated_at;
+
+		DELETE FROM archived_employee_i9_documents
+		WHERE archived_employee_id = (
+			SELECT id FROM archived_location_employees
+			WHERE location_number = ` + sqliteStringLiteral(locationNumber) + `
+				AND time_punch_name = ` + sqliteStringLiteral(timePunchName) + `
+			LIMIT 1
+		);
+
+		INSERT INTO archived_employee_i9_documents (
+			archived_employee_id, file_data, file_mime, file_name, created_at
+		)
+		SELECT a.id, d.file_data, d.file_mime, d.file_name, d.created_at
+		FROM employee_i9_documents d
+		INNER JOIN archived_location_employees a
+			ON a.location_number = d.location_number
+			AND a.time_punch_name = d.time_punch_name
+		WHERE d.location_number = ` + sqliteStringLiteral(locationNumber) + `
+			AND d.time_punch_name = ` + sqliteStringLiteral(timePunchName) + `;
+
+		DELETE FROM employee_i9_documents
+		WHERE location_number = ` + sqliteStringLiteral(locationNumber) + `
+			AND time_punch_name = ` + sqliteStringLiteral(timePunchName) + `;
+
+		DELETE FROM employee_i9_forms
+		WHERE location_number = ` + sqliteStringLiteral(locationNumber) + `
+			AND time_punch_name = ` + sqliteStringLiteral(timePunchName) + `;
+
+		DELETE FROM employee_w4_forms
+		WHERE location_number = ` + sqliteStringLiteral(locationNumber) + `
+			AND time_punch_name = ` + sqliteStringLiteral(timePunchName) + `;
+
+		DELETE FROM location_employees
+		WHERE location_number = ` + sqliteStringLiteral(locationNumber) + `
+			AND time_punch_name = ` + sqliteStringLiteral(timePunchName) + `;
+		COMMIT;
+	`
+	_, err = s.exec(ctx, stmt, nil)
+	return err
+}
+
+func (s *sqliteStore) upsertEmployeeI9Form(ctx context.Context, locationNumber, timePunchName string, data []byte, mime, fileName string) error {
+	encoded := base64.StdEncoding.EncodeToString(data)
+	now := time.Now().UTC().Unix()
+	_, err := s.exec(ctx, `
+		INSERT INTO employee_i9_forms (
+			location_number, time_punch_name, file_data, file_mime, file_name, updated_at, created_at
+		)
+		VALUES (
+			@location_number, @time_punch_name, @file_data, @file_mime, @file_name, @updated_at, @created_at
+		)
+		ON CONFLICT(location_number, time_punch_name)
+		DO UPDATE SET
+			file_data = excluded.file_data,
+			file_mime = excluded.file_mime,
+			file_name = excluded.file_name,
+			updated_at = excluded.updated_at;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+		"file_data":       encoded,
+		"file_mime":       mime,
+		"file_name":       fileName,
+		"updated_at":      strconv.FormatInt(now, 10),
+		"created_at":      strconv.FormatInt(now, 10),
+	})
+	return err
+}
+
+func (s *sqliteStore) getEmployeeI9Form(ctx context.Context, locationNumber, timePunchName string) (employeeI9Form, error) {
+	rows, err := s.query(ctx, `
+		SELECT file_name, file_mime, updated_at, created_at
+		FROM employee_i9_forms
+		WHERE location_number = @location_number AND time_punch_name = @time_punch_name
+		LIMIT 1;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+	})
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	if len(rows) == 0 {
+		return employeeI9Form{
+			LocationNumber: locationNumber,
+			TimePunchName:  timePunchName,
+			HasFile:        false,
+		}, nil
+	}
+	fileName, err := valueAsString(rows[0]["file_name"])
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	fileMime, err := valueAsString(rows[0]["file_mime"])
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	updatedUnix, err := valueAsInt64(rows[0]["updated_at"])
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	createdUnix, err := valueAsInt64(rows[0]["created_at"])
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	return employeeI9Form{
+		LocationNumber: locationNumber,
+		TimePunchName:  timePunchName,
+		FileName:       fileName,
+		FileMime:       fileMime,
+		UpdatedAt:      time.Unix(updatedUnix, 0).UTC(),
+		CreatedAt:      time.Unix(createdUnix, 0).UTC(),
+		HasFile:        true,
+	}, nil
+}
+
+func (s *sqliteStore) getEmployeeI9File(ctx context.Context, locationNumber, timePunchName string) ([]byte, string, string, error) {
+	rows, err := s.query(ctx, `
+		SELECT file_data, file_mime, file_name
+		FROM employee_i9_forms
+		WHERE location_number = @location_number AND time_punch_name = @time_punch_name
+		LIMIT 1;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+	})
+	if err != nil {
+		return nil, "", "", err
+	}
+	if len(rows) == 0 {
+		return nil, "", "", errNotFound
+	}
+	encoded, err := valueAsString(rows[0]["file_data"])
+	if err != nil {
+		return nil, "", "", err
+	}
+	if strings.TrimSpace(encoded) == "" {
+		return nil, "", "", errNotFound
+	}
+	fileBytes, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, "", "", err
+	}
+	fileMime, _ := valueAsString(rows[0]["file_mime"])
+	fileName, _ := valueAsString(rows[0]["file_name"])
+	if strings.TrimSpace(fileMime) == "" {
+		fileMime = "application/pdf"
+	}
+	return fileBytes, fileMime, fileName, nil
+}
+
+func (s *sqliteStore) addEmployeeI9Document(ctx context.Context, locationNumber, timePunchName string, data []byte, mime, fileName string) error {
+	encoded := base64.StdEncoding.EncodeToString(data)
+	_, err := s.exec(ctx, `
+		INSERT INTO employee_i9_documents (location_number, time_punch_name, file_data, file_mime, file_name, created_at)
+		VALUES (@location_number, @time_punch_name, @file_data, @file_mime, @file_name, @created_at);
+	`, map[string]string{
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+		"file_data":       encoded,
+		"file_mime":       mime,
+		"file_name":       fileName,
+		"created_at":      strconv.FormatInt(time.Now().UTC().Unix(), 10),
+	})
+	return err
+}
+
+func (s *sqliteStore) listEmployeeI9Documents(ctx context.Context, locationNumber, timePunchName string) ([]employeeI9Document, error) {
+	rows, err := s.query(ctx, `
+		SELECT id, file_name, file_mime, created_at
+		FROM employee_i9_documents
+		WHERE location_number = @location_number AND time_punch_name = @time_punch_name
+		ORDER BY created_at DESC, id DESC;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+	})
+	if err != nil {
+		return nil, err
+	}
+	docs := make([]employeeI9Document, 0, len(rows))
+	for _, row := range rows {
+		id, err := valueAsInt64(row["id"])
+		if err != nil {
+			return nil, err
+		}
+		fileName, err := valueAsString(row["file_name"])
+		if err != nil {
+			return nil, err
+		}
+		fileMime, err := valueAsString(row["file_mime"])
+		if err != nil {
+			return nil, err
+		}
+		createdUnix, err := valueAsInt64(row["created_at"])
+		if err != nil {
+			return nil, err
+		}
+		docs = append(docs, employeeI9Document{
+			ID:             id,
+			LocationNumber: locationNumber,
+			TimePunchName:  timePunchName,
+			FileName:       fileName,
+			FileMime:       fileMime,
+			CreatedAt:      time.Unix(createdUnix, 0).UTC(),
+		})
+	}
+	return docs, nil
+}
+
+func (s *sqliteStore) getEmployeeI9DocumentFile(ctx context.Context, locationNumber, timePunchName string, docID int64) ([]byte, string, string, error) {
+	rows, err := s.query(ctx, `
+		SELECT file_data, file_mime, file_name
+		FROM employee_i9_documents
+		WHERE id = @id AND location_number = @location_number AND time_punch_name = @time_punch_name
+		LIMIT 1;
+	`, map[string]string{
+		"id":              strconv.FormatInt(docID, 10),
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+	})
+	if err != nil {
+		return nil, "", "", err
+	}
+	if len(rows) == 0 {
+		return nil, "", "", errNotFound
+	}
+	encoded, err := valueAsString(rows[0]["file_data"])
+	if err != nil {
+		return nil, "", "", err
+	}
+	fileBytes, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, "", "", err
+	}
+	fileMime, _ := valueAsString(rows[0]["file_mime"])
+	fileName, _ := valueAsString(rows[0]["file_name"])
+	if strings.TrimSpace(fileMime) == "" {
+		fileMime = http.DetectContentType(fileBytes)
+	}
+	return fileBytes, fileMime, fileName, nil
+}
+
+func (s *sqliteStore) deleteEmployeeI9Document(ctx context.Context, locationNumber, timePunchName string, docID int64) error {
+	rows, err := s.query(ctx, `
+		SELECT COUNT(*) AS count
+		FROM employee_i9_documents
+		WHERE id = @id AND location_number = @location_number AND time_punch_name = @time_punch_name;
+	`, map[string]string{
+		"id":              strconv.FormatInt(docID, 10),
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+	})
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return errNotFound
+	}
+	count, err := valueAsInt64(rows[0]["count"])
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return errNotFound
+	}
+	_, err = s.exec(ctx, `
+		DELETE FROM employee_i9_documents
+		WHERE id = @id AND location_number = @location_number AND time_punch_name = @time_punch_name;
+	`, map[string]string{
+		"id":              strconv.FormatInt(docID, 10),
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+	})
+	return err
+}
+
+func (s *sqliteStore) getArchivedEmployeeI9Form(ctx context.Context, archivedEmployeeID int64) (employeeI9Form, error) {
+	rows, err := s.query(ctx, `
+		SELECT file_name, file_mime, updated_at, created_at
+		FROM archived_employee_i9_forms
+		WHERE archived_employee_id = @archived_employee_id
+		LIMIT 1;
+	`, map[string]string{
+		"archived_employee_id": strconv.FormatInt(archivedEmployeeID, 10),
+	})
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	if len(rows) == 0 {
+		return employeeI9Form{HasFile: false}, nil
+	}
+	fileName, err := valueAsString(rows[0]["file_name"])
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	fileMime, err := valueAsString(rows[0]["file_mime"])
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	updatedUnix, err := valueAsInt64(rows[0]["updated_at"])
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	createdUnix, err := valueAsInt64(rows[0]["created_at"])
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	return employeeI9Form{
+		FileName:  fileName,
+		FileMime:  fileMime,
+		UpdatedAt: time.Unix(updatedUnix, 0).UTC(),
+		CreatedAt: time.Unix(createdUnix, 0).UTC(),
+		HasFile:   true,
+	}, nil
+}
+
+func (s *sqliteStore) getArchivedEmployeeI9File(ctx context.Context, archivedEmployeeID int64) ([]byte, string, string, error) {
+	rows, err := s.query(ctx, `
+		SELECT file_data, file_mime, file_name
+		FROM archived_employee_i9_forms
+		WHERE archived_employee_id = @archived_employee_id
+		LIMIT 1;
+	`, map[string]string{
+		"archived_employee_id": strconv.FormatInt(archivedEmployeeID, 10),
+	})
+	if err != nil {
+		return nil, "", "", err
+	}
+	if len(rows) == 0 {
+		return nil, "", "", errNotFound
+	}
+	encoded, err := valueAsString(rows[0]["file_data"])
+	if err != nil {
+		return nil, "", "", err
+	}
+	if strings.TrimSpace(encoded) == "" {
+		return nil, "", "", errNotFound
+	}
+	fileBytes, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, "", "", err
+	}
+	fileMime, _ := valueAsString(rows[0]["file_mime"])
+	fileName, _ := valueAsString(rows[0]["file_name"])
+	if strings.TrimSpace(fileMime) == "" {
+		fileMime = "application/pdf"
+	}
+	return fileBytes, fileMime, fileName, nil
+}
+
+func (s *sqliteStore) listArchivedEmployeeI9Documents(ctx context.Context, archivedEmployeeID int64) ([]employeeI9Document, error) {
+	rows, err := s.query(ctx, `
+		SELECT id, file_name, file_mime, created_at
+		FROM archived_employee_i9_documents
+		WHERE archived_employee_id = @archived_employee_id
+		ORDER BY created_at DESC, id DESC;
+	`, map[string]string{
+		"archived_employee_id": strconv.FormatInt(archivedEmployeeID, 10),
+	})
+	if err != nil {
+		return nil, err
+	}
+	docs := make([]employeeI9Document, 0, len(rows))
+	for _, row := range rows {
+		id, err := valueAsInt64(row["id"])
+		if err != nil {
+			return nil, err
+		}
+		fileName, err := valueAsString(row["file_name"])
+		if err != nil {
+			return nil, err
+		}
+		fileMime, err := valueAsString(row["file_mime"])
+		if err != nil {
+			return nil, err
+		}
+		createdUnix, err := valueAsInt64(row["created_at"])
+		if err != nil {
+			return nil, err
+		}
+		docs = append(docs, employeeI9Document{
+			ID:        id,
+			FileName:  fileName,
+			FileMime:  fileMime,
+			CreatedAt: time.Unix(createdUnix, 0).UTC(),
+		})
+	}
+	return docs, nil
+}
+
+func (s *sqliteStore) getArchivedEmployeeI9DocumentFile(ctx context.Context, archivedEmployeeID, docID int64) ([]byte, string, string, error) {
+	rows, err := s.query(ctx, `
+		SELECT file_data, file_mime, file_name
+		FROM archived_employee_i9_documents
+		WHERE id = @id AND archived_employee_id = @archived_employee_id
+		LIMIT 1;
+	`, map[string]string{
+		"id":                   strconv.FormatInt(docID, 10),
+		"archived_employee_id": strconv.FormatInt(archivedEmployeeID, 10),
+	})
+	if err != nil {
+		return nil, "", "", err
+	}
+	if len(rows) == 0 {
+		return nil, "", "", errNotFound
+	}
+	encoded, err := valueAsString(rows[0]["file_data"])
+	if err != nil {
+		return nil, "", "", err
+	}
+	fileBytes, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, "", "", err
+	}
+	fileMime, _ := valueAsString(rows[0]["file_mime"])
+	fileName, _ := valueAsString(rows[0]["file_name"])
+	if strings.TrimSpace(fileMime) == "" {
+		fileMime = http.DetectContentType(fileBytes)
+	}
+	return fileBytes, fileMime, fileName, nil
+}
+
+func (s *sqliteStore) upsertEmployeeW4Form(ctx context.Context, locationNumber, timePunchName string, data []byte, mime, fileName string) error {
+	encoded := base64.StdEncoding.EncodeToString(data)
+	now := time.Now().UTC().Unix()
+	_, err := s.exec(ctx, `
+		INSERT INTO employee_w4_forms (
+			location_number, time_punch_name, file_data, file_mime, file_name, updated_at, created_at
+		)
+		VALUES (
+			@location_number, @time_punch_name, @file_data, @file_mime, @file_name, @updated_at, @created_at
+		)
+		ON CONFLICT(location_number, time_punch_name)
+		DO UPDATE SET
+			file_data = excluded.file_data,
+			file_mime = excluded.file_mime,
+			file_name = excluded.file_name,
+			updated_at = excluded.updated_at;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+		"file_data":       encoded,
+		"file_mime":       mime,
+		"file_name":       fileName,
+		"updated_at":      strconv.FormatInt(now, 10),
+		"created_at":      strconv.FormatInt(now, 10),
+	})
+	return err
+}
+
+func (s *sqliteStore) getEmployeeW4Form(ctx context.Context, locationNumber, timePunchName string) (employeeI9Form, error) {
+	rows, err := s.query(ctx, `
+		SELECT file_name, file_mime, updated_at, created_at
+		FROM employee_w4_forms
+		WHERE location_number = @location_number AND time_punch_name = @time_punch_name
+		LIMIT 1;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+	})
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	if len(rows) == 0 {
+		return employeeI9Form{
+			LocationNumber: locationNumber,
+			TimePunchName:  timePunchName,
+			HasFile:        false,
+		}, nil
+	}
+	fileName, err := valueAsString(rows[0]["file_name"])
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	fileMime, err := valueAsString(rows[0]["file_mime"])
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	updatedUnix, err := valueAsInt64(rows[0]["updated_at"])
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	createdUnix, err := valueAsInt64(rows[0]["created_at"])
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	return employeeI9Form{
+		LocationNumber: locationNumber,
+		TimePunchName:  timePunchName,
+		FileName:       fileName,
+		FileMime:       fileMime,
+		UpdatedAt:      time.Unix(updatedUnix, 0).UTC(),
+		CreatedAt:      time.Unix(createdUnix, 0).UTC(),
+		HasFile:        true,
+	}, nil
+}
+
+func (s *sqliteStore) getEmployeeW4File(ctx context.Context, locationNumber, timePunchName string) ([]byte, string, string, error) {
+	rows, err := s.query(ctx, `
+		SELECT file_data, file_mime, file_name
+		FROM employee_w4_forms
+		WHERE location_number = @location_number AND time_punch_name = @time_punch_name
+		LIMIT 1;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+	})
+	if err != nil {
+		return nil, "", "", err
+	}
+	if len(rows) == 0 {
+		return nil, "", "", errNotFound
+	}
+	encoded, err := valueAsString(rows[0]["file_data"])
+	if err != nil {
+		return nil, "", "", err
+	}
+	if strings.TrimSpace(encoded) == "" {
+		return nil, "", "", errNotFound
+	}
+	fileBytes, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, "", "", err
+	}
+	fileMime, _ := valueAsString(rows[0]["file_mime"])
+	fileName, _ := valueAsString(rows[0]["file_name"])
+	if strings.TrimSpace(fileMime) == "" {
+		fileMime = "application/pdf"
+	}
+	return fileBytes, fileMime, fileName, nil
+}
+
+func (s *sqliteStore) getArchivedEmployeeW4Form(ctx context.Context, archivedEmployeeID int64) (employeeI9Form, error) {
+	rows, err := s.query(ctx, `
+		SELECT file_name, file_mime, updated_at, created_at
+		FROM archived_employee_w4_forms
+		WHERE archived_employee_id = @archived_employee_id
+		LIMIT 1;
+	`, map[string]string{
+		"archived_employee_id": strconv.FormatInt(archivedEmployeeID, 10),
+	})
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	if len(rows) == 0 {
+		return employeeI9Form{HasFile: false}, nil
+	}
+	fileName, err := valueAsString(rows[0]["file_name"])
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	fileMime, err := valueAsString(rows[0]["file_mime"])
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	updatedUnix, err := valueAsInt64(rows[0]["updated_at"])
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	createdUnix, err := valueAsInt64(rows[0]["created_at"])
+	if err != nil {
+		return employeeI9Form{}, err
+	}
+	return employeeI9Form{
+		FileName:  fileName,
+		FileMime:  fileMime,
+		UpdatedAt: time.Unix(updatedUnix, 0).UTC(),
+		CreatedAt: time.Unix(createdUnix, 0).UTC(),
+		HasFile:   true,
+	}, nil
+}
+
+func (s *sqliteStore) getArchivedEmployeeW4File(ctx context.Context, archivedEmployeeID int64) ([]byte, string, string, error) {
+	rows, err := s.query(ctx, `
+		SELECT file_data, file_mime, file_name
+		FROM archived_employee_w4_forms
+		WHERE archived_employee_id = @archived_employee_id
+		LIMIT 1;
+	`, map[string]string{
+		"archived_employee_id": strconv.FormatInt(archivedEmployeeID, 10),
+	})
+	if err != nil {
+		return nil, "", "", err
+	}
+	if len(rows) == 0 {
+		return nil, "", "", errNotFound
+	}
+	encoded, err := valueAsString(rows[0]["file_data"])
+	if err != nil {
+		return nil, "", "", err
+	}
+	if strings.TrimSpace(encoded) == "" {
+		return nil, "", "", errNotFound
+	}
+	fileBytes, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, "", "", err
+	}
+	fileMime, _ := valueAsString(rows[0]["file_mime"])
+	fileName, _ := valueAsString(rows[0]["file_name"])
+	if strings.TrimSpace(fileMime) == "" {
+		fileMime = "application/pdf"
+	}
+	return fileBytes, fileMime, fileName, nil
 }
 
 func (s *sqliteStore) upsertLocationEmployee(ctx context.Context, locationNumber string, emp employee) error {
@@ -5453,8 +7216,380 @@ func sqliteStringLiteral(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
 }
 
+type pdfFormExportPayload struct {
+	Forms []pdfFormExportEntry `json:"forms"`
+}
+
+type pdfFormExportEntry struct {
+	Textfield []pdfFormExportTextField `json:"textfield"`
+	Checkbox  []pdfFormExportCheckBox  `json:"checkbox"`
+	Combobox  []pdfFormExportTextField `json:"combobox"`
+}
+
+type pdfFormExportTextField struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+type pdfFormExportCheckBox struct {
+	Name  string `json:"name"`
+	Value bool   `json:"value"`
+}
+
+func generateFilledI9PDF(values url.Values) ([]byte, error) {
+	textFieldMap := map[string]string{
+		"last_name":                 "Last Name (Family Name)",
+		"first_name":                "First Name Given Name",
+		"middle_initial":            "Employee Middle Initial (if any)",
+		"other_last_names":          "Employee Other Last Names Used (if any)",
+		"address":                   "Address Street Number and Name",
+		"apt_number":                "Apt Number (if any)",
+		"city":                      "City or Town",
+		"state":                     "State",
+		"zip_code":                  "ZIP Code",
+		"date_of_birth":             "Date of Birth mmddyyyy",
+		"ssn":                       "US Social Security Number",
+		"email":                     "Employees E-mail Address",
+		"phone":                     "Telephone Number",
+		"citizenship_lpr_number":    "3 A lawful permanent resident Enter USCIS or ANumber",
+		"alien_exp_date":            "Exp Date mmddyyyy",
+		"alien_uscis_number":        "USCIS ANumber",
+		"alien_i94_number":          "Form I94 Admission Number",
+		"alien_passport_country":    "Foreign Passport Number and Country of IssuanceRow1",
+		"employee_signature":        "Signature of Employee",
+		"employee_signature_date":   "Today's Date mmddyyy",
+		"list_b_title":              "List B Document 1 Title",
+		"list_b_issuing_authority":  "List B Issuing Authority 1",
+		"list_b_number":             "List B Document Number 1",
+		"list_b_expiration":         "List B Expiration Date 1",
+		"list_c_title":              "List C Document Title 1",
+		"list_c_issuing_authority":  "List C Issuing Authority 1",
+		"list_c_number":             "List C Document Number 1",
+		"list_c_expiration":         "List C Expiration Date 1",
+		"first_day_employed":        "FirstDayEmployed mmddyyyy",
+		"employer_name_title":       "Last Name First Name and Title of Employer or Authorized Representative",
+		"employer_signature":        "Signature of Employer or AR",
+		"employer_signature_date":   "S2 Todays Date mmddyyyy",
+		"employer_business_name":    "Employers Business or Org Name",
+		"employer_business_address": "Employers Business or Org Address",
+		"additional_info":           "Additional Information",
+	}
+	pdfTextValues := map[string]string{}
+	for formKey, pdfFieldName := range textFieldMap {
+		raw := strings.TrimSpace(values.Get(formKey))
+		if raw == "" {
+			continue
+		}
+		pdfTextValues[pdfFieldName] = raw
+	}
+
+	citizenshipStatus := strings.ToLower(strings.TrimSpace(values.Get("citizenship_status")))
+	pdfCheckboxValues := map[string]bool{
+		"CB_1": false,
+		"CB_2": false,
+		"CB_3": false,
+		"CB_4": false,
+	}
+	switch citizenshipStatus {
+	case "citizen":
+		pdfCheckboxValues["CB_1"] = true
+	case "noncitizen_national":
+		pdfCheckboxValues["CB_2"] = true
+	case "lpr":
+		pdfCheckboxValues["CB_3"] = true
+	case "alien_authorized":
+		pdfCheckboxValues["CB_4"] = true
+	}
+
+	if len(pdfTextValues) == 0 && !pdfCheckboxValues["CB_1"] && !pdfCheckboxValues["CB_2"] && !pdfCheckboxValues["CB_3"] && !pdfCheckboxValues["CB_4"] {
+		return nil, errors.New("enter at least one i-9 field before saving")
+	}
+	return fillPDFTemplate("docs/i9.pdf", pdfTextValues, pdfCheckboxValues)
+}
+
+func generateFilledW4PDF(values url.Values) ([]byte, error) {
+	textFieldMap := map[string]string{
+		"first_name_middle":  "topmostSubform[0].Page1[0].Step1a[0].f1_01[0]",
+		"last_name":          "topmostSubform[0].Page1[0].Step1a[0].f1_02[0]",
+		"address":            "topmostSubform[0].Page1[0].Step1a[0].f1_03[0]",
+		"city_state_zip":     "topmostSubform[0].Page1[0].Step1a[0].f1_04[0]",
+		"ssn":                "topmostSubform[0].Page1[0].f1_05[0]",
+		"dependents_under17": "topmostSubform[0].Page1[0].Step3_ReadOrder[0].f1_06[0]",
+		"other_dependents":   "topmostSubform[0].Page1[0].Step3_ReadOrder[0].f1_07[0]",
+		"other_income":       "topmostSubform[0].Page1[0].f1_08[0]",
+		"deductions":         "topmostSubform[0].Page1[0].f1_09[0]",
+		"extra_withholding":  "topmostSubform[0].Page1[0].f1_10[0]",
+		"signature":          "topmostSubform[0].Page1[0].f1_12[0]",
+		"date":               "topmostSubform[0].Page1[0].f1_13[0]",
+		"employer_name_addr": "topmostSubform[0].Page1[0].f1_14[0]",
+	}
+	pdfTextValues := map[string]string{}
+	for formKey, pdfFieldName := range textFieldMap {
+		raw := strings.TrimSpace(values.Get(formKey))
+		if raw == "" {
+			continue
+		}
+		pdfTextValues[pdfFieldName] = raw
+	}
+
+	pdfCheckboxValues := map[string]bool{
+		"topmostSubform[0].Page1[0].c1_1[0]": false,
+		"topmostSubform[0].Page1[0].c1_1[1]": false,
+		"topmostSubform[0].Page1[0].c1_1[2]": false,
+		"topmostSubform[0].Page1[0].c1_2[0]": false,
+		"topmostSubform[0].Page1[0].c1_3[0]": false,
+	}
+
+	switch strings.ToLower(strings.TrimSpace(values.Get("filing_status"))) {
+	case "single":
+		pdfCheckboxValues["topmostSubform[0].Page1[0].c1_1[0]"] = true
+	case "married":
+		pdfCheckboxValues["topmostSubform[0].Page1[0].c1_1[1]"] = true
+	case "head":
+		pdfCheckboxValues["topmostSubform[0].Page1[0].c1_1[2]"] = true
+	}
+	if parseBoolQueryValue(values.Get("multiple_jobs")) {
+		pdfCheckboxValues["topmostSubform[0].Page1[0].c1_2[0]"] = true
+	}
+	if parseBoolQueryValue(values.Get("exempt")) {
+		pdfCheckboxValues["topmostSubform[0].Page1[0].c1_3[0]"] = true
+	}
+
+	if len(pdfTextValues) == 0 &&
+		!pdfCheckboxValues["topmostSubform[0].Page1[0].c1_1[0]"] &&
+		!pdfCheckboxValues["topmostSubform[0].Page1[0].c1_1[1]"] &&
+		!pdfCheckboxValues["topmostSubform[0].Page1[0].c1_1[2]"] &&
+		!pdfCheckboxValues["topmostSubform[0].Page1[0].c1_2[0]"] &&
+		!pdfCheckboxValues["topmostSubform[0].Page1[0].c1_3[0]"] {
+		return nil, errors.New("enter at least one w-4 field before saving")
+	}
+
+	return fillPDFTemplate("docs/w4.pdf", pdfTextValues, pdfCheckboxValues)
+}
+
+func fillPDFTemplate(templatePath string, textValues map[string]string, checkValues map[string]bool) ([]byte, error) {
+	if _, err := os.Stat(templatePath); err != nil {
+		return nil, errors.New("paperwork template is missing")
+	}
+	if _, err := exec.LookPath("pdfcpu"); err != nil {
+		return nil, errors.New("pdfcpu is required on the host to generate paperwork")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "cfasuite-pdf-fill-*")
+	if err != nil {
+		return nil, errors.New("unable to prepare pdf generation")
+	}
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
+
+	exportPath := filepath.Join(tmpDir, "export.json")
+	fillPath := filepath.Join(tmpDir, "fill.json")
+	outPath := filepath.Join(tmpDir, "filled.pdf")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if output, err := exec.CommandContext(ctx, "pdfcpu", "form", "export", templatePath, exportPath).CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("unable to export template fields: %s", strings.TrimSpace(string(output)))
+	}
+
+	exportRaw, err := os.ReadFile(exportPath)
+	if err != nil {
+		return nil, errors.New("unable to read exported template fields")
+	}
+	var payload pdfFormExportPayload
+	if err := json.Unmarshal(exportRaw, &payload); err != nil {
+		return nil, errors.New("unable to parse exported template fields")
+	}
+	if len(payload.Forms) == 0 {
+		return nil, errors.New("template does not include fillable form fields")
+	}
+
+	for formIdx := range payload.Forms {
+		for fieldIdx := range payload.Forms[formIdx].Textfield {
+			name := payload.Forms[formIdx].Textfield[fieldIdx].Name
+			if value, ok := textValues[name]; ok {
+				payload.Forms[formIdx].Textfield[fieldIdx].Value = value
+			}
+		}
+		for fieldIdx := range payload.Forms[formIdx].Combobox {
+			name := payload.Forms[formIdx].Combobox[fieldIdx].Name
+			if value, ok := textValues[name]; ok {
+				payload.Forms[formIdx].Combobox[fieldIdx].Value = value
+			}
+		}
+		for fieldIdx := range payload.Forms[formIdx].Checkbox {
+			name := payload.Forms[formIdx].Checkbox[fieldIdx].Name
+			if value, ok := checkValues[name]; ok {
+				payload.Forms[formIdx].Checkbox[fieldIdx].Value = value
+			}
+		}
+	}
+
+	filledRaw, err := json.Marshal(payload)
+	if err != nil {
+		return nil, errors.New("unable to serialize filled form fields")
+	}
+	if err := os.WriteFile(fillPath, filledRaw, 0o600); err != nil {
+		return nil, errors.New("unable to stage filled form")
+	}
+	if output, err := exec.CommandContext(ctx, "pdfcpu", "form", "fill", templatePath, fillPath, outPath).CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("unable to fill template: %s", strings.TrimSpace(string(output)))
+	}
+
+	pdfData, err := os.ReadFile(outPath)
+	if err != nil {
+		return nil, errors.New("unable to read generated pdf")
+	}
+	if len(pdfData) == 0 {
+		return nil, errors.New("generated pdf is empty")
+	}
+	return pdfData, nil
+}
+
 func parseUploadedPhoto(r *http.Request) ([]byte, string, error) {
 	return parseUploadedPhotoWithField(r, "photo_file")
+}
+
+func parseUploadedFileWithField(r *http.Request, fieldName string, maxBytes int64, allowedMimes []string, requiredMessage string) ([]byte, string, string, error) {
+	if maxBytes <= 0 {
+		maxBytes = 10 << 20
+	}
+	if err := r.ParseMultipartForm(maxBytes + (2 << 20)); err != nil {
+		return nil, "", "", errors.New("invalid upload form")
+	}
+	file, header, err := r.FormFile(fieldName)
+	if err != nil {
+		return nil, "", "", errors.New(requiredMessage)
+	}
+	defer file.Close()
+	raw, err := io.ReadAll(io.LimitReader(file, maxBytes))
+	if err != nil {
+		return nil, "", "", errors.New("unable to read uploaded file")
+	}
+	if len(raw) == 0 {
+		return nil, "", "", errors.New("uploaded file is empty")
+	}
+	detected := http.DetectContentType(raw)
+	if len(allowedMimes) > 0 {
+		ok := false
+		for _, allowed := range allowedMimes {
+			if strings.EqualFold(strings.TrimSpace(allowed), detected) {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return nil, "", "", errors.New("unsupported file type")
+		}
+	}
+	fileName := strings.TrimSpace(header.Filename)
+	if fileName == "" {
+		ext := filepath.Ext(fieldName)
+		if ext == "" {
+			ext = ".bin"
+		}
+		fileName = fieldName + ext
+	}
+	return raw, detected, fileName, nil
+}
+
+func parseOptionalUploadedFileWithField(r *http.Request, fieldName string, maxBytes int64, allowedMimes []string) ([]byte, string, string, bool, error) {
+	if maxBytes <= 0 {
+		maxBytes = 10 << 20
+	}
+	contentType := strings.ToLower(strings.TrimSpace(r.Header.Get("Content-Type")))
+	if !strings.HasPrefix(contentType, "multipart/form-data") {
+		return nil, "", "", false, nil
+	}
+	file, header, err := r.FormFile(fieldName)
+	if err != nil {
+		if errors.Is(err, http.ErrMissingFile) || strings.Contains(strings.ToLower(err.Error()), "no such file") {
+			return nil, "", "", false, nil
+		}
+		return nil, "", "", false, errors.New("invalid uploaded file")
+	}
+	defer file.Close()
+	raw, err := io.ReadAll(io.LimitReader(file, maxBytes))
+	if err != nil {
+		return nil, "", "", false, errors.New("unable to read uploaded file")
+	}
+	if len(raw) == 0 {
+		return nil, "", "", false, errors.New("uploaded file is empty")
+	}
+	detected := http.DetectContentType(raw)
+	if len(allowedMimes) > 0 {
+		ok := false
+		for _, allowed := range allowedMimes {
+			if strings.EqualFold(strings.TrimSpace(allowed), detected) {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return nil, "", "", false, errors.New("unsupported file type")
+		}
+	}
+	fileName := strings.TrimSpace(header.Filename)
+	if fileName == "" {
+		ext := filepath.Ext(fieldName)
+		if ext == "" {
+			ext = ".bin"
+		}
+		fileName = fieldName + ext
+	}
+	return raw, detected, fileName, true, nil
+}
+
+func parseDataURLBinary(value string, allowedMimes []string, maxBytes int) ([]byte, string, error) {
+	raw := strings.TrimSpace(value)
+	if raw == "" {
+		return nil, "", errors.New("empty data url")
+	}
+	if !strings.HasPrefix(raw, "data:") {
+		return nil, "", errors.New("invalid data url prefix")
+	}
+	comma := strings.Index(raw, ",")
+	if comma <= 5 {
+		return nil, "", errors.New("invalid data url payload")
+	}
+	meta := raw[5:comma]
+	payload := raw[comma+1:]
+	if !strings.HasSuffix(strings.ToLower(meta), ";base64") {
+		return nil, "", errors.New("data url must be base64")
+	}
+	mime := strings.TrimSpace(meta[:len(meta)-len(";base64")])
+	if mime == "" {
+		return nil, "", errors.New("missing data url mime type")
+	}
+	if len(allowedMimes) > 0 {
+		ok := false
+		for _, allowed := range allowedMimes {
+			if strings.EqualFold(strings.TrimSpace(allowed), mime) {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return nil, "", errors.New("unsupported data url mime type")
+		}
+	}
+	decoded, err := base64.StdEncoding.DecodeString(payload)
+	if err != nil {
+		return nil, "", errors.New("unable to decode data url")
+	}
+	if len(decoded) == 0 {
+		return nil, "", errors.New("empty data url content")
+	}
+	if maxBytes > 0 && len(decoded) > maxBytes {
+		return nil, "", errors.New("data url exceeds max size")
+	}
+	detected := http.DetectContentType(decoded)
+	if !strings.EqualFold(detected, mime) {
+		return nil, "", errors.New("data url mime does not match content")
+	}
+	return decoded, detected, nil
 }
 
 func parseUploadedPhotoWithField(r *http.Request, fieldName string) ([]byte, string, error) {

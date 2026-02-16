@@ -1,0 +1,5 @@
+=== RUN   TestDebugBioImport
+    debug_bio_import_test.go:47: inserted active employees: 100
+--- PASS: TestDebugBioImport (0.36s)
+PASS
+ok  	github.com/phillip-england/cfasuite/internal/apiapp	0.573s

@@ -74,6 +74,68 @@
       margin-top: 8px;
       padding-top: 14px;
     }
+    .i9 {
+      border-top: 1px dashed var(--line);
+      margin-top: 8px;
+      padding-top: 14px;
+    }
+    .submenu {
+      display: grid;
+      gap: 10px;
+      margin: 4px 0 14px;
+    }
+    .submenu-btn {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      border-radius: 14px;
+      padding: 11px 12px;
+      font: 800 0.9rem/1.2 "Manrope", sans-serif;
+      cursor: pointer;
+      text-align: left;
+    }
+    .submenu-btn.active {
+      border-color: #d2a474;
+      background: #fff2e2;
+    }
+    .panel {
+      display: none;
+      border-top: 1px dashed var(--line);
+      margin-top: 6px;
+      padding-top: 14px;
+    }
+    .panel.active {
+      display: block;
+    }
+    .i9 .hint {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+    .i9 .doc-list {
+      margin: 10px 0 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 8px;
+    }
+    .i9 .doc-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .i9 .doc-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 0.9rem;
+    }
+    .i9 .doc-link:hover {
+      text-decoration: underline;
+    }
     .photo {
       border-top: 1px dashed var(--line);
       margin-top: 8px;
@@ -152,6 +214,57 @@
       gap: 8px;
       margin-top: 10px;
     }
+    .paperwork-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 8px 0 12px;
+    }
+    .paperwork-btn {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 11px;
+      background: #fff;
+      font: 800 0.86rem/1 "Manrope", sans-serif;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .paperwork-btn.active {
+      background: #fff2e2;
+      border-color: #d2a474;
+    }
+    .paperwork-form-card {
+      display: none;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px;
+      background: #fff;
+    }
+    .paperwork-form-card.active {
+      display: block;
+    }
+    .signature-pad-shell {
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: #fff9f2;
+      display: grid;
+      gap: 8px;
+    }
+    .signature-pad {
+      width: 100%;
+      height: 170px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      touch-action: none;
+    }
+    .signature-status {
+      min-height: 18px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
     .crop-tools {
       display: none;
       gap: 8px;
@@ -228,65 +341,207 @@
 </head>
 <body>
   <section class="card">
-    <a class="back" href="/admin/locations/{{ .Location.Number }}/employees">Back to Employees</a>
+    <a class="back" href="{{ if .IsArchivedEmployee }}/admin/locations/{{ .Location.Number }}/employees/archived{{ else }}/admin/locations/{{ .Location.Number }}/employees{{ end }}">Back to {{ if .IsArchivedEmployee }}Archived Employees{{ else }}Employees{{ end }}</a>
     <h1>{{ .Employee.FirstName }} {{ .Employee.LastName }}</h1>
-    <p class="sub">Location {{ .Location.Name }} ({{ .Location.Number }})</p>
+    <p class="sub">Location {{ .Location.Name }} ({{ .Location.Number }}){{ if .IsArchivedEmployee }} • Archived {{ .Employee.ArchivedAt }}{{ end }}</p>
 
-    <div class="grid">
-      <div class="label">Time Punch Name</div>
-      <div class="value">{{ .Employee.TimePunchName }}</div>
-      <div class="label">Birthday</div>
-      <div class="value">{{ .Employee.Birthday }}</div>
-    </div>
-
-    <section class="photo">
-      <label style="font-weight:800;display:block;margin-bottom:8px;">Profile Photo</label>
-      <div class="preview-row">
-        <div class="preview-box">
-          <span class="preview-label">Selected Image</span>
-          <div class="crop-stage">
-            <img id="photo-preview" class="photo-preview" src="{{ if .Employee.HasPhoto }}/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/photo{{ else }}data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='100%25' height='100%25' fill='%23f7f3ed'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2369717c' font-family='Manrope' font-size='14'%3ENo Photo%3C/text%3E%3C/svg%3E{{ end }}" alt="Profile photo">
-            <div id="crop-selection" class="crop-selection">
-              <div id="crop-handle" class="crop-handle"></div>
-            </div>
-          </div>
-        </div>
-        <div id="crop-result-box" class="preview-box crop-result-box">
-          <span class="preview-label">Cropped Result</span>
-          <canvas id="crop-result" class="photo-preview" width="180" height="180"></canvas>
-        </div>
-      </div>
-      <form id="photo-form" class="controls" method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/photo" enctype="multipart/form-data">
-        <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-        <input type="hidden" id="crop_x" name="crop_x" value="0">
-        <input type="hidden" id="crop_y" name="crop_y" value="0">
-        <input type="hidden" id="crop_size" name="crop_size" value="0">
-        <input id="photo_file" type="file" name="photo_file" accept="image/png,image/jpeg,image/webp" required>
-        <div id="crop-tools" class="crop-tools">
-          <p class="sub" style="margin:0;">Drag the crop box. Use the bottom-right handle to resize.</p>
-          <div class="button-row">
-            <button id="confirm-crop" type="button" class="btn btn-secondary">Confirm Crop</button>
-            <button id="upload-photo-btn" type="submit" class="btn btn-primary" disabled>Upload Photo</button>
-            <button id="cancel-upload" type="button" class="btn btn-secondary">Cancel Upload</button>
-          </div>
-        </div>
-      </form>
-      <button id="generate-link" type="button" style="margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;font-weight:800;cursor:pointer;">Generate Secure Upload Link</button>
-      <div id="upload-link-box" class="upload-link-box"></div>
+    <section class="submenu">
+      <button class="submenu-btn" type="button" data-target="employee-view">View Employee</button>
+      <button class="submenu-btn" type="button" data-target="paperwork-upload">Upload Paperwork</button>
+      <button class="submenu-btn" type="button" data-target="paperwork-view">View Paperwork</button>
     </section>
 
-    <section class="department">
-      <label for="department">Department</label>
-      <select id="department">
-        {{ $current := .Employee.Department }}
-        {{ range $.Departments }}
-          <option value="{{ . }}" {{ if eq . $current }}selected{{ end }}>{{ . }}</option>
+    <section class="panel" data-panel="employee-view">
+      <div class="grid">
+        <div class="label">Time Punch Name</div>
+        <div class="value">{{ .Employee.TimePunchName }}</div>
+        <div class="label">Birthday</div>
+        <div class="value">{{ .Employee.Birthday }}</div>
+      </div>
+
+      {{ if not .IsArchivedEmployee }}
+      <section class="photo">
+        <label style="font-weight:800;display:block;margin-bottom:8px;">Profile Photo</label>
+        <div class="preview-row">
+          <div class="preview-box">
+            <span class="preview-label">Selected Image</span>
+            <div class="crop-stage">
+              <img id="photo-preview" class="photo-preview" src="{{ if .Employee.HasPhoto }}/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/photo{{ else }}data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='100%25' height='100%25' fill='%23f7f3ed'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2369717c' font-family='Manrope' font-size='14'%3ENo Photo%3C/text%3E%3C/svg%3E{{ end }}" alt="Profile photo">
+              <div id="crop-selection" class="crop-selection">
+                <div id="crop-handle" class="crop-handle"></div>
+              </div>
+            </div>
+          </div>
+          <div id="crop-result-box" class="preview-box crop-result-box">
+            <span class="preview-label">Cropped Result</span>
+            <canvas id="crop-result" class="photo-preview" width="180" height="180"></canvas>
+          </div>
+        </div>
+        <form id="photo-form" class="controls" method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/photo" enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+          <input type="hidden" id="crop_x" name="crop_x" value="0">
+          <input type="hidden" id="crop_y" name="crop_y" value="0">
+          <input type="hidden" id="crop_size" name="crop_size" value="0">
+          <input id="photo_file" type="file" name="photo_file" accept="image/png,image/jpeg,image/webp" required>
+          <div id="crop-tools" class="crop-tools">
+            <p class="sub" style="margin:0;">Drag the crop box. Use the bottom-right handle to resize.</p>
+            <div class="button-row">
+              <button id="confirm-crop" type="button" class="btn btn-secondary">Confirm Crop</button>
+              <button id="upload-photo-btn" type="submit" class="btn btn-primary" disabled>Upload Photo</button>
+              <button id="cancel-upload" type="button" class="btn btn-secondary">Cancel Upload</button>
+            </div>
+          </div>
+        </form>
+        <button id="generate-link" type="button" style="margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;font-weight:800;cursor:pointer;">Generate Secure Upload Link</button>
+        <div id="upload-link-box" class="upload-link-box"></div>
+      </section>
+
+      <section class="department">
+        <label for="department">Department</label>
+        <select id="department">
+          {{ $current := .Employee.Department }}
+          {{ range $.Departments }}
+            <option value="{{ . }}" {{ if eq . $current }}selected{{ end }}>{{ . }}</option>
+          {{ end }}
+        </select>
+        <div id="message" class="message">{{ if .SuccessMessage }}{{ .SuccessMessage }}{{ end }}{{ if .Error }}{{ .Error }}{{ end }}</div>
+      </section>
+      {{ else }}
+      <p class="sub" style="margin-top:12px;">Archived employee profiles are read-only.</p>
+      {{ end }}
+    </section>
+
+    <section class="panel" data-panel="paperwork-upload">
+      <section class="i9" style="border-top:0;padding-top:0;margin-top:0;">
+        <label style="font-weight:800;display:block;margin-bottom:8px;">Upload Employee Paperwork</label>
+        {{ if .IsArchivedEmployee }}
+          <p class="hint">Archived employee paperwork is read-only.</p>
+        {{ else }}
+          <section class="paperwork-switch">
+            <button class="paperwork-btn active" type="button" data-paperwork-form="i9-form-card">I-9</button>
+            <button class="paperwork-btn" type="button" data-paperwork-form="w4-form-card">W-4</button>
+          </section>
+
+          <section id="i9-form-card" class="paperwork-form-card active">
+            <p class="hint">Fill this form to generate the I-9 PDF. Extra fields after citizenship status were removed to keep it simple.</p>
+            <form id="i9-form-main" class="controls" method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/i9">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+              <input type="text" name="last_name" placeholder="Last Name (Family Name)" value="{{ .Employee.LastName }}">
+              <input type="text" name="first_name" placeholder="First Name" value="{{ .Employee.FirstName }}">
+              <input type="text" name="middle_initial" placeholder="Middle Initial">
+              <input type="text" name="address" placeholder="Street Address">
+              <input type="text" name="apt_number" placeholder="Apt Number">
+              <input type="text" name="city" placeholder="City">
+              <input type="text" name="state" placeholder="State (e.g. TN)">
+              <input type="text" name="zip_code" placeholder="ZIP Code">
+              <input type="text" name="date_of_birth" placeholder="Date of Birth (MM/DD/YYYY)">
+              <input type="text" name="ssn" placeholder="SSN">
+              <input type="email" name="email" placeholder="Employee Email">
+              <input type="text" name="phone" placeholder="Phone Number">
+              <select name="citizenship_status">
+                <option value="">Citizenship/Immigration Status</option>
+                <option value="citizen">A citizen of the United States</option>
+                <option value="noncitizen_national">A noncitizen national of the United States</option>
+                <option value="lpr">A lawful permanent resident</option>
+                <option value="alien_authorized">An alien authorized to work</option>
+              </select>
+              <input id="i9_employee_signature" type="text" name="employee_signature" placeholder="Employee Signature (Typed)">
+              <input type="text" name="employee_signature_date" placeholder="Employee Signature Date (MM/DD/YYYY)">
+              <input type="text" name="employer_signature" placeholder="Employer/Rep Signature (Typed)">
+              <input type="text" name="employer_signature_date" placeholder="Employer Signature Date (MM/DD/YYYY)">
+              <section class="signature-pad-shell">
+                <label style="font-weight:800;">Employee Digital Signature (Scribble)</label>
+                <canvas id="i9-signature-pad" class="signature-pad" width="560" height="170"></canvas>
+                <input id="i9_employee_signature_drawn" type="hidden" name="employee_signature_drawn" value="">
+                <div class="button-row">
+                  <button id="i9-signature-use" type="button" class="btn btn-secondary">Use Drawn Signature</button>
+                  <button id="i9-signature-clear" type="button" class="btn btn-secondary">Clear</button>
+                </div>
+                <div id="i9-signature-status" class="signature-status"></div>
+              </section>
+              <button class="btn btn-primary" type="submit">Generate and Save I-9 PDF</button>
+            </form>
+          </section>
+
+          <form class="controls" method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/i9/documents" enctype="multipart/form-data" style="margin-top:10px;">
+            <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+            <input type="file" name="document_file" accept="application/pdf,image/png,image/jpeg,image/webp" required>
+            <button class="btn btn-secondary" type="submit">Upload I-9 Associated Document</button>
+          </form>
+
+          <section id="w4-form-card" class="paperwork-form-card" style="margin-top:10px;">
+            <p class="hint" style="margin-top:0;">Fill these fields and the system will generate and save the W-4 PDF automatically.</p>
+            <form class="controls" method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/w4">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+              <input type="text" name="first_name_middle" placeholder="First Name and Middle Initial" value="{{ .Employee.FirstName }}">
+              <input type="text" name="last_name" placeholder="Last Name" value="{{ .Employee.LastName }}">
+              <input type="text" name="address" placeholder="Address">
+              <input type="text" name="city_state_zip" placeholder="City, State, ZIP">
+              <input type="text" name="ssn" placeholder="SSN">
+              <select name="filing_status">
+                <option value="">Filing Status</option>
+                <option value="single">Single or Married filing separately</option>
+                <option value="married">Married filing jointly</option>
+                <option value="head">Head of household</option>
+              </select>
+              <label style="display:flex;align-items:center;gap:8px;font-size:14px;">
+                <input type="checkbox" name="multiple_jobs" value="1"> Multiple jobs/spouse works
+              </label>
+              <input type="text" name="dependents_under17" placeholder="Dependents under age 17">
+              <input type="text" name="other_dependents" placeholder="Other dependents">
+              <input type="text" name="other_income" placeholder="Other income (not from jobs)">
+              <input type="text" name="deductions" placeholder="Deductions">
+              <input type="text" name="extra_withholding" placeholder="Extra withholding per pay period">
+              <label style="display:flex;align-items:center;gap:8px;font-size:14px;">
+                <input type="checkbox" name="exempt" value="1"> Exempt
+              </label>
+              <input type="text" name="signature" placeholder="Employee Signature (Typed)">
+              <input type="text" name="date" placeholder="Signature Date (MM/DD/YYYY)">
+              <input type="text" name="employer_name_addr" placeholder="Employer Name and Address">
+              <button class="btn btn-primary" type="submit">Generate and Save W-4 PDF</button>
+            </form>
+          </section>
         {{ end }}
-      </select>
-      <div id="message" class="message">{{ if .SuccessMessage }}{{ .SuccessMessage }}{{ end }}{{ if .Error }}{{ .Error }}{{ end }}</div>
+      </section>
+    </section>
+
+    <section class="panel" data-panel="paperwork-view">
+      <section class="i9" style="border-top:0;padding-top:0;margin-top:0;">
+        <label style="font-weight:800;display:block;margin-bottom:8px;">View Employee Paperwork</label>
+        {{ if and .EmployeeI9 .EmployeeI9.HasFile }}
+          <p class="hint">Saved I-9: <a class="doc-link" href="/admin/locations/{{ .Location.Number }}/employees{{ if .IsArchivedEmployee }}/archived{{ end }}/{{ .Employee.TimePunchName }}/i9/file" target="_blank" rel="noreferrer">{{ .EmployeeI9.FileName }}</a></p>
+        {{ else }}
+          <p class="hint">No I-9 uploaded yet.</p>
+        {{ end }}
+
+        {{ if and .EmployeeW4 .EmployeeW4.HasFile }}
+          <p class="hint">Saved W-4: <a class="doc-link" href="/admin/locations/{{ .Location.Number }}/employees{{ if .IsArchivedEmployee }}/archived{{ end }}/{{ .Employee.TimePunchName }}/w4/file" target="_blank" rel="noreferrer">{{ .EmployeeW4.FileName }}</a></p>
+        {{ else }}
+          <p class="hint">No W-4 uploaded yet.</p>
+        {{ end }}
+
+        <ul class="doc-list">
+          {{ if .EmployeeI9Documents }}
+            {{ range .EmployeeI9Documents }}
+              <li class="doc-item">
+                <a class="doc-link" href="/admin/locations/{{ $.Location.Number }}/employees{{ if $.IsArchivedEmployee }}/archived{{ end }}/{{ $.Employee.TimePunchName }}/i9/documents/{{ .ID }}" target="_blank" rel="noreferrer">{{ .FileName }}</a>
+                {{ if not $.IsArchivedEmployee }}
+                  <form method="post" action="/admin/locations/{{ $.Location.Number }}/employees/{{ $.Employee.TimePunchName }}/i9/documents/{{ .ID }}/delete" onsubmit="return confirm('Delete this document?');">
+                    <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                    <button class="btn btn-secondary" type="submit" style="min-height:34px;padding:6px 10px;">Delete</button>
+                  </form>
+                {{ end }}
+              </li>
+            {{ end }}
+          {{ else }}
+            <li class="hint">No I-9 associated documents uploaded yet.</li>
+          {{ end }}
+        </ul>
+      </section>
     </section>
   </section>
 
+  {{ if not .IsArchivedEmployee }}
   <script>
     const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
     const locationNumber = "{{ .Location.Number }}";
@@ -309,6 +564,15 @@
     const cancelUploadBtn = document.getElementById("cancel-upload");
     const generateLinkBtn = document.getElementById("generate-link");
     const uploadLinkBox = document.getElementById("upload-link-box");
+    const paperworkButtons = Array.from(document.querySelectorAll(".paperwork-btn"));
+    const paperworkCards = Array.from(document.querySelectorAll(".paperwork-form-card"));
+    const i9SignaturePad = document.getElementById("i9-signature-pad");
+    const i9SignatureUseBtn = document.getElementById("i9-signature-use");
+    const i9SignatureClearBtn = document.getElementById("i9-signature-clear");
+    const i9SignatureHidden = document.getElementById("i9_employee_signature_drawn");
+    const i9SignatureText = document.getElementById("i9_employee_signature");
+    const i9SignatureStatus = document.getElementById("i9-signature-status");
+    const i9FormMain = document.getElementById("i9-form-main");
     const originalPreviewSrc = preview.getAttribute("src") || "";
     let naturalWidth = 0;
     let naturalHeight = 0;
@@ -319,6 +583,7 @@
     let rectStart = { x: 0, y: 0, size: 0 };
     let cropConfirmed = false;
     let cropLocked = false;
+    let i9HasInk = false;
 
     department.addEventListener("change", async () => {
       const previous = department.dataset.prev || department.defaultValue || "INIT";
@@ -519,6 +784,120 @@
         uploadLinkBox.textContent = error.message || "Unable to generate link.";
       }
     });
+
+    function showPaperworkForm(targetId) {
+      paperworkButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.paperworkForm === targetId));
+      paperworkCards.forEach((card) => card.classList.toggle("active", card.id === targetId));
+    }
+    paperworkButtons.forEach((btn) => {
+      btn.addEventListener("click", () => showPaperworkForm(btn.dataset.paperworkForm));
+    });
+    if (paperworkButtons.length > 0 && paperworkCards.length > 0) {
+      showPaperworkForm("i9-form-card");
+    }
+
+    if (i9SignaturePad && i9SignatureUseBtn && i9SignatureClearBtn && i9SignatureHidden && i9FormMain) {
+      const sigCtx = i9SignaturePad.getContext("2d");
+      let drawing = false;
+      let lastX = 0;
+      let lastY = 0;
+
+      function signaturePos(event) {
+        const rect = i9SignaturePad.getBoundingClientRect();
+        return {
+          x: ((event.clientX - rect.left) * i9SignaturePad.width) / rect.width,
+          y: ((event.clientY - rect.top) * i9SignaturePad.height) / rect.height
+        };
+      }
+
+      function clearSignatureStatus(text) {
+        if (!i9SignatureStatus) return;
+        i9SignatureStatus.textContent = text;
+      }
+
+      i9SignaturePad.addEventListener("pointerdown", (event) => {
+        drawing = true;
+        const pos = signaturePos(event);
+        lastX = pos.x;
+        lastY = pos.y;
+        i9SignaturePad.setPointerCapture(event.pointerId);
+        event.preventDefault();
+      });
+      i9SignaturePad.addEventListener("pointermove", (event) => {
+        if (!drawing || !sigCtx) return;
+        const pos = signaturePos(event);
+        sigCtx.lineCap = "round";
+        sigCtx.lineJoin = "round";
+        sigCtx.lineWidth = 2.4;
+        sigCtx.strokeStyle = "#1f232a";
+        sigCtx.beginPath();
+        sigCtx.moveTo(lastX, lastY);
+        sigCtx.lineTo(pos.x, pos.y);
+        sigCtx.stroke();
+        lastX = pos.x;
+        lastY = pos.y;
+        i9HasInk = true;
+        event.preventDefault();
+      });
+      const endDraw = () => { drawing = false; };
+      i9SignaturePad.addEventListener("pointerup", endDraw);
+      i9SignaturePad.addEventListener("pointercancel", endDraw);
+
+      i9SignatureClearBtn.addEventListener("click", () => {
+        if (sigCtx) {
+          sigCtx.clearRect(0, 0, i9SignaturePad.width, i9SignaturePad.height);
+        }
+        i9HasInk = false;
+        i9SignatureHidden.value = "";
+        clearSignatureStatus("Signature cleared.");
+      });
+
+      i9SignatureUseBtn.addEventListener("click", () => {
+        if (!i9HasInk) {
+          clearSignatureStatus("Draw a signature first.");
+          return;
+        }
+        i9SignatureHidden.value = i9SignaturePad.toDataURL("image/png");
+        if (i9SignatureText && i9SignatureText.value.trim() === "") {
+          i9SignatureText.value = "Digital Signature on File";
+        }
+        clearSignatureStatus("Drawn signature will be saved with this I-9.");
+      });
+
+      i9FormMain.addEventListener("submit", () => {
+        if (i9HasInk && i9SignatureHidden.value === "") {
+          i9SignatureHidden.value = i9SignaturePad.toDataURL("image/png");
+          if (i9SignatureText && i9SignatureText.value.trim() === "") {
+            i9SignatureText.value = "Digital Signature on File";
+          }
+        }
+      });
+    }
+
+  </script>
+  {{ end }}
+  <script>
+    const submenuButtons = Array.from(document.querySelectorAll(".submenu-btn"));
+    const panels = Array.from(document.querySelectorAll(".panel[data-panel]"));
+
+    function showPanel(panelName) {
+      submenuButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.target === panelName));
+      panels.forEach((panel) => panel.classList.toggle("active", panel.dataset.panel === panelName));
+      if (window.location.hash !== "#" + panelName) {
+        window.history.replaceState(null, "", "#" + panelName);
+      }
+    }
+
+    submenuButtons.forEach((btn) => {
+      btn.addEventListener("click", () => showPanel(btn.dataset.target));
+    });
+
+    const initialPanel = (window.location.hash || "").replace("#", "");
+    if (initialPanel && panels.some((panel) => panel.dataset.panel === initialPanel)) {
+      showPanel(initialPanel);
+    } else {
+      showPanel("employee-view");
+    }
   </script>
 </body>
 </html>

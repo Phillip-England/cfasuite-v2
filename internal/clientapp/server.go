@@ -54,6 +54,7 @@ type pageData struct {
 	BusinessDay             *businessDayView
 	Employees               []employeeView
 	BusinessDays            []businessDayView
+	ArchivedEmployees       []employeeView
 	TimePunchEntries        []timePunchEntryView
 	TimeOffRequests         []timeOffRequestView
 	ArchivedTimeOffRequests []timeOffRequestView
@@ -68,6 +69,11 @@ type pageData struct {
 	TimePunchLink           string
 	TimeOffLink             string
 	UniformLink             string
+	EmployeeI9              *employeeI9View
+	EmployeeI9Documents     []employeeI9DocumentView
+	EmployeeW4              *employeeI9View
+	PaperworkSections       []paperworkSectionView
+	IsArchivedEmployee      bool
 }
 
 type locationView struct {
@@ -83,6 +89,26 @@ type employeeView struct {
 	Department    string `json:"department"`
 	Birthday      string `json:"birthday"`
 	HasPhoto      bool   `json:"hasPhoto"`
+	ArchivedAt    string `json:"archivedAt"`
+}
+
+type employeeI9View struct {
+	LocationNumber string `json:"locationNumber"`
+	TimePunchName  string `json:"timePunchName"`
+	FileName       string `json:"fileName"`
+	FileMime       string `json:"fileMime"`
+	UpdatedAt      string `json:"updatedAt"`
+	CreatedAt      string `json:"createdAt"`
+	HasFile        bool   `json:"hasFile"`
+}
+
+type employeeI9DocumentView struct {
+	ID             int64  `json:"id"`
+	LocationNumber string `json:"locationNumber"`
+	TimePunchName  string `json:"timePunchName"`
+	FileName       string `json:"fileName"`
+	FileMime       string `json:"fileMime"`
+	CreatedAt      string `json:"createdAt"`
 }
 
 type locationsListResponse struct {
@@ -105,6 +131,24 @@ type locationEmployeesResponse struct {
 
 type employeeDetailResponse struct {
 	Employee employeeView `json:"employee"`
+}
+
+type employeeI9DetailResponse struct {
+	I9        employeeI9View           `json:"i9"`
+	Documents []employeeI9DocumentView `json:"documents"`
+}
+
+type employeePaperworkResponse struct {
+	Paperwork employeeI9View           `json:"paperwork"`
+	Documents []employeeI9DocumentView `json:"documents"`
+}
+
+type paperworkSectionView struct {
+	Type         string
+	Label        string
+	HasDocuments bool
+	Form         *employeeI9View
+	Documents    []employeeI9DocumentView
 }
 
 type photoLinkResponse struct {
@@ -258,7 +302,7 @@ type updateBusinessDayRequest struct {
 	LaborHours string `json:"laborHours"`
 }
 
-//go:embed templates/admin.html templates/login.html templates/location_apps.html templates/location.html templates/time_punch.html templates/time_off.html templates/business_days.html templates/business_day.html templates/employee.html templates/uniforms.html templates/uniform_orders_archived.html templates/uniform_item.html templates/public_photo_upload.html templates/public_time_punch.html templates/public_time_off.html templates/public_uniform_order.html templates/public_uniform_order_item.html
+//go:embed templates/admin.html templates/login.html templates/location_apps.html templates/location.html templates/archived_employees.html templates/time_punch.html templates/time_off.html templates/business_days.html templates/business_day.html templates/employee.html templates/uniforms.html templates/uniform_orders_archived.html templates/uniform_item.html templates/public_photo_upload.html templates/public_time_punch.html templates/public_time_off.html templates/public_uniform_order.html templates/public_uniform_order_item.html
 var templatesFS embed.FS
 
 type server struct {
@@ -268,6 +312,7 @@ type server struct {
 	loginTmpl             *template.Template
 	locationAppsTmpl      *template.Template
 	locationTmpl          *template.Template
+	archivedEmployeesTmpl *template.Template
 	timePunchTmpl         *template.Template
 	timeOffTmpl           *template.Template
 	businessDaysTmpl      *template.Template
@@ -302,6 +347,7 @@ func Run(ctx context.Context, cfg Config) error {
 		loginTmpl:             template.Must(template.ParseFS(templatesFS, "templates/login.html")),
 		locationAppsTmpl:      template.Must(template.ParseFS(templatesFS, "templates/location_apps.html")),
 		locationTmpl:          template.Must(template.ParseFS(templatesFS, "templates/location.html")),
+		archivedEmployeesTmpl: template.Must(template.ParseFS(templatesFS, "templates/archived_employees.html")),
 		timePunchTmpl:         template.Must(template.ParseFS(templatesFS, "templates/time_punch.html")),
 		timeOffTmpl:           template.Must(template.ParseFS(templatesFS, "templates/time_off.html")),
 		businessDaysTmpl:      template.Must(template.ParseFS(templatesFS, "templates/business_days.html")),
@@ -326,6 +372,8 @@ func Run(ctx context.Context, cfg Config) error {
 	mux.Handle("/admin", middleware.Chain(http.HandlerFunc(s.adminPage), s.requireAdmin))
 	mux.Handle("/admin/locations", middleware.Chain(http.HandlerFunc(s.createLocationProxy), s.requireAdmin))
 	mux.Handle("/admin/locations/", middleware.Chain(http.HandlerFunc(s.locationRoutes), s.requireAdmin))
+	mux.Handle("/assets/i9-template.pdf", middleware.Chain(http.HandlerFunc(s.i9TemplateFile), s.requireAdmin))
+	mux.Handle("/assets/w4-template.pdf", middleware.Chain(http.HandlerFunc(s.w4TemplateFile), s.requireAdmin))
 	mux.Handle("/employee/photo-upload/", http.HandlerFunc(s.publicPhotoUploadRoutes))
 	mux.Handle("/time-punch/", http.HandlerFunc(s.publicTimePunchRoutes))
 	mux.Handle("/time-off/", http.HandlerFunc(s.publicTimeOffRoutes))
@@ -465,6 +513,38 @@ func (s *server) adminPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *server) i9TemplateFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	data, err := os.ReadFile("docs/i9.pdf")
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Cache-Control", "private, max-age=300")
+	w.Header().Set("Content-Disposition", "inline; filename=\"i9.pdf\"")
+	_, _ = w.Write(data)
+}
+
+func (s *server) w4TemplateFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	data, err := os.ReadFile("docs/w4.pdf")
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Cache-Control", "private, max-age=300")
+	w.Header().Set("Content-Disposition", "inline; filename=\"w4.pdf\"")
+	_, _ = w.Write(data)
+}
+
 func (s *server) locationDetailPage(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -497,6 +577,26 @@ func (s *server) locationDetailPage(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
+		if locationNumber, ok := parseLocationEmployeeCreatePath(r.URL.Path); ok {
+			s.createEmployeeProxy(w, r, locationNumber)
+			return
+		}
+		if locationNumber, timePunchName, ok := parseLocationEmployeeI9UploadPath(r.URL.Path); ok {
+			s.uploadEmployeeI9Proxy(w, r, locationNumber, timePunchName)
+			return
+		}
+		if locationNumber, timePunchName, ok := parseLocationEmployeeW4UploadPath(r.URL.Path); ok {
+			s.uploadEmployeeW4Proxy(w, r, locationNumber, timePunchName)
+			return
+		}
+		if locationNumber, timePunchName, ok := parseLocationEmployeeI9DocumentUploadPath(r.URL.Path); ok {
+			s.uploadEmployeeI9DocumentProxy(w, r, locationNumber, timePunchName)
+			return
+		}
+		if locationNumber, timePunchName, docID, ok := parseLocationEmployeeI9DocumentDeletePath(r.URL.Path); ok {
+			s.deleteEmployeeI9DocumentProxy(w, r, locationNumber, timePunchName, docID)
+			return
+		}
 		if locationNumber, orderID, lineID, ok := parseLocationUniformOrderLineSettlementPostPath(r.URL.Path); ok {
 			s.updateUniformOrderLineSettlementProxy(w, r, locationNumber, orderID, lineID)
 			return
@@ -560,6 +660,18 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 		s.createEmployeePhotoLinkProxy(w, r)
 		return
 	}
+	if strings.Contains(r.URL.Path, "/employees/") && strings.HasSuffix(r.URL.Path, "/i9/file") {
+		s.getEmployeeI9FileProxy(w, r)
+		return
+	}
+	if strings.Contains(r.URL.Path, "/employees/") && strings.HasSuffix(r.URL.Path, "/w4/file") {
+		s.getEmployeeW4FileProxy(w, r)
+		return
+	}
+	if strings.Contains(r.URL.Path, "/employees/") && strings.Contains(r.URL.Path, "/i9/documents/") {
+		s.getEmployeeI9DocumentFileProxy(w, r)
+		return
+	}
 	if strings.Contains(r.URL.Path, "/employees/") && strings.HasSuffix(r.URL.Path, "/photo") {
 		if r.Method == http.MethodGet {
 			s.getEmployeePhotoProxy(w, r)
@@ -589,6 +701,14 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 		}
 		if locationNumber, itemID, ok := parseLocationUniformItemPath(r.URL.Path); ok {
 			s.locationUniformItemPage(w, r, locationNumber, itemID)
+			return
+		}
+		if locationNumber, timePunchName, ok := parseArchivedLocationEmployeePath(r.URL.Path); ok {
+			s.archivedEmployeeDetailPage(w, r, locationNumber, timePunchName)
+			return
+		}
+		if locationNumber, ok := parseArchivedLocationEmployeesPath(r.URL.Path); ok {
+			s.archivedLocationEmployeesPage(w, r, locationNumber)
 			return
 		}
 		if locationNumber, timePunchName, ok := parseLocationEmployeePath(r.URL.Path); ok {
@@ -770,17 +890,112 @@ func (s *server) employeeDetailPage(w http.ResponseWriter, r *http.Request, loca
 		http.NotFound(w, r)
 		return
 	}
+	i9, docs, err := s.fetchEmployeePaperwork(r, locationNumber, timePunchName, false, "i9")
+	if err != nil {
+		http.Error(w, "unable to load employee i9 records", http.StatusBadGateway)
+		return
+	}
+	w4, _, err := s.fetchEmployeePaperwork(r, locationNumber, timePunchName, false, "w4")
+	if err != nil {
+		http.Error(w, "unable to load employee w4 records", http.StatusBadGateway)
+		return
+	}
+	paperworkSections := []paperworkSectionView{
+		{Type: "i9", Label: "I-9", HasDocuments: true, Form: i9, Documents: docs},
+		{Type: "w4", Label: "W-4", HasDocuments: false, Form: w4, Documents: nil},
+	}
 
 	if err := renderHTMLTemplate(w, s.employeeTmpl, pageData{
-		CSRF:           csrfToken,
-		Location:       location,
-		Employee:       employee,
-		Departments:    departmentOptions(),
-		SuccessMessage: r.URL.Query().Get("message"),
-		Error:          r.URL.Query().Get("error"),
+		CSRF:                csrfToken,
+		Location:            location,
+		Employee:            employee,
+		Departments:         departmentOptions(),
+		EmployeeI9:          i9,
+		EmployeeI9Documents: docs,
+		EmployeeW4:          w4,
+		PaperworkSections:   paperworkSections,
+		IsArchivedEmployee:  false,
+		SuccessMessage:      r.URL.Query().Get("message"),
+		Error:               r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("employee template render failed: %v", err)
+	}
+}
+
+func (s *server) archivedLocationEmployeesPage(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	location, err := s.fetchLocation(r, locationNumber)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil {
+		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
+		return
+	}
+	employees, err := s.fetchArchivedLocationEmployees(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load archived employees", http.StatusBadGateway)
+		return
+	}
+	if err := renderHTMLTemplate(w, s.archivedEmployeesTmpl, pageData{
+		Location:          location,
+		CSRF:              csrfToken,
+		ArchivedEmployees: employees,
+		SuccessMessage:    r.URL.Query().Get("message"),
+		Error:             r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("archived employees template render failed: %v", err)
+	}
+}
+
+func (s *server) archivedEmployeeDetailPage(w http.ResponseWriter, r *http.Request, locationNumber, timePunchName string) {
+	location, err := s.fetchLocation(r, locationNumber)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil {
+		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
+		return
+	}
+	employee, err := s.fetchArchivedEmployee(r, locationNumber, timePunchName)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	i9, docs, err := s.fetchEmployeePaperwork(r, locationNumber, timePunchName, true, "i9")
+	if err != nil {
+		http.Error(w, "unable to load archived employee i9 records", http.StatusBadGateway)
+		return
+	}
+	w4, _, err := s.fetchEmployeePaperwork(r, locationNumber, timePunchName, true, "w4")
+	if err != nil {
+		http.Error(w, "unable to load archived employee w4 records", http.StatusBadGateway)
+		return
+	}
+	paperworkSections := []paperworkSectionView{
+		{Type: "i9", Label: "I-9", HasDocuments: true, Form: i9, Documents: docs},
+		{Type: "w4", Label: "W-4", HasDocuments: false, Form: w4, Documents: nil},
+	}
+	if err := renderHTMLTemplate(w, s.employeeTmpl, pageData{
+		CSRF:                csrfToken,
+		Location:            location,
+		Employee:            employee,
+		Departments:         departmentOptions(),
+		EmployeeI9:          i9,
+		EmployeeI9Documents: docs,
+		EmployeeW4:          w4,
+		PaperworkSections:   paperworkSections,
+		IsArchivedEmployee:  true,
+		SuccessMessage:      r.URL.Query().Get("message"),
+		Error:               r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("archived employee template render failed: %v", err)
 	}
 }
 
@@ -1876,6 +2091,72 @@ func (s *server) importLocationBirthdatesProxy(w http.ResponseWriter, r *http.Re
 	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?message="+url.QueryEscape("Birthday report imported successfully"), http.StatusFound)
 }
 
+func (s *server) createEmployeeProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	if err := r.ParseMultipartForm(20 << 20); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Invalid+employee+form", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for _, key := range []string{"first_name", "last_name", "department", "birthday"} {
+		_ = writer.WriteField(key, strings.TrimSpace(r.FormValue(key)))
+	}
+	for _, fileField := range []string{"i9_file", "w4_file"} {
+		file, header, err := r.FormFile(fileField)
+		if err != nil {
+			continue
+		}
+		part, err := writer.CreateFormFile(fileField, header.Filename)
+		if err != nil {
+			file.Close()
+			http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+prepare+upload", http.StatusFound)
+			return
+		}
+		if _, err := io.Copy(part, file); err != nil {
+			file.Close()
+			http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+read+upload", http.StatusFound)
+			return
+		}
+		file.Close()
+	}
+	if err := writer.Close(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+finalize+upload", http.StatusFound)
+		return
+	}
+
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, &body)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+create+employee", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", writer.FormDataContentType())
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusCreated && apiResp.StatusCode != http.StatusOK {
+		msg := "unable to create employee"
+		var payload map[string]string
+		if err := json.Unmarshal(respBody, &payload); err == nil && strings.TrimSpace(payload["error"]) != "" {
+			msg = payload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?message="+url.QueryEscape("Employee created"), http.StatusFound)
+}
+
 func (s *server) createLocationProxy(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -2227,6 +2508,291 @@ func (s *server) createEmployeePhotoLinkProxy(w http.ResponseWriter, r *http.Req
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(apiResp.StatusCode)
 	_, _ = w.Write(respBody)
+}
+
+func (s *server) getEmployeeI9FileProxy(w http.ResponseWriter, r *http.Request) {
+	apiPath, ok := mapEmployeeI9FilePathToAPI(r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, s.apiBaseURL+apiPath, nil)
+	if err != nil {
+		http.Error(w, "upstream request failed", http.StatusInternalServerError)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, "upstream service unavailable", http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		http.NotFound(w, r)
+		return
+	}
+	if ct := apiResp.Header.Get("Content-Type"); ct != "" {
+		w.Header().Set("Content-Type", ct)
+	}
+	if cd := apiResp.Header.Get("Content-Disposition"); cd != "" {
+		w.Header().Set("Content-Disposition", cd)
+	}
+	_, _ = io.Copy(w, apiResp.Body)
+}
+
+func (s *server) getEmployeeW4FileProxy(w http.ResponseWriter, r *http.Request) {
+	apiPath, ok := mapEmployeeW4FilePathToAPI(r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, s.apiBaseURL+apiPath, nil)
+	if err != nil {
+		http.Error(w, "upstream request failed", http.StatusInternalServerError)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, "upstream service unavailable", http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		http.NotFound(w, r)
+		return
+	}
+	if ct := apiResp.Header.Get("Content-Type"); ct != "" {
+		w.Header().Set("Content-Type", ct)
+	}
+	if cd := apiResp.Header.Get("Content-Disposition"); cd != "" {
+		w.Header().Set("Content-Disposition", cd)
+	}
+	_, _ = io.Copy(w, apiResp.Body)
+}
+
+func (s *server) getEmployeeI9DocumentFileProxy(w http.ResponseWriter, r *http.Request) {
+	apiPath, ok := mapEmployeeI9DocumentFilePathToAPI(r.URL.Path)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, s.apiBaseURL+apiPath, nil)
+	if err != nil {
+		http.Error(w, "upstream request failed", http.StatusInternalServerError)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, "upstream service unavailable", http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		http.NotFound(w, r)
+		return
+	}
+	if ct := apiResp.Header.Get("Content-Type"); ct != "" {
+		w.Header().Set("Content-Type", ct)
+	}
+	if cd := apiResp.Header.Get("Content-Disposition"); cd != "" {
+		w.Header().Set("Content-Disposition", cd)
+	}
+	_, _ = io.Copy(w, apiResp.Body)
+}
+
+func (s *server) uploadEmployeeI9Proxy(w http.ResponseWriter, r *http.Request, locationNumber, timePunchName string) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	values := url.Values{}
+	for key, items := range r.PostForm {
+		if key == "csrf_token" {
+			continue
+		}
+		for _, item := range items {
+			values.Add(key, item)
+		}
+	}
+	body := strings.NewReader(values.Encode())
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/" + url.PathEscape(timePunchName) + "/i9"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, body)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Unable+to+send+upload", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to save i9"
+		var payload map[string]string
+		if err := json.Unmarshal(respBody, &payload); err == nil && strings.TrimSpace(payload["error"]) != "" {
+			msg = payload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?message="+url.QueryEscape("I-9 generated and saved"), http.StatusFound)
+}
+
+func (s *server) uploadEmployeeW4Proxy(w http.ResponseWriter, r *http.Request, locationNumber, timePunchName string) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	values := url.Values{}
+	for key, items := range r.PostForm {
+		if key == "csrf_token" {
+			continue
+		}
+		for _, item := range items {
+			values.Add(key, item)
+		}
+	}
+	body := strings.NewReader(values.Encode())
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/" + url.PathEscape(timePunchName) + "/w4"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, body)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Unable+to+send+upload", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to save w4"
+		var payload map[string]string
+		if err := json.Unmarshal(respBody, &payload); err == nil && strings.TrimSpace(payload["error"]) != "" {
+			msg = payload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?message="+url.QueryEscape("W-4 generated and saved"), http.StatusFound)
+}
+
+func (s *server) uploadEmployeeI9DocumentProxy(w http.ResponseWriter, r *http.Request, locationNumber, timePunchName string) {
+	if err := r.ParseMultipartForm(20 << 20); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Invalid+upload", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	file, header, err := r.FormFile("document_file")
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Document+file+is+required", http.StatusFound)
+		return
+	}
+	defer file.Close()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("document_file", header.Filename)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Unable+to+prepare+upload", http.StatusFound)
+		return
+	}
+	if _, err := io.Copy(part, file); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Unable+to+read+upload", http.StatusFound)
+		return
+	}
+	if err := writer.Close(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Unable+to+finalize+upload", http.StatusFound)
+		return
+	}
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/" + url.PathEscape(timePunchName) + "/i9/documents"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, &body)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Unable+to+send+upload", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", writer.FormDataContentType())
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusCreated && apiResp.StatusCode != http.StatusOK {
+		msg := "unable to save i9 document"
+		var payload map[string]string
+		if err := json.Unmarshal(respBody, &payload); err == nil && strings.TrimSpace(payload["error"]) != "" {
+			msg = payload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?message="+url.QueryEscape("I-9 document uploaded"), http.StatusFound)
+}
+
+func (s *server) deleteEmployeeI9DocumentProxy(w http.ResponseWriter, r *http.Request, locationNumber, timePunchName string, docID int64) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/" + url.PathEscape(timePunchName) + "/i9/documents/" + strconv.FormatInt(docID, 10)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodDelete, apiURL, nil)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Unable+to+delete+document", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to delete i9 document"
+		var payload map[string]string
+		if err := json.Unmarshal(respBody, &payload); err == nil && strings.TrimSpace(payload["error"]) != "" {
+			msg = payload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?message="+url.QueryEscape("I-9 document deleted"), http.StatusFound)
 }
 
 func (s *server) publicPhotoUploadPage(w http.ResponseWriter, r *http.Request, token string) {
@@ -2719,6 +3285,35 @@ func (s *server) fetchLocationEmployees(r *http.Request, number string) ([]emplo
 	return payload.Employees, nil
 }
 
+func (s *server) fetchArchivedLocationEmployees(r *http.Request, number string) ([]employeeView, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number)+"/employees/archived",
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to fetch archived employees")
+	}
+	var payload locationEmployeesResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	for i := range payload.Employees {
+		payload.Employees[i].Birthday = formatBirthdayDisplay(payload.Employees[i].Birthday)
+	}
+	return payload.Employees, nil
+}
+
 func (s *server) fetchLocationTimePunchEntries(r *http.Request, number string) ([]timePunchEntryView, error) {
 	apiReq, err := http.NewRequestWithContext(
 		r.Context(),
@@ -3027,6 +3622,60 @@ func (s *server) fetchEmployee(r *http.Request, locationNumber, timePunchName st
 	return &payload.Employee, nil
 }
 
+func (s *server) fetchArchivedEmployee(r *http.Request, locationNumber, timePunchName string) (*employeeView, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/employees/archived/"+url.PathEscape(timePunchName),
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("employee not found")
+	}
+	var payload employeeDetailResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	payload.Employee.Birthday = formatBirthdayDisplay(payload.Employee.Birthday)
+	return &payload.Employee, nil
+}
+
+func (s *server) fetchEmployeePaperwork(r *http.Request, locationNumber, timePunchName string, archived bool, paperworkType string) (*employeeI9View, []employeeI9DocumentView, error) {
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber)
+	if archived {
+		apiURL += "/employees/archived/" + url.PathEscape(timePunchName) + "/" + url.PathEscape(strings.ToLower(strings.TrimSpace(paperworkType)))
+	} else {
+		apiURL += "/employees/" + url.PathEscape(timePunchName) + "/" + url.PathEscape(strings.ToLower(strings.TrimSpace(paperworkType)))
+	}
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, nil, errors.New("failed to fetch employee paperwork records")
+	}
+	var payload employeePaperworkResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, nil, err
+	}
+	return &payload.Paperwork, payload.Documents, nil
+}
+
 func formatBirthdayDisplay(value string) string {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
@@ -3156,11 +3805,57 @@ func parseLocationEmployeePath(path string) (string, string, bool) {
 	return locationNumber, timePunchName, true
 }
 
+func parseArchivedLocationEmployeesPath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 || parts[1] != "employees" || parts[2] != "archived" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
+func parseArchivedLocationEmployeePath(path string) (string, string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "employees" || parts[2] != "archived" {
+		return "", "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", "", false
+	}
+	timePunchName, err := url.PathUnescape(parts[3])
+	if err != nil || strings.TrimSpace(timePunchName) == "" {
+		return "", "", false
+	}
+	return locationNumber, timePunchName, true
+}
+
 func parseLocationEmployeesPath(path string) (string, bool) {
 	trimmed := strings.TrimPrefix(path, "/admin/locations/")
 	trimmed = strings.Trim(trimmed, "/")
 	parts := strings.Split(trimmed, "/")
 	if len(parts) != 2 || parts[1] != "employees" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
+func parseLocationEmployeeCreatePath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 || parts[1] != "employees" || parts[2] != "create" {
 		return "", false
 	}
 	locationNumber, err := url.PathUnescape(parts[0])
@@ -3512,6 +4207,133 @@ func parseLocationEmployeeActionPath(path, action string) (string, string, bool)
 		return "", "", false
 	}
 	return locationNumber, timePunchName, true
+}
+
+func parseLocationEmployeeI9UploadPath(path string) (string, string, bool) {
+	return parseLocationEmployeeActionPath(path, "i9")
+}
+
+func parseLocationEmployeeW4UploadPath(path string) (string, string, bool) {
+	return parseLocationEmployeeActionPath(path, "w4")
+}
+
+func parseLocationEmployeeI9DocumentUploadPath(path string) (string, string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 5 || parts[1] != "employees" || parts[3] != "i9" || parts[4] != "documents" {
+		return "", "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", "", false
+	}
+	timePunchName, err := url.PathUnescape(parts[2])
+	if err != nil || strings.TrimSpace(timePunchName) == "" {
+		return "", "", false
+	}
+	return locationNumber, timePunchName, true
+}
+
+func parseLocationEmployeeI9DocumentDeletePath(path string) (string, string, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 7 || parts[1] != "employees" || parts[3] != "i9" || parts[4] != "documents" || parts[6] != "delete" {
+		return "", "", 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", "", 0, false
+	}
+	timePunchName, err := url.PathUnescape(parts[2])
+	if err != nil || strings.TrimSpace(timePunchName) == "" {
+		return "", "", 0, false
+	}
+	docID, err := strconv.ParseInt(strings.TrimSpace(parts[5]), 10, 64)
+	if err != nil || docID <= 0 {
+		return "", "", 0, false
+	}
+	return locationNumber, timePunchName, docID, true
+}
+
+func mapEmployeeI9FilePathToAPI(path string) (string, bool) {
+	if locationNumber, timePunchName, ok := parseLocationEmployeeActionPath(strings.TrimSuffix(path, "/file"), "i9"); ok {
+		return "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/" + url.PathEscape(timePunchName) + "/i9/file", true
+	}
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) == 6 && parts[1] == "employees" && parts[2] == "archived" && parts[4] == "i9" && parts[5] == "file" {
+		locationNumber, err := url.PathUnescape(parts[0])
+		if err != nil || strings.TrimSpace(locationNumber) == "" {
+			return "", false
+		}
+		timePunchName, err := url.PathUnescape(parts[3])
+		if err != nil || strings.TrimSpace(timePunchName) == "" {
+			return "", false
+		}
+		return "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/archived/" + url.PathEscape(timePunchName) + "/i9/file", true
+	}
+	return "", false
+}
+
+func mapEmployeeI9DocumentFilePathToAPI(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) == 6 && parts[1] == "employees" && parts[3] == "i9" && parts[4] == "documents" {
+		locationNumber, err := url.PathUnescape(parts[0])
+		if err != nil || strings.TrimSpace(locationNumber) == "" {
+			return "", false
+		}
+		timePunchName, err := url.PathUnescape(parts[2])
+		if err != nil || strings.TrimSpace(timePunchName) == "" {
+			return "", false
+		}
+		docID, err := strconv.ParseInt(strings.TrimSpace(parts[5]), 10, 64)
+		if err != nil || docID <= 0 {
+			return "", false
+		}
+		return "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/" + url.PathEscape(timePunchName) + "/i9/documents/" + strconv.FormatInt(docID, 10), true
+	}
+	if len(parts) == 7 && parts[1] == "employees" && parts[2] == "archived" && parts[4] == "i9" && parts[5] == "documents" {
+		locationNumber, err := url.PathUnescape(parts[0])
+		if err != nil || strings.TrimSpace(locationNumber) == "" {
+			return "", false
+		}
+		timePunchName, err := url.PathUnescape(parts[3])
+		if err != nil || strings.TrimSpace(timePunchName) == "" {
+			return "", false
+		}
+		docID, err := strconv.ParseInt(strings.TrimSpace(parts[6]), 10, 64)
+		if err != nil || docID <= 0 {
+			return "", false
+		}
+		return "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/archived/" + url.PathEscape(timePunchName) + "/i9/documents/" + strconv.FormatInt(docID, 10), true
+	}
+	return "", false
+}
+
+func mapEmployeeW4FilePathToAPI(path string) (string, bool) {
+	if locationNumber, timePunchName, ok := parseLocationEmployeeActionPath(strings.TrimSuffix(path, "/file"), "w4"); ok {
+		return "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/" + url.PathEscape(timePunchName) + "/w4/file", true
+	}
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) == 6 && parts[1] == "employees" && parts[2] == "archived" && parts[4] == "w4" && parts[5] == "file" {
+		locationNumber, err := url.PathUnescape(parts[0])
+		if err != nil || strings.TrimSpace(locationNumber) == "" {
+			return "", false
+		}
+		timePunchName, err := url.PathUnescape(parts[3])
+		if err != nil || strings.TrimSpace(timePunchName) == "" {
+			return "", false
+		}
+		return "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/archived/" + url.PathEscape(timePunchName) + "/w4/file", true
+	}
+	return "", false
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

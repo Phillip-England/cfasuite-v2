@@ -66,16 +66,37 @@
     }
     .import {
       border-top: 1px dashed var(--line);
+      padding-top: 14px;
+      margin-top: 14px;
+    }
+    .add-employee {
+      border-top: 1px dashed var(--line);
       padding-top: 16px;
       margin-top: 10px;
     }
-    .import h2, .employees h2 {
+    .import h2, .employees h2, .add-employee h2 {
       margin: 0 0 10px;
       font: 800 1.1rem/1.2 "Space Grotesk", sans-serif;
     }
     .import form {
       display: grid;
       gap: 10px;
+    }
+    .add-employee form {
+      display: grid;
+      gap: 10px;
+    }
+    .add-employee input[type="text"],
+    .add-employee input[type="date"],
+    .add-employee select,
+    .add-employee input[type="file"] {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      min-height: 44px;
+      padding: 10px;
+      width: 100%;
+      font: 700 0.9rem/1 "Manrope", sans-serif;
     }
     .import input[type="file"] {
       border: 1px solid var(--line);
@@ -86,6 +107,16 @@
       width: 100%;
     }
     .import button {
+      border: 0;
+      border-radius: 10px;
+      min-height: 44px;
+      padding: 11px 14px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .add-employee button {
       border: 0;
       border-radius: 10px;
       min-height: 44px;
@@ -106,6 +137,63 @@
       border-top: 1px dashed var(--line);
       margin-top: 18px;
       padding-top: 16px;
+    }
+    .hub {
+      display: grid;
+      gap: 10px;
+      margin: 6px 0 14px;
+    }
+    .hub-btn {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      text-align: left;
+      padding: 12px 13px;
+      cursor: pointer;
+      display: grid;
+      gap: 5px;
+      color: var(--ink);
+      font-family: "Manrope", sans-serif;
+    }
+    .hub-btn strong {
+      font-size: 0.92rem;
+      letter-spacing: 0.02em;
+    }
+    .hub-btn span {
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+    .hub-btn.active {
+      border-color: #d2a474;
+      background: #fff2e2;
+    }
+    .section {
+      display: none;
+      border-top: 1px dashed var(--line);
+      padding-top: 16px;
+    }
+    .section.active {
+      display: block;
+    }
+    .employees-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .archive-link {
+      color: #9d3d23;
+      text-decoration: none;
+      font-weight: 800;
+      font-size: 0.85rem;
+    }
+    .archive-link:hover {
+      text-decoration: underline;
     }
     .table-wrap {
       overflow-x: auto;
@@ -180,24 +268,63 @@
       <div class="value">{{ .Location.CreatedAt }}</div>
     </div>
 
-    <section class="import">
-      <h2>Employee Bio Reader Upload</h2>
-      {{ if .SuccessMessage }}<p class="notice ok">{{ .SuccessMessage }}</p>{{ end }}
-      {{ if .Error }}<p class="notice error">{{ .Error }}</p>{{ end }}
-      <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/import" enctype="multipart/form-data">
-        <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-        <input type="file" name="bio_file" accept=".xls,.xlsx,.xlsm,.xsl" required>
-        <button type="submit">Import Employees</button>
-      </form>
-      <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/birthdates/import" enctype="multipart/form-data" style="margin-top:10px;">
-        <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-        <input type="file" name="birthdate_file" accept=".xls,.xlsx,.xlsm,.xsl" required>
-        <button type="submit">Import Birthdays</button>
-      </form>
+    {{ if .SuccessMessage }}<p class="notice ok">{{ .SuccessMessage }}</p>{{ end }}
+    {{ if .Error }}<p class="notice error">{{ .Error }}</p>{{ end }}
+
+    <section class="hub">
+      <button class="hub-btn" type="button" data-target="add-employees">
+        <strong>Add Employees</strong>
+        <span>Create a new employee and optionally attach initial paperwork.</span>
+      </button>
+      <button class="hub-btn" type="button" data-target="bulk-import">
+        <strong>Bulk Import</strong>
+        <span>Import employee bio and birthday reports in batch.</span>
+      </button>
+      <button class="hub-btn" type="button" data-target="view-employees">
+        <strong>View Employees</strong>
+        <span>Browse all active employees and manage departments quickly.</span>
+      </button>
     </section>
 
-    <section class="employees">
-      <h2>Employees ({{ len .Employees }})</h2>
+    <section class="section" data-panel="add-employees">
+      <section class="add-employee" style="border-top:0;padding-top:0;margin-top:0;">
+        <h2>Add Employee</h2>
+        <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/create" enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+          <input type="text" name="first_name" placeholder="First Name" required>
+          <input type="text" name="last_name" placeholder="Last Name" required>
+          <select name="department">
+            {{ range .Departments }}
+              <option value="{{ . }}" {{ if eq . "INIT" }}selected{{ end }}>{{ . }}</option>
+            {{ end }}
+          </select>
+          <button type="submit">Create Employee</button>
+        </form>
+      </section>
+    </section>
+
+    <section class="section" data-panel="bulk-import">
+      <section class="import">
+        <h2>Bulk Employee Imports</h2>
+        <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/import" enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+          <input type="file" name="bio_file" accept=".xls,.xlsx,.xlsm,.xsl" required>
+          <button type="submit">Import Employees</button>
+        </form>
+        <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/birthdates/import" enctype="multipart/form-data" style="margin-top:10px;">
+          <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+          <input type="file" name="birthdate_file" accept=".xls,.xlsx,.xlsm,.xsl" required>
+          <button type="submit">Import Birthdays</button>
+        </form>
+      </section>
+    </section>
+
+    <section class="section" data-panel="view-employees">
+      <section class="employees" style="border-top:0;padding-top:0;margin-top:0;">
+      <div class="employees-head">
+        <h2>View All Employees ({{ len .Employees }})</h2>
+        <a class="archive-link" href="/admin/locations/{{ .Location.Number }}/employees/archived">View Archived Employees</a>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -231,12 +358,33 @@
           </tbody>
         </table>
       </div>
+      </section>
     </section>
   </section>
   <script>
     const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
     const locationNumber = "{{ .Location.Number }}";
     const selects = document.querySelectorAll(".department-select");
+    const hubButtons = Array.from(document.querySelectorAll(".hub-btn"));
+    const panels = Array.from(document.querySelectorAll(".section[data-panel]"));
+
+    function showPanel(panelName) {
+      hubButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.target === panelName));
+      panels.forEach((panel) => panel.classList.toggle("active", panel.dataset.panel === panelName));
+      if (window.location.hash !== "#" + panelName) {
+        window.history.replaceState(null, "", "#" + panelName);
+      }
+    }
+
+    hubButtons.forEach((btn) => {
+      btn.addEventListener("click", () => showPanel(btn.dataset.target));
+    });
+    const initialPanel = (window.location.hash || "").replace("#", "");
+    if (initialPanel && panels.some((panel) => panel.dataset.panel === initialPanel)) {
+      showPanel(initialPanel);
+    } else {
+      showPanel("view-employees");
+    }
 
     selects.forEach((selectEl) => {
       selectEl.addEventListener("change", async () => {
