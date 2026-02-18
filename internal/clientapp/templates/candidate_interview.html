@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Candidate Interview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script>
+    (function () {
+      var stored = localStorage.getItem("cfasuite-theme");
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    })();
+  </script>
+  <style>
+    :root { --bg:#fff; --fg:#09090b; --card:#fff; --muted:#f4f4f5; --muted-fg:#71717a; --border:#e4e4e7; --primary:#ea580c; --primary-fg:#fff; --danger:#dc2626; }
+    html.dark { --bg:#09090b; --fg:#fafafa; --card:#09090b; --muted:#27272a; --muted-fg:#a1a1aa; --border:#3f3f46; --primary:#fb923c; --primary-fg:#431407; --danger:#f87171; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font-family: "Manrope", sans-serif; }
+    h1, h2 { margin: 0; font-family: "Space Grotesk", sans-serif; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 5rem 1rem 2rem; display: grid; gap: 1rem; }
+    .card { border: 1px solid var(--border); border-radius: 12px; background: var(--card); padding: 1rem; }
+    .stack { display: grid; gap: 0.875rem; }
+    .meta { color: var(--muted-fg); font-size: 0.875rem; }
+    .row { display: flex; gap: 0.5rem; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 2.3rem; padding: 0.5rem 0.85rem; border-radius: 8px; border: 1px solid transparent; cursor: pointer; font-weight: 700; text-decoration: none; }
+    .btn-outline { background: transparent; color: var(--fg); border-color: var(--border); }
+    .pill { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; padding: 0.1rem 0.5rem; font-size: 0.75rem; color: var(--muted-fg); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted-fg); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .empty { border: 1px dashed var(--border); border-radius: 10px; padding: 0.8rem; color: var(--muted-fg); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="row">
+      <a href="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}#view-interviews" class="meta" style="text-decoration:none;">&#8592; Back to Candidate</a>
+      <a class="btn btn-outline" href="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/scorecard">View Full Scorecard</a>
+    </div>
+
+    <section class="card stack">
+      <h1>Interview Details</h1>
+      <div class="meta">Candidate: {{ .Candidate.FirstName }} {{ .Candidate.LastName }} | Status: {{ .Candidate.Status }}</div>
+      {{ if .Error }}<div class="meta" style="color:var(--danger)">{{ .Error }}</div>{{ end }}
+
+      <div class="row" style="justify-content:flex-start;">
+        <span class="pill">{{ .Interview.InterviewType }}</span>
+        <span class="meta">Interviewer: {{ .Interview.InterviewerTimePunchName }}</span>
+        <span class="meta">Created: {{ .Interview.CreatedAt }}</span>
+      </div>
+
+      {{ if .Interview.Notes }}
+        <section class="card" style="padding:.75rem;">
+          <h2 style="font-size:1rem;margin-bottom:.4rem;">Interview Notes</h2>
+          <div>{{ .Interview.Notes }}</div>
+        </section>
+      {{ end }}
+
+      <section class="stack">
+        <h2 style="font-size:1rem;">Value Grades</h2>
+        {{ if .Interview.Grades }}
+          <table>
+            <thead>
+              <tr>
+                <th>Value</th>
+                <th>Grade</th>
+                <th>Comment</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{ range .Interview.Grades }}
+                <tr>
+                  <td>{{ .ValueName }}</td>
+                  <td><span class="pill">{{ .LetterGrade }}</span></td>
+                  <td>{{ if .Comment }}{{ .Comment }}{{ else }}-{{ end }}</td>
+                </tr>
+              {{ end }}
+            </tbody>
+          </table>
+        {{ else }}
+          <div class="empty">No grades are recorded for this interview.</div>
+        {{ end }}
+      </section>
+    </section>
+  </div>
+</body>
+</html>

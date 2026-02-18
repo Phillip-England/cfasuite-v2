@@ -6,274 +6,331 @@
   <title>Uniforms</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script>
+    (function () {
+      var stored = localStorage.getItem("cfasuite-theme");
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    })();
+  </script>
   <style>
-    :root { --bg:#f3eee6; --surface:#fffaf3; --ink:#1f232a; --line:#e4d6c0; --muted:#69717c; --accent:#b2472a; --shadow:0 24px 45px rgba(35,29,21,.14); }
-    * { box-sizing: border-box; }
-    body { font-family:"Manrope",sans-serif; margin:0; padding:12px; color:var(--ink); background:radial-gradient(70rem 50rem at 120% -10%,#ffd8b6 0,transparent 55%),radial-gradient(50rem 40rem at -10% 120%,#f9d8bd 0,transparent 52%),var(--bg); }
-    .card { width:100%; max-width:1080px; margin:0 auto; background:linear-gradient(155deg,var(--surface),#fff); border:1px solid var(--line); border-radius:18px; padding:14px; box-shadow:var(--shadow); }
-    .back { color:var(--accent); text-decoration:none; font-weight:800; font-size:0.92rem; }
-    h1 { margin:10px 0 8px; font:800 clamp(1.5rem,4vw,2.2rem)/1.1 "Space Grotesk",sans-serif; }
-    p.sub { margin:0 0 14px; color:var(--muted); }
-    .msg { font-weight:700; margin:0 0 10px; }
-    .msg.error { color:#9f1e1e; }
-    .msg.ok { color:#186243; }
-
-    .hub { display:grid; gap:10px; grid-template-columns:1fr; margin-bottom:12px; }
-    .hub-btn {
-      border:1px solid #d8c7b2;
-      background:#fff;
-      color:#2d3038;
-      border-radius:12px;
-      text-align:left;
-      padding:12px;
-      cursor:pointer;
-      min-height:64px;
+    :root {
+      --bg: #ffffff; --fg: #09090b; --card: #ffffff;
+      --muted: #f4f4f5; --muted-fg: #71717a; --border: #e4e4e7;
+      --primary: #ea580c; --primary-fg: #ffffff;
+      --danger: #dc2626; --success: #16a34a;
+      --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
     }
-    .hub-btn strong { display:block; font:800 1.02rem/1.1 "Space Grotesk",sans-serif; margin-bottom:4px; }
-    .hub-btn span { display:block; color:#646c77; font-size:0.86rem; font-weight:700; }
-    .hub-btn.active { border-color:#c69b78; background:#fff6ec; }
+    html.dark {
+      --bg: #09090b; --fg: #fafafa; --card: #09090b;
+      --muted: #27272a; --muted-fg: #a1a1aa; --border: #3f3f46;
+      --primary: #fb923c; --primary-fg: #431407;
+      --danger: #f87171; --success: #4ade80;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background-color: var(--bg); color: var(--fg); font-family: "Manrope", ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    h1, h2, h3 { margin: 0; font-family: "Space Grotesk", "Manrope", sans-serif; font-weight: 700; line-height: 1.25; }
+    h1 { font-size: clamp(1.375rem, 3vw, 1.875rem); }
+    h2 { font-size: 1.125rem; }
+    p { margin: 0; }
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .card, .panel { background-color: var(--card); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.5rem; box-shadow: var(--shadow); }
+    @media (max-width: 639px) { .card, .panel { padding: 1rem; } }
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]), select, textarea { display: block; width: 100%; min-height: 2.375rem; padding: 0.5rem 0.75rem; font: 0.875rem/1.5 inherit; color: var(--fg); background-color: var(--bg); border: 1px solid var(--border); border-radius: 0.375rem; transition: border-color 150ms, box-shadow 150ms; }
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]):focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(234,88,12,.15); }
+    html.dark input:focus, html.dark select:focus, html.dark textarea:focus { box-shadow: 0 0 0 3px rgba(251,146,60,.15); }
+    label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.375rem; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 0.5rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th { text-align: left; padding: 0.625rem 0.875rem; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-fg); background-color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 0.625rem 0.875rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    .text-muted { color: var(--muted-fg); font-size: 0.875rem; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; min-height: 2.375rem; padding: 0.5rem 0.875rem; font: 600 0.875rem/1.25 inherit; border-radius: 0.375rem; border: 1px solid transparent; cursor: pointer; transition: 150ms; white-space: nowrap; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background-color: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+    .btn-primary:hover:not(:disabled) { opacity: 0.9; }
+    .btn-secondary { background-color: var(--bg); color: var(--fg); border-color: var(--border); }
+    .btn-secondary:hover:not(:disabled) { background-color: var(--muted); }
+    .btn-sm { min-height: 2rem; padding: 0.3125rem 0.625rem; font-size: 0.8125rem; }
+    .hub-btn { width: 100%; text-align: left; padding: 0.875rem 1rem; background-color: var(--bg); border: 1px solid var(--border); border-radius: 0.5rem; cursor: pointer; font-family: inherit; color: var(--fg); transition: 150ms; }
+    .hub-btn:hover { background-color: var(--muted); }
+    .hub-btn.active { background-color: var(--muted); border-color: var(--primary); }
+    .hub-btn strong { display: block; font-size: 0.9375rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .hub-btn span { display: block; font-size: 0.8125rem; color: var(--muted-fg); }
+    .section { display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    .section.active { display: block; }
+    .back { font-size: 0.8125rem; font-weight: 500; color: var(--muted-fg); display: inline-flex; align-items: center; gap: 0.25rem; margin-bottom: 1rem; }
+    .back:hover { color: var(--fg); text-decoration: none; }
+    .notice, .msg { font-size: 0.875rem; font-weight: 500; margin-bottom: 0.75rem; }
+    .notice.ok, .msg.ok { color: var(--success); }
+    .notice.error, .msg.error { color: var(--danger); }
+    .link-box { border: 1px solid var(--border); border-radius: 0.5rem; background: var(--bg); padding: 1rem; margin-bottom: 1.25rem; }
+    .link-box > label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-fg); margin-bottom: 0.5rem; }
+    .link-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .link-row input { flex: 1; min-width: 200px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8125rem; }
 
-    .section { display:none; border:1px solid #e4d6c0; border-radius:12px; padding:14px; background:#fff; }
-    .section.active { display:block; }
-    .section h2 { margin:0 0 10px; font-size:1.08rem; }
-    .section-top { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+    .hub { display: grid; gap: 0.75rem; grid-template-columns: 1fr; margin-bottom: 1rem; }
+    @media (min-width: 640px) { .hub { grid-template-columns: repeat(3, 1fr); } }
 
-    form { display:grid; gap:10px; }
-    label { display:grid; gap:6px; font-size:0.9rem; font-weight:700; color:#3b424d; }
-    input, button { border-radius:10px; padding:10px 11px; font:600 0.94rem/1.2 "Manrope",sans-serif; }
-    input { border:1px solid #dbcab4; background:#fffefb; min-height:44px; }
-    button { border:0; background:var(--accent); color:#fff; font-weight:700; cursor:pointer; min-height:44px; }
-    .small-btn { background:#41566e; font-size:0.84rem; min-height:40px; }
+    .item-cards { display: grid; gap: 0.75rem; grid-template-columns: 1fr; }
+    @media (min-width: 640px) { .item-cards { grid-template-columns: repeat(2, 1fr); } }
+    .item-card { display: grid; grid-template-columns: 64px 1fr; gap: 0.75rem; align-items: center; text-decoration: none; color: var(--fg); border: 1px solid var(--border); border-radius: 0.5rem; background: var(--bg); padding: 0.75rem; transition: 150ms; }
+    .item-card:hover { background-color: var(--muted); text-decoration: none; }
+    .item-card img { width: 64px; height: 64px; border-radius: 0.375rem; object-fit: cover; border: 1px solid var(--border); background: var(--muted); }
+    .item-name { font-size: 0.9375rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .item-meta { font-size: 0.8125rem; color: var(--muted-fg); }
 
-    .link-row { display:flex; gap:8px; flex-wrap:wrap; }
-    .link-row input { flex:1; min-width:240px; }
-    .section-link { color:#8d391f; text-decoration:none; font-size:0.86rem; font-weight:800; }
-    .section-link:hover { text-decoration:underline; }
+    .section-top { display: flex; justify-content: space-between; align-items: center; gap: 0.625rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+    .section-link { color: var(--primary); font-size: 0.8125rem; font-weight: 600; }
+    .section-link:hover { text-decoration: underline; }
 
-    .crop-tools { display:none; gap:8px; position:relative; z-index:20; }
-    .crop-tools.is-active { display:grid; }
-    .preview-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 180px)); gap:10px; margin-top:10px; }
-    .preview-box { border:1px dashed #dbcab4; border-radius:10px; background:#fffefb; padding:8px; }
-    .preview-label { display:block; font-size:0.72rem; font-weight:700; text-transform:uppercase; color:#69717c; margin-bottom:6px; letter-spacing:0.05em; }
-    .preview-image { width:100%; max-height:320px; border-radius:8px; object-fit:contain; background:#f4f0ea; border:1px solid #e4d6c0; display:block; }
-    .crop-result-box { display:none; }
-    .crop-result-box.is-active { display:block; }
-    .crop-stage { position:relative; width:100%; }
+    form { display: grid; gap: 0.75rem; }
+
+    .preview-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 180px)); gap: 0.75rem; margin-top: 0.75rem; }
+    .preview-box { border: 1px dashed var(--border); border-radius: 0.5rem; background: var(--bg); padding: 0.5rem; }
+    .preview-label { display: block; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; color: var(--muted-fg); margin-bottom: 0.375rem; letter-spacing: 0.05em; }
+    .preview-image { width: 100%; max-height: 320px; border-radius: 0.375rem; object-fit: contain; background: var(--muted); border: 1px solid var(--border); display: block; }
+    .crop-result-box { display: none; }
+    .crop-result-box.is-active { display: block; }
+    .crop-stage { position: relative; width: 100%; }
     .crop-selection {
-      position:absolute;
-      border:2px solid #fff;
-      box-shadow:0 0 0 9999px rgba(0,0,0,.38);
-      border-radius:8px;
-      cursor:move;
-      touch-action:none;
-      display:none;
+      position: absolute;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,.38);
+      border-radius: 0.5rem;
+      cursor: move;
+      touch-action: none;
+      display: none;
     }
-    .crop-selection.is-active { display:block; }
-    .crop-selection.is-locked { box-shadow:none; cursor:default; }
-    .crop-selection.is-locked .crop-handle { display:none; }
+    .crop-selection.is-active { display: block; }
+    .crop-selection.is-locked { box-shadow: none; cursor: default; }
+    .crop-selection.is-locked .crop-handle { display: none; }
     .crop-handle {
-      position:absolute;
-      width:18px;
-      height:18px;
-      right:-9px;
-      bottom:-9px;
-      border-radius:999px;
-      border:2px solid #fff;
-      background:#b2472a;
-      cursor:nwse-resize;
-      touch-action:none;
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      right: -9px;
+      bottom: -9px;
+      border-radius: 999px;
+      border: 2px solid #fff;
+      background: var(--primary);
+      cursor: nwse-resize;
+      touch-action: none;
     }
+    .crop-tools { display: none; gap: 0.5rem; position: relative; z-index: 20; align-items: center; }
+    .crop-tools.is-active { display: flex; }
 
-    .item-cards { display:grid; gap:10px; grid-template-columns:1fr; }
-    .item-card {
-      display:grid;
-      grid-template-columns:72px 1fr;
-      gap:10px;
-      align-items:center;
-      text-decoration:none;
-      color:inherit;
-      border:1px solid #e4d6c0;
-      border-radius:12px;
-      background:#fffefb;
-      padding:10px;
-      transition:border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
-    }
-    .item-card:hover { border-color:#c69b78; box-shadow:0 10px 18px rgba(45,37,29,.08); transform:translateY(-1px); }
-    .item-card img { width:72px; height:72px; border-radius:10px; object-fit:cover; border:1px solid #dbcab4; background:#f5efe5; }
-    .item-name { font:800 1rem/1.2 "Space Grotesk",sans-serif; margin-bottom:4px; }
-    .item-meta { font-size:0.84rem; color:#646c77; font-weight:700; }
-
-    .table-wrap { overflow-x:auto; border-radius:10px; }
-    table { width:100%; border-collapse:collapse; border:1px solid #e4d6c0; border-radius:10px; overflow:hidden; min-width:760px; }
-    th, td { text-align:left; padding:9px 10px; border-bottom:1px solid #efdfca; vertical-align:top; }
-    th { background:#faf2e5; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.04em; color:#69717c; }
-    .item-cell { min-width:220px; }
-    .item-title { font-weight:800; font-size:.88rem; color:#2f3640; }
-    .item-note { font-size:.78rem; color:#646c77; margin-top:2px; }
-    .purchase-cell { width:96px; white-space:nowrap; }
-    .charge-cell { width:140px; white-space:nowrap; }
-    .charge-input { max-width:120px; min-height:38px; padding:7px 8px; }
-
-    @media (min-width: 760px) {
-      .hub { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    }
-    @media (min-width: 860px) {
-      .card { padding:20px; }
-      body { padding:24px; }
-      .item-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
+    .item-cell { min-width: 220px; }
+    .item-title { font-weight: 600; font-size: 0.875rem; color: var(--fg); }
+    .item-note { font-size: 0.75rem; color: var(--muted-fg); margin-top: 0.125rem; }
+    .purchase-cell { width: 96px; white-space: nowrap; }
+    .charge-cell { width: 140px; white-space: nowrap; }
+    .charge-input { max-width: 110px; min-height: 2rem; padding: 0.25rem 0.5rem; font-size: 0.8125rem; }
   </style>
 </head>
-<body>
-  <section class="card">
-    <a class="back" href="/admin/locations/{{ .Location.Number }}">Back to Apps</a>
-    <h1>Uniform Admin</h1>
-    <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})</p>
-    {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
-    {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
+<body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
 
-    <section class="hub">
-      <button class="hub-btn" type="button" data-target="new-item">
-        <strong>New Item</strong>
-        <span>Create a uniform item with image, price, and sizes.</span>
-      </button>
-      <button class="hub-btn" type="button" data-target="existing-items">
-        <strong>Existing Items</strong>
-        <span>Browse configured items and open a dedicated item page.</span>
-      </button>
-      <button class="hub-btn" type="button" data-target="submitted-requests">
-        <strong>Submitted Requests</strong>
-        <span>Review submitted orders, mark items purchased, and track chargebacks.</span>
-      </button>
-    </section>
+  <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
+    <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
+      <a href="/admin" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
+      <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
+        <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/admin/locations/{{ .Location.Number }}/uniforms" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Uniforms</a>
+        <a href="/admin/locations/{{ .Location.Number }}/uniform-orders/archived" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Archived Orders</a>
+      </nav>
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+          <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" class="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+          <span class="sr-only">Open menu</span>
+          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="nav-mobile" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 bg-white dark:bg-zinc-950 flex-col gap-1">
+      <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
+      <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+      <a href="/admin/locations/{{ .Location.Number }}/uniforms" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Uniforms</a>
+      <a href="/admin/locations/{{ .Location.Number }}/uniform-orders/archived" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Archived Orders</a>
+    </div>
+  </header>
 
-    <section class="section" data-panel="new-item">
-      <h2>Create Uniform Item</h2>
-      <form id="uniform-create-form" method="post" enctype="multipart/form-data" action="/admin/locations/{{ .Location.Number }}/uniform-items">
-        <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-        <input type="hidden" id="crop_x" name="crop_x" value="0">
-        <input type="hidden" id="crop_y" name="crop_y" value="0">
-        <input type="hidden" id="crop_size" name="crop_size" value="0">
-        <label>Item Name<input type="text" name="name" required></label>
-        <label>Price (USD)<input type="text" name="price" placeholder="19.99" required></label>
-        <label>Sizes (optional, comma-separated)<input type="text" name="sizes" placeholder="XS,S,M,L,XL"></label>
-        <label>Image (png, jpeg, webp)<input id="photo_file" type="file" name="photo_file" accept="image/png,image/jpeg,image/webp" required></label>
-        <div class="preview-row">
-          <div class="preview-box">
-            <span class="preview-label">Selected Image</span>
-            <div id="crop-stage" class="crop-stage">
-              <img id="photo-preview" class="preview-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='100%25' height='100%25' fill='%23f4f0ea'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2369717c' font-size='12' font-family='sans-serif'%3ESelect Image%3C/text%3E%3C/svg%3E" alt="Selected image preview">
-              <div id="crop-selection" class="crop-selection">
-                <div id="crop-handle" class="crop-handle"></div>
+  <div class="pt-14 min-h-[calc(100vh-3.5rem)] px-4 py-8">
+    <div class="mx-auto max-w-[1100px]">
+      <div class="card">
+        <a class="back" href="/admin/locations/{{ .Location.Number }}">&#8592; Back to Apps</a>
+        <h1 style="margin-bottom:0.25rem;">Uniform Admin</h1>
+        <p class="text-muted" style="margin-bottom:0.75rem;">{{ .Location.Name }} ({{ .Location.Number }})</p>
+        {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
+        {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
+
+        <div class="hub">
+          <button class="hub-btn" type="button" data-target="new-item">
+            <strong>New Item</strong>
+            <span>Create a uniform item with image, price, and sizes.</span>
+          </button>
+          <button class="hub-btn" type="button" data-target="existing-items">
+            <strong>Existing Items</strong>
+            <span>Browse configured items and open a dedicated item page.</span>
+          </button>
+          <button class="hub-btn" type="button" data-target="submitted-requests">
+            <strong>Submitted Requests</strong>
+            <span>Review submitted orders, mark items purchased, and track chargebacks.</span>
+          </button>
+        </div>
+
+        <div class="section" data-panel="new-item">
+          <h2 style="margin-bottom:1rem;">Create Uniform Item</h2>
+          <form id="uniform-create-form" method="post" enctype="multipart/form-data" action="/admin/locations/{{ .Location.Number }}/uniform-items">
+            <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+            <input type="hidden" id="crop_x" name="crop_x" value="0">
+            <input type="hidden" id="crop_y" name="crop_y" value="0">
+            <input type="hidden" id="crop_size" name="crop_size" value="0">
+            <div>
+              <label for="item-name-input">Item Name</label>
+              <input id="item-name-input" type="text" name="name" required>
+            </div>
+            <div>
+              <label for="item-price-input">Price (USD)</label>
+              <input id="item-price-input" type="text" name="price" placeholder="19.99" required>
+            </div>
+            <div>
+              <label for="item-sizes-input">Sizes (optional, comma-separated)</label>
+              <input id="item-sizes-input" type="text" name="sizes" placeholder="XS,S,M,L,XL">
+            </div>
+            <div>
+              <label for="photo_file">Image (png, jpeg, webp)</label>
+              <input id="photo_file" type="file" name="photo_file" accept="image/png,image/jpeg,image/webp" required>
+            </div>
+            <div class="preview-row">
+              <div class="preview-box">
+                <span class="preview-label">Selected Image</span>
+                <div id="crop-stage" class="crop-stage">
+                  <img id="photo-preview" class="preview-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='100%25' height='100%25' fill='%23f4f4f5'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2371717a' font-size='12' font-family='sans-serif'%3ESelect Image%3C/text%3E%3C/svg%3E" alt="Selected image preview">
+                  <div id="crop-selection" class="crop-selection">
+                    <div id="crop-handle" class="crop-handle"></div>
+                  </div>
+                </div>
+              </div>
+              <div id="crop-result-box" class="preview-box crop-result-box">
+                <span class="preview-label">Cropped Result</span>
+                <canvas id="crop-result" class="preview-image" width="180" height="180"></canvas>
               </div>
             </div>
-          </div>
-          <div id="crop-result-box" class="preview-box crop-result-box">
-            <span class="preview-label">Cropped Result</span>
-            <canvas id="crop-result" class="preview-image" width="180" height="180"></canvas>
-          </div>
+            <div id="crop-tools" class="crop-tools">
+              <p class="text-muted" style="margin:0;font-size:0.8125rem;">Drag the crop box. Use the bottom-right handle to resize.</p>
+              <button id="confirm-crop" type="button" class="btn btn-secondary btn-sm">Confirm Crop</button>
+            </div>
+            <div>
+              <button id="create-item-btn" type="submit" class="btn btn-primary" disabled>Create Item</button>
+            </div>
+          </form>
         </div>
-        <div id="crop-tools" class="crop-tools">
-          <p class="sub" style="margin:0;">Drag the crop box. Use the bottom-right handle to resize.</p>
-          <button id="confirm-crop" type="button" class="small-btn">Confirm Crop</button>
-        </div>
-        <button id="create-item-btn" type="submit" disabled>Create Item</button>
-      </form>
-    </section>
 
-    <section class="section" data-panel="existing-items">
-      <h2>Existing Uniform Items</h2>
-      {{ if .UniformItems }}
-        <div class="item-cards">
-          {{ range .UniformItems }}
-            <a class="item-card" href="/admin/locations/{{ $.Location.Number }}/uniform-items/{{ .ID }}">
-              <img src="data:{{ if .Images }}{{ (index .Images 0).ImageMime }}{{ else }}{{ .ImageMime }}{{ end }};base64,{{ if .Images }}{{ (index .Images 0).ImageData }}{{ else }}{{ .ImageData }}{{ end }}" alt="{{ .Name }}">
-              <div>
-                <div class="item-name">{{ .Name }}</div>
-                <div class="item-meta">Price: ${{ printf "%.2f" .Price }}</div>
-                <div class="item-meta">Sizes: {{ if .Sizes }}{{ range $idx, $size := .Sizes }}{{ if $idx }}, {{ end }}{{ $size }}{{ end }}{{ else }}N/A{{ end }}</div>
-              </div>
-            </a>
+        <div class="section" data-panel="existing-items">
+          <h2 style="margin-bottom:1rem;">Existing Uniform Items</h2>
+          {{ if .UniformItems }}
+            <div class="item-cards">
+              {{ range .UniformItems }}
+                <a class="item-card" href="/admin/locations/{{ $.Location.Number }}/uniform-items/{{ .ID }}">
+                  <img src="data:{{ if .Images }}{{ (index .Images 0).ImageMime }}{{ else }}{{ .ImageMime }}{{ end }};base64,{{ if .Images }}{{ (index .Images 0).ImageData }}{{ else }}{{ .ImageData }}{{ end }}" alt="{{ .Name }}">
+                  <div>
+                    <div class="item-name">{{ .Name }}</div>
+                    <div class="item-meta">Price: ${{ printf "%.2f" .Price }}</div>
+                    <div class="item-meta">Sizes: {{ if .Sizes }}{{ range $idx, $size := .Sizes }}{{ if $idx }}, {{ end }}{{ $size }}{{ end }}{{ else }}N/A{{ end }}</div>
+                  </div>
+                </a>
+              {{ end }}
+            </div>
+          {{ else }}
+            <p class="text-muted">No uniform items yet.</p>
           {{ end }}
         </div>
-      {{ else }}
-        <p class="sub">No uniform items yet.</p>
-      {{ end }}
-    </section>
 
-    <section class="section" data-panel="submitted-requests">
-      <div class="section-top">
-        <h2>Submitted Requests</h2>
-        <a class="section-link" href="/admin/locations/{{ .Location.Number }}/uniform-orders/archived">View Archived Orders</a>
-      </div>
-      <div class="section-top">
-        <strong style="font-size:.86rem;color:#4e5561;">Secret Team Member Form</strong>
-      </div>
-      <div class="link-row" style="margin-bottom:12px;">
-        <input id="uniform-link" type="text" readonly value="{{ .UniformLink }}">
-        <button class="small-btn" id="copy-link" type="button">Copy Link</button>
-        <button class="small-btn" id="open-link" type="button">Open Form</button>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Submitted At (UTC)</th>
-              <th>Employee</th>
-              <th>Item</th>
-              <th>Purchased</th>
-              <th>Charged Back ($)</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {{ if .UniformOrders }}
-              {{ range .UniformOrders }}
-                {{ $order := . }}
-                {{ if .Lines }}
-                  {{ range .Lines }}
-                    {{ $formID := printf "settlement-%d-%d" $order.ID .ID }}
-                    <tr>
-                      <td>{{ $order.CreatedAt }}</td>
-                      <td>{{ $order.TimePunchName }}</td>
-                      <td class="item-cell">
-                        <div class="item-title">
-                          {{ .ItemName }}{{ if .SizeOption }} ({{ .SizeOption }}){{ end }} x{{ .Quantity }}
-                        </div>
-                        {{ if .Note }}<div class="item-note">Note: {{ .Note }}</div>{{ end }}
-                      </td>
-                      <td class="purchase-cell">
-                        <form id="{{ $formID }}" class="auto-settlement-form" method="post" action="/admin/locations/{{ $.Location.Number }}/uniform-orders/{{ $order.ID }}/lines/{{ .ID }}/settlement">
-                          <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                        </form>
-                        <input type="checkbox" name="purchased" value="on" form="{{ $formID }}" {{ if .Purchased }}checked{{ end }} style="min-height:auto; width:auto;" data-autosave-form="{{ $formID }}">
-                      </td>
-                      <td class="charge-cell">
-                        <input class="charge-input" type="text" name="charged_back" form="{{ $formID }}" value="{{ printf "%.2f" .ChargedBack }}" placeholder="0.00" inputmode="decimal" data-autosave-form="{{ $formID }}">
-                      </td>
-                      <td>${{ printf "%.2f" $order.Total }}</td>
-                    </tr>
+        <div class="section" data-panel="submitted-requests">
+          <div class="section-top">
+            <h2>Submitted Requests</h2>
+            <a class="section-link" href="/admin/locations/{{ .Location.Number }}/uniform-orders/archived">View Archived Orders</a>
+          </div>
+          <div class="link-box">
+            <label>Secret Team Member Form</label>
+            <div class="link-row" style="margin-bottom:0.75rem;">
+              <input id="uniform-link" type="text" readonly value="{{ .UniformLink }}">
+              <button class="btn btn-secondary btn-sm" id="copy-link" type="button">Copy Link</button>
+              <button class="btn btn-secondary btn-sm" id="open-link" type="button">Open Form</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Submitted At (UTC)</th>
+                  <th>Employee</th>
+                  <th>Item</th>
+                  <th>Purchased</th>
+                  <th>Charged Back ($)</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{ if .UniformOrders }}
+                  {{ range .UniformOrders }}
+                    {{ $order := . }}
+                    {{ if .Lines }}
+                      {{ range .Lines }}
+                        {{ $formID := printf "settlement-%d-%d" $order.ID .ID }}
+                        <tr>
+                          <td>{{ $order.CreatedAt }}</td>
+                          <td>{{ $order.TimePunchName }}</td>
+                          <td class="item-cell">
+                            <div class="item-title">
+                              {{ .ItemName }}{{ if .SizeOption }} ({{ .SizeOption }}){{ end }} x{{ .Quantity }}
+                            </div>
+                            {{ if .Note }}<div class="item-note">Note: {{ .Note }}</div>{{ end }}
+                          </td>
+                          <td class="purchase-cell">
+                            <form id="{{ $formID }}" class="auto-settlement-form" method="post" action="/admin/locations/{{ $.Location.Number }}/uniform-orders/{{ $order.ID }}/lines/{{ .ID }}/settlement">
+                              <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                            </form>
+                            <input type="checkbox" name="purchased" value="on" form="{{ $formID }}" {{ if .Purchased }}checked{{ end }} style="min-height:auto; width:auto;" data-autosave-form="{{ $formID }}">
+                          </td>
+                          <td class="charge-cell">
+                            <input class="charge-input" type="text" name="charged_back" form="{{ $formID }}" value="{{ printf "%.2f" .ChargedBack }}" placeholder="0.00" inputmode="decimal" data-autosave-form="{{ $formID }}">
+                          </td>
+                          <td>${{ printf "%.2f" $order.Total }}</td>
+                        </tr>
+                      {{ end }}
+                    {{ else }}
+                      <tr>
+                        <td>{{ .CreatedAt }}</td>
+                        <td>{{ .TimePunchName }}</td>
+                        <td>{{ .ItemsSummary }}</td>
+                        <td></td>
+                        <td></td>
+                        <td>${{ printf "%.2f" .Total }}</td>
+                      </tr>
+                    {{ end }}
                   {{ end }}
                 {{ else }}
-                  <tr>
-                    <td>{{ .CreatedAt }}</td>
-                    <td>{{ .TimePunchName }}</td>
-                    <td>{{ .ItemsSummary }}</td>
-                    <td></td>
-                    <td></td>
-                    <td>${{ printf "%.2f" .Total }}</td>
-                  </tr>
+                  <tr><td colspan="6">No uniform orders submitted yet.</td></tr>
                 {{ end }}
-              {{ end }}
-            {{ else }}
-              <tr><td colspan="6">No uniform orders submitted yet.</td></tr>
-            {{ end }}
-          </tbody>
-        </table>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
-    </section>
-  </section>
+    </div>
+  </div>
+
   <script>
     const copyBtn = document.getElementById("copy-link");
     const openBtn = document.getElementById("open-link");
@@ -445,7 +502,7 @@
       if (!file) {
         fileSelected = false;
         setCropModeActive(false);
-        preview.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='100%25' height='100%25' fill='%23f4f0ea'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2369717c' font-size='12' font-family='sans-serif'%3ESelect Image%3C/text%3E%3C/svg%3E";
+        preview.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='100%25' height='100%25' fill='%23f4f4f5'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2371717a' font-size='12' font-family='sans-serif'%3ESelect Image%3C/text%3E%3C/svg%3E";
         cropX.value = "0";
         cropY.value = "0";
         cropSize.value = "0";
@@ -472,6 +529,29 @@
       setCropConfirmed(true);
     });
     setCropModeActive(false);
+  </script>
+  <script>
+    (function () {
+      var storageKey = "cfasuite-theme";
+      var root = document.documentElement;
+      var toggle = document.getElementById("theme-toggle");
+      var navToggle = document.getElementById("nav-toggle");
+      var navMobile = document.getElementById("nav-mobile");
+      if (toggle) {
+        toggle.addEventListener("click", function () {
+          var isDark = root.classList.toggle("dark");
+          localStorage.setItem(storageKey, isDark ? "dark" : "light");
+        });
+      }
+      if (navToggle && navMobile) {
+        navToggle.addEventListener("click", function () {
+          var expanded = navToggle.getAttribute("aria-expanded") === "true";
+          navToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+          navMobile.classList.toggle("hidden", expanded);
+          if (!expanded) { navMobile.style.display = "flex"; } else { navMobile.style.removeProperty("display"); }
+        });
+      }
+    })();
   </script>
 </body>
 </html>

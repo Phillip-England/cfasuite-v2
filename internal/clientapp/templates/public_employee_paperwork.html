@@ -3,34 +3,72 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/assets/app.css">
   <title>Employee Paperwork</title>
   <style>
     :root {
-      --bg: #f4f1ec;
+      --bg: #fafafa;
       --card: #ffffff;
-      --line: #e2d5c4;
-      --ink: #1f232a;
-      --muted: #68707b;
-      --accent: #b2472a;
-      --accent-dark: #913820;
+      --line: #e4e4e7;
+      --ink: #09090b;
+      --muted: #71717a;
+      --accent: #18181b;
+      --accent-hover: #09090b;
+      --accent-fg: #ffffff;
+      --soft: #f4f4f5;
+      --ok-fg: #166534;
+      --ok-bg: #f0fdf4;
+      --ok-line: #86efac;
+      --warn-fg: #9a3412;
+      --warn-bg: #fff7ed;
+      --warn-line: #fdba74;
+      --sig-ink: #18181b;
+      --focus: rgba(249, 115, 22, 0.25);
+      --shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
     }
+
+    html.dark {
+      --bg: #000000;
+      --card: #09090b;
+      --line: #27272a;
+      --ink: #f4f4f5;
+      --muted: #a1a1aa;
+      --accent: #f4f4f5;
+      --accent-hover: #e4e4e7;
+      --accent-fg: #09090b;
+      --soft: #18181b;
+      --ok-fg: #4ade80;
+      --ok-bg: #052e16;
+      --ok-line: #166534;
+      --warn-fg: #fdba74;
+      --warn-bg: #431407;
+      --warn-line: #9a3412;
+      --sig-ink: #f4f4f5;
+      --focus: rgba(251, 146, 60, 0.3);
+      --shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
+    }
+
     * { box-sizing: border-box; }
     body {
       margin: 0;
       padding: 14px;
-      background: radial-gradient(50rem 25rem at 110% -10%, #f1d9bf 0, transparent 52%), var(--bg);
+      background:
+        radial-gradient(52rem 28rem at 110% -10%, rgba(249, 115, 22, 0.12) 0, transparent 55%),
+        radial-gradient(40rem 22rem at -15% 120%, rgba(14, 165, 233, 0.08) 0, transparent 52%),
+        var(--bg);
       color: var(--ink);
       font-family: "Manrope", "Segoe UI", sans-serif;
     }
     .card {
       width: 100%;
-      max-width: 680px;
+      max-width: 760px;
       margin: 0 auto;
       background: var(--card);
       border: 1px solid var(--line);
       border-radius: 14px;
       padding: 18px 16px 20px;
-      box-shadow: 0 12px 28px rgba(33, 28, 23, 0.08);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(6px);
     }
     h1 {
       margin: 0 0 4px;
@@ -43,16 +81,10 @@
       font-size: 0.9rem;
     }
     .msg { margin: 0 0 10px; font-weight: 700; font-size: 0.9rem; }
-    .msg.error { color: #9f1e1e; }
-    .msg.ok { color: #186243; }
-    .required-legend {
-      margin: 0 0 8px;
-      color: var(--muted);
-      font-size: 0.82rem;
-      font-weight: 700;
-    }
+    .msg.error { color: #dc2626; }
+    .msg.ok { color: #16a34a; }
     .req {
-      color: #a52222;
+      color: #dc2626;
       font-weight: 900;
       margin-left: 2px;
     }
@@ -63,10 +95,10 @@
       margin-bottom: 10px;
     }
     .completion-item {
-      border: 1px solid #d7c9b6;
+      border: 1px solid var(--line);
       border-radius: 10px;
       padding: 8px 10px;
-      background: #fff;
+      background: var(--soft);
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -75,14 +107,14 @@
       font-weight: 800;
     }
     .completion-item.complete {
-      border-color: #91c6a7;
-      background: #ecf8f0;
-      color: #186243;
+      border-color: var(--ok-line);
+      background: var(--ok-bg);
+      color: var(--ok-fg);
     }
     .completion-item.incomplete {
-      border-color: #e0c3a4;
-      background: #fff6eb;
-      color: #7b4a1e;
+      border-color: var(--warn-line);
+      background: var(--warn-bg);
+      color: var(--warn-fg);
     }
     .completion-item .state {
       font-size: 0.78rem;
@@ -90,15 +122,17 @@
       text-transform: uppercase;
       letter-spacing: 0.03em;
     }
-    .personal-card {
-      border: 1px solid #ecdcc8;
+    .personal-card,
+    .instruction-card,
+    .doc-upload-grid {
+      border: 1px solid var(--line);
       border-radius: 10px;
-      background: #fffaf3;
+      background: var(--soft);
       padding: 10px;
-      margin-bottom: 12px;
       display: grid;
-      gap: 10px;
+      gap: 8px;
     }
+    .personal-card { margin-bottom: 12px; gap: 10px; }
     .personal-card h2 {
       margin: 0;
       font-size: 0.95rem;
@@ -108,30 +142,37 @@
       display: grid;
       gap: 10px;
     }
-    @media (min-width: 720px) {
-      .personal-grid {
-        grid-template-columns: 1fr 1fr;
-      }
-    }
     .switch {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
       margin-bottom: 10px;
     }
     .switch button {
-      border: 1px solid #d7c9b6;
+      border: 1px solid var(--line);
       border-radius: 10px;
       min-height: 40px;
       padding: 9px 10px;
-      background: #fff;
+      background: var(--card);
       color: var(--ink);
       font: 800 0.86rem/1 "Manrope", sans-serif;
       cursor: pointer;
+      transition: border-color 140ms, background-color 140ms, color 140ms;
+    }
+    .switch button.section-incomplete {
+      border-color: var(--warn-line);
+      background: var(--warn-bg);
+      color: var(--warn-fg);
+    }
+    .switch button.section-complete {
+      border-color: var(--ok-line);
+      background: var(--ok-bg);
+      color: var(--ok-fg);
     }
     .switch button.active {
-      border-color: #c89161;
-      background: #fff3e5;
+      border-color: #f97316;
+      box-shadow: inset 0 0 0 1px #f97316;
+      background: var(--soft);
     }
     .panel { display: none; }
     .panel.active { display: block; }
@@ -146,19 +187,27 @@
       font-weight: 800;
       letter-spacing: 0.04em;
       text-transform: uppercase;
-      color: #404854;
+      color: var(--muted);
       line-height: 1.25;
       display: block;
     }
+    .label.required-empty { color: #dc2626; }
+    .label.required-complete { color: #16a34a; }
     input, select, textarea {
       width: 100%;
       min-height: 46px;
-      border: 1px solid #d7c9b6;
+      border: 1px solid var(--line);
       border-radius: 10px;
-      padding: 12px 12px;
+      padding: 12px;
       font: 600 0.94rem/1.2 "Manrope", sans-serif;
-      background: #fffefc;
+      background: var(--card);
       color: var(--ink);
+      transition: border-color 140ms ease, box-shadow 140ms ease;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #f97316;
+      box-shadow: 0 0 0 3px var(--focus);
     }
     .segment-row {
       display: grid;
@@ -172,29 +221,26 @@
       font-weight: 800;
       user-select: none;
     }
-    .segment {
-      text-align: center;
-      letter-spacing: 0.06em;
-    }
+    .segment { text-align: center; letter-spacing: 0.06em; }
     textarea {
       min-height: 84px;
       resize: vertical;
       line-height: 1.35;
     }
     .signature-pad-shell {
-      border: 1px dashed #d7c9b6;
+      border: 1px dashed var(--line);
       border-radius: 12px;
       padding: 10px;
-      background: #fff9f2;
+      background: var(--soft);
       display: grid;
       gap: 8px;
     }
     .signature-pad {
       width: 100%;
       height: 170px;
-      border: 1px solid #d7c9b6;
+      border: 1px solid var(--line);
       border-radius: 10px;
-      background: #fff;
+      background: var(--card);
       touch-action: none;
     }
     .button-row {
@@ -208,15 +254,19 @@
       min-height: 44px;
       padding: 11px 13px;
       background: var(--accent);
-      color: #fff;
+      color: var(--accent-fg);
       font: 800 0.94rem/1 "Manrope", sans-serif;
       cursor: pointer;
+      transition: background-color 140ms ease, color 140ms ease;
     }
-    .btn:hover { background: var(--accent-dark); }
+    .btn:hover { background: var(--accent-hover); }
     .btn.secondary {
-      border: 1px solid #d7c9b6;
-      background: #fff;
+      border: 1px solid var(--line);
+      background: var(--card);
       color: var(--ink);
+    }
+    .btn.secondary:hover {
+      background: var(--soft);
     }
     .signature-status {
       min-height: 18px;
@@ -224,21 +274,13 @@
       font-size: 0.82rem;
       font-weight: 700;
     }
-    .instruction-card {
-      border: 1px solid #ecdcc8;
-      border-radius: 10px;
-      background: #fffaf3;
-      padding: 10px;
-      display: grid;
-      gap: 6px;
-    }
     .instruction-title {
       margin: 0;
       font-size: 0.84rem;
       font-weight: 900;
       letter-spacing: 0.03em;
       text-transform: uppercase;
-      color: #4a515c;
+      color: var(--ink);
     }
     .instruction-text {
       margin: 0;
@@ -253,60 +295,62 @@
       gap: 8px;
       max-width: 220px;
     }
+    .counter-btn,
+    .counter-value,
+    .total-value,
+    .doc-remove-btn {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--card);
+      color: var(--ink);
+    }
     .counter-btn {
       min-height: 40px;
-      border: 1px solid #d7c9b6;
-      border-radius: 10px;
-      background: #fff;
-      color: var(--ink);
       font: 900 1.05rem/1 "Manrope", sans-serif;
       cursor: pointer;
     }
     .counter-value {
       min-height: 40px;
-      border: 1px solid #d7c9b6;
-      border-radius: 10px;
-      background: #fffefc;
       display: grid;
       place-items: center;
       font: 800 1rem/1 "Manrope", sans-serif;
-      color: var(--ink);
     }
     .total-value {
       min-height: 46px;
-      border: 1px solid #d7c9b6;
-      border-radius: 10px;
-      background: #f7f3ed;
       display: grid;
       align-items: center;
       padding: 12px;
       font: 800 0.94rem/1.2 "Manrope", sans-serif;
-      color: var(--ink);
+      background: var(--soft);
     }
-    .doc-upload-grid {
-      border: 1px solid #ecdcc8;
-      border-radius: 10px;
-      background: #fffaf3;
-      padding: 10px;
-      display: grid;
-      gap: 8px;
-      margin-top: 8px;
-    }
+    .doc-upload-grid { margin-top: 8px; }
     .doc-upload-row {
       display: grid;
       gap: 8px;
-      grid-template-columns: 140px 1fr auto;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
       align-items: end;
     }
+    .doc-upload-row .field { min-width: 0; }
     .doc-remove-btn {
       min-height: 46px;
-      border: 1px solid #d7c9b6;
-      border-radius: 10px;
-      background: #fff;
-      color: var(--ink);
       font: 700 0.9rem/1 "Manrope", sans-serif;
       padding: 0 12px;
       cursor: pointer;
+      width: 100%;
+    }
+    .doc-remove-btn:hover { background: var(--soft); }
+    .doc-date-row {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1.2fr;
+      gap: 6px;
+      align-items: center;
+    }
+    .doc-date-row .segment-sep { font-size: 0.85rem; }
+    .doc-date-part {
+      text-align: center;
+      letter-spacing: 0.06em;
+      min-height: 42px;
+      padding: 8px;
     }
     .panel.panel-grid { display: none; }
     .panel.panel-grid.active {
@@ -317,28 +361,64 @@
       display: grid;
       gap: 12px;
     }
+    @media (min-width: 640px) {
+      .switch {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
     @media (min-width: 720px) {
       body { padding: 22px; }
       .card { padding: 22px; }
+      .personal-grid { grid-template-columns: 1fr 1fr; }
     }
     @media (max-width: 680px) {
-      .doc-upload-row {
-        grid-template-columns: 1fr;
-      }
+      .doc-upload-row { grid-template-columns: 1fr; }
     }
   </style>
+  <script>
+    (function () {
+      const stored = localStorage.getItem("cfasuite-theme");
+      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    })();
+  </script>
+
 </head>
-<body>
-  <section class="card">
+<body class="min-h-screen pt-20 bg-white text-zinc-900 dark:bg-black dark:text-zinc-100 transition-colors duration-200">
+  <button id="theme-toggle" type="button" class="fixed top-3 right-3 z-[1200] rounded-full border border-zinc-300/80 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.08em] text-zinc-700 dark:text-zinc-200 shadow-sm backdrop-blur">Dark</button>
+  <nav id="app-nav" class="fixed top-3 left-3 right-20 z-[1100]">
+    <div class="mx-auto max-w-6xl rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur px-3 py-2">
+      <div class="flex items-center justify-between gap-3">
+        <div class="text-sm font-extrabold tracking-[0.06em] uppercase text-zinc-800 dark:text-zinc-100">CFA Suite</div>
+        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" class="md:hidden inline-flex items-center justify-center rounded-md border border-zinc-300 dark:border-zinc-700 p-2 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+          <span class="sr-only">Toggle navigation</span>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+            <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
+      </div>
+      <div id="nav-links" class="mt-2 hidden flex-col gap-1 text-xs font-semibold md:mt-2 md:flex md:flex-row md:flex-wrap md:items-center md:gap-2">
+        <a href="/employee/paperwork/{{ .Token }}" class="block px-2.5 py-1 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black">Paperwork</a>
+        <a href="/employee/photo-upload/{{ .Token }}" class="block px-2.5 py-1 rounded-md text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800">Photo Upload</a>
+      
+      </div>
+    </div>
+  </nav>
+
+
+  <section class="card mx-auto w-full max-w-[760px] rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 md:p-6">
     <h1>Employee Paperwork</h1>
     <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})<br>Employee: <strong>{{ .Employee.FirstName }} {{ .Employee.LastName }}</strong></p>
     {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
     {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
-    <p class="required-legend"><span class="req">*</span> Required fields</p>
-
     <section class="completion-strip">
       <div id="status-i9" class="completion-item incomplete">
         <span>I-9</span>
+        <span class="state">Incomplete</span>
+      </div>
+      <div id="status-legal" class="completion-item incomplete">
+        <span>Legal Documents</span>
         <span class="state">Incomplete</span>
       </div>
       <div id="status-w4" class="completion-item incomplete">
@@ -353,6 +433,7 @@
 
     <div class="switch">
       <button id="show-i9" type="button" class="active">I-9</button>
+      <button id="show-legal" type="button">Legal Documents</button>
       <button id="show-w4" type="button">W-4</button>
       <button id="show-signature" type="button">Signature</button>
     </div>
@@ -413,18 +494,23 @@
             </div>
             <div class="field">
               <label class="label" for="i9_status">Citizenship/Immigration Status<span class="req">*</span></label>
-              <select id="i9_status" name="citizenship_status">
+              <select id="i9_status" name="citizenship_status" required>
                 <option value="">Select Status</option>
-                <option value="citizen">A citizen of the United States</option>
-                <option value="noncitizen_national">A noncitizen national of the United States</option>
-                <option value="lpr">A lawful permanent resident</option>
-                <option value="alien_authorized">An alien authorized to work</option>
+                <option value="citizen">1. A citizen of the United States</option>
+                <option value="noncitizen_national">2. A noncitizen national of the United States (See Instructions.)</option>
+                <option value="lpr">3. A lawful permanent resident (Enter USCIS or A-Number.)</option>
+                <option value="alien_authorized">4. An alien authorized to work until</option>
               </select>
             </div>
           </div>
+        </section>
+      </section>
+
+      <section id="panel-legal" class="panel panel-grid">
+        <section class="wizard-step">
           <section class="doc-upload-grid">
-            <p class="instruction-title" style="margin:0;">I-9 Supporting Documents<span class="req">*</span></p>
-            <p class="instruction-text">Upload at least one List A document, or one List B and one List C document. Accepted files: PDF, PNG, JPG, JPEG, WEBP. Images are converted to PDF automatically.</p>
+            <p class="instruction-title" style="margin:0;">Legal Documents<span class="req">*</span></p>
+            <p class="instruction-text">Upload at least one List A document, or one List B and one List C document. Add document title, issuing authority, and document number so your I-9 can be fully completed.</p>
             <div id="i9-doc-rows"></div>
             <div class="row" style="gap:8px;">
               <button id="i9-add-doc-row" type="button" class="btn secondary">Add Another Document</button>
@@ -435,7 +521,7 @@
 
       <section id="panel-signature" class="panel panel-grid">
         <section class="wizard-step">
-        <p class="sub" style="margin:0;">Use your typed or drawn signature to sign all submitted paperwork.</p>
+        <p class="sub" style="margin:0;">Draw your signature to sign all submitted paperwork. Typed signature is optional for printed name.</p>
         <input id="i9_last_name" type="hidden" name="last_name" value="{{ .Employee.LastName }}">
         <input id="i9_first_name" type="hidden" name="first_name" value="{{ .Employee.FirstName }}">
         <input id="i9_middle_initial" type="hidden" name="middle_initial">
@@ -448,7 +534,7 @@
         <input id="i9_ssn" type="hidden" name="ssn">
         <input id="i9_email" type="hidden" name="email">
         <input id="i9_phone" type="hidden" name="phone">
-        <div class="field"><label class="label" for="i9_employee_signature">Signature (Typed)</label><input id="i9_employee_signature" type="text" name="employee_signature"></div>
+        <div class="field"><label class="label" for="i9_employee_signature">Signature (Typed, Optional)</label><input id="i9_employee_signature" type="text" name="employee_signature"></div>
         <section class="signature-pad-shell">
           <div class="label" style="text-transform:none;letter-spacing:0;font-size:0.86rem;">Digital Signature (Draw)</div>
           <canvas id="i9-signature-pad" class="signature-pad" width="560" height="170"></canvas>
@@ -464,13 +550,15 @@
 
       <section id="panel-w4" class="panel panel-grid">
         <section class="wizard-step">
-        <p class="sub" style="margin:0;">Name, address, and SSN are pulled from Personal Info. Employer name and address are set by admin.</p>
+        <p class="sub" style="margin:0;">Name, address, and SSN are pulled from Personal Info. Employer defaults come from this location's settings.</p>
         <input id="w4_first_name_middle" type="hidden" name="first_name_middle" value="{{ .Employee.FirstName }}">
         <input id="w4_last_name" type="hidden" name="last_name" value="{{ .Employee.LastName }}">
         <input id="w4_address" type="hidden" name="address">
         <input id="w4_city_state_zip" type="hidden" name="city_state_zip">
         <input id="w4_ssn" type="hidden" name="ssn">
         <input id="w4_employer_name_addr" type="hidden" name="employer_name_addr" value="">
+        <input id="w4_employer_ein" type="hidden" name="employer_ein" value="">
+        <input id="w4_employer_date" type="hidden" name="employer_date" value="">
         <div class="field">
           <label class="label" for="w4_filing_status">Filing Status<span class="req">*</span></label>
           <select id="w4_filing_status" name="filing_status">
@@ -490,6 +578,7 @@
         </section>
         <input id="w4_dep_under17" type="hidden" name="dependents_under17" value="">
         <input id="w4_other_dep" type="hidden" name="other_dependents" value="">
+        <input id="w4_dep_total" type="hidden" name="dependents_total" value="">
         <div class="field">
           <label class="label">Step 3(a) Qualifying Children Under 17 (Count)</label>
           <div class="counter-row">
@@ -527,14 +616,17 @@
   <script>
     (() => {
       const i9Btn = document.getElementById("show-i9");
+      const legalBtn = document.getElementById("show-legal");
       const w4Btn = document.getElementById("show-w4");
       const signatureBtn = document.getElementById("show-signature");
       const i9Panel = document.getElementById("panel-i9");
+      const legalPanel = document.getElementById("panel-legal");
       const w4Panel = document.getElementById("panel-w4");
       const signaturePanel = document.getElementById("panel-signature");
       const paperworkTarget = document.getElementById("paperwork_target");
       const paperworkSubmitBtn = document.getElementById("paperwork-submit-btn");
       const statusI9 = document.getElementById("status-i9");
+      const statusLegal = document.getElementById("status-legal");
       const statusW4 = document.getElementById("status-w4");
       const statusSignature = document.getElementById("status-signature");
       let ink = false;
@@ -551,6 +643,60 @@
         const state = el.querySelector(".state");
         if (!state) return;
         state.textContent = complete ? "Complete" : `Missing ${missingCount}`;
+      }
+      function setSectionButtonState(btn, complete) {
+        if (!btn) return;
+        btn.classList.toggle("section-complete", complete);
+        btn.classList.toggle("section-incomplete", !complete);
+      }
+      function isControlComplete(control) {
+        if (!control || control.disabled) return true;
+        if (control.tagName === "SELECT") {
+          return (control.value || "").trim() !== "";
+        }
+        const type = (control.type || "").toLowerCase();
+        if (type === "hidden") return true;
+        if (type === "file") {
+          return (control.files?.length || 0) > 0;
+        }
+        if (type === "checkbox" || type === "radio") {
+          return !!control.checked;
+        }
+        return (control.value || "").trim() !== "";
+      }
+      function isRequiredLabelComplete(label) {
+        if (!label || !label.querySelector(".req")) return true;
+        const targetId = (label.getAttribute("for") || "").trim();
+        if (targetId === "personal_dob_month") {
+          return (document.getElementById("personal_dob_month")?.value || "") !== ""
+            && (document.getElementById("personal_dob_day")?.value || "") !== ""
+            && (document.getElementById("personal_dob_year")?.value || "") !== "";
+        }
+        if (targetId === "personal_phone_1") {
+          return hasSegmented(["personal_phone_1", "personal_phone_2", "personal_phone_3"], [3, 3, 4]);
+        }
+        if (targetId === "personal_ssn_1") {
+          return hasSegmented(["personal_ssn_1", "personal_ssn_2", "personal_ssn_3"], [3, 2, 4]);
+        }
+        if (targetId !== "") {
+          return isControlComplete(document.getElementById(targetId));
+        }
+        const field = label.closest(".field");
+        if (!field) return true;
+        const controls = Array.from(field.querySelectorAll("input, select, textarea"));
+        if (controls.length === 0) return true;
+        return controls.every((control) => isControlComplete(control));
+      }
+      function updateRequiredLabelStates() {
+        document.querySelectorAll("label.label").forEach((label) => {
+          if (!label.querySelector(".req")) {
+            label.classList.remove("required-empty", "required-complete");
+            return;
+          }
+          const complete = isRequiredLabelComplete(label);
+          label.classList.toggle("required-empty", !complete);
+          label.classList.toggle("required-complete", complete);
+        });
       }
       function getI9Completion() {
         let missing = 0;
@@ -577,11 +723,9 @@
         if (!hasText("i9_ssn")) missing += 1;
         if (!hasText("i9_email")) missing += 1;
         if (!hasText("i9_phone")) missing += 1;
-        const docCompletion = getI9DocumentCompletion();
-        if (!docCompletion.complete) missing += 1;
         return { complete: missing === 0, missing };
       }
-      function getI9DocumentCompletion() {
+      function getLegalDocsCompletion() {
         const rows = Array.from(document.querySelectorAll(".doc-upload-row"));
         if (rows.length === 0) return { complete: false, reason: "Add at least one supporting document." };
         let hasA = false;
@@ -590,15 +734,22 @@
         let validRowCount = 0;
         for (const row of rows) {
           const listSelect = row.querySelector("select[name='i9_document_list[]']");
+          const titleInput = row.querySelector("input[name='i9_document_title[]']");
+          const issuingInput = row.querySelector("input[name='i9_document_issuing_authority[]']");
+          const numberInput = row.querySelector("input[name='i9_document_number[]']");
           const fileInput = row.querySelector("input[name='i9_document_file[]']");
           const list = (listSelect?.value || "").trim().toLowerCase();
+          const title = (titleInput?.value || "").trim();
+          const issuing = (issuingInput?.value || "").trim();
+          const number = (numberInput?.value || "").trim();
           const hasFile = (fileInput?.files?.length || 0) > 0;
-          if (!list && !hasFile) {
+          const hasAnyData = list !== "" || title !== "" || issuing !== "" || number !== "" || hasFile;
+          if (!hasAnyData) {
             continue;
           }
           validRowCount += 1;
-          if (!list || !hasFile) {
-            return { complete: false, reason: "Each supporting document row must include a list and file." };
+          if (!list || !hasFile || !title || !issuing || !number) {
+            return { complete: false, reason: "Each legal document row must include list, title, issuing authority, document number, and file." };
           }
           if (list === "a") hasA = true;
           if (list === "b") hasB = true;
@@ -612,11 +763,104 @@
         }
         return { complete: false, reason: "Upload one List A document, or both List B and List C documents." };
       }
+      function syncLegalDocumentExpirationForRow(row) {
+        if (!row) return;
+        const month = (row.querySelector("select[data-exp-part='month']")?.value || "").replace(/\D+/g, "").slice(0, 2);
+        const day = (row.querySelector("select[data-exp-part='day']")?.value || "").replace(/\D+/g, "").slice(0, 2);
+        const year = (row.querySelector("select[data-exp-part='year']")?.value || "").replace(/\D+/g, "").slice(0, 4);
+        const hidden = row.querySelector("input[name='i9_document_expiration[]']");
+        if (!hidden) return;
+        if (month === "" && day === "" && year === "") {
+          hidden.value = "";
+          return;
+        }
+        hidden.value = `${month.padStart(2, "0")}/${day.padStart(2, "0")}/${year}`;
+      }
+      function rebuildLegalExpirationDayDropdown(row) {
+        if (!row) return;
+        const monthSelect = row.querySelector("select[data-exp-part='month']");
+        const daySelect = row.querySelector("select[data-exp-part='day']");
+        const yearSelect = row.querySelector("select[data-exp-part='year']");
+        if (!monthSelect || !daySelect || !yearSelect) return;
+        const selectedDay = daySelect.value;
+        const maxDays = daysInMonth(monthSelect.value, yearSelect.value);
+        daySelect.innerHTML = "";
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "DD";
+        daySelect.appendChild(placeholder);
+        for (let day = 1; day <= maxDays; day += 1) {
+          const option = document.createElement("option");
+          option.value = pad2(day);
+          option.textContent = pad2(day);
+          daySelect.appendChild(option);
+        }
+        if (selectedDay !== "" && Number(selectedDay) <= maxDays) {
+          daySelect.value = selectedDay;
+        }
+      }
+      function populateLegalExpirationDropdowns(row) {
+        if (!row) return;
+        const monthSelect = row.querySelector("select[data-exp-part='month']");
+        const daySelect = row.querySelector("select[data-exp-part='day']");
+        const yearSelect = row.querySelector("select[data-exp-part='year']");
+        if (!monthSelect || !daySelect || !yearSelect) return;
+        monthSelect.innerHTML = "";
+        daySelect.innerHTML = "";
+        yearSelect.innerHTML = "";
+
+        const monthPlaceholder = document.createElement("option");
+        monthPlaceholder.value = "";
+        monthPlaceholder.textContent = "MM";
+        monthSelect.appendChild(monthPlaceholder);
+        for (let month = 1; month <= 12; month += 1) {
+          const option = document.createElement("option");
+          option.value = pad2(month);
+          option.textContent = pad2(month);
+          monthSelect.appendChild(option);
+        }
+
+        const yearPlaceholder = document.createElement("option");
+        yearPlaceholder.value = "";
+        yearPlaceholder.textContent = "YYYY";
+        yearSelect.appendChild(yearPlaceholder);
+        const currentYear = new Date().getFullYear();
+        for (let year = currentYear + 20; year >= 1900; year -= 1) {
+          const option = document.createElement("option");
+          option.value = String(year);
+          option.textContent = String(year);
+          yearSelect.appendChild(option);
+        }
+
+        rebuildLegalExpirationDayDropdown(row);
+      }
+      function syncAllLegalDocumentExpirations() {
+        document.querySelectorAll(".doc-upload-row").forEach((row) => {
+          syncLegalDocumentExpirationForRow(row);
+        });
+      }
+      function disableCompletelyEmptyLegalDocRows() {
+        const rows = Array.from(document.querySelectorAll(".doc-upload-row"));
+        for (const row of rows) {
+          const list = (row.querySelector("select[name='i9_document_list[]']")?.value || "").trim();
+          const title = (row.querySelector("input[name='i9_document_title[]']")?.value || "").trim();
+          const issuing = (row.querySelector("input[name='i9_document_issuing_authority[]']")?.value || "").trim();
+          const number = (row.querySelector("input[name='i9_document_number[]']")?.value || "").trim();
+          const expiration = (row.querySelector("input[name='i9_document_expiration[]']")?.value || "").trim();
+          const hasFile = (row.querySelector("input[name='i9_document_file[]']")?.files?.length || 0) > 0;
+          const hasAnyData = list !== "" || title !== "" || issuing !== "" || number !== "" || expiration !== "" || hasFile;
+          if (hasAnyData) {
+            continue;
+          }
+          row.querySelectorAll("input, select, textarea").forEach((el) => {
+            el.disabled = true;
+          });
+        }
+      }
       function getSignatureCompletion() {
         let missing = 0;
-        const typedSig = hasText("i9_employee_signature");
         const drawnSig = hasText("i9_employee_signature_drawn");
-        if (!typedSig && !drawnSig) missing += 1;
+        if (!drawnSig) missing += 1;
         return { complete: missing === 0, missing };
       }
       function getW4Completion() {
@@ -626,20 +870,30 @@
       }
       function updateCompletionStatus() {
         const i9 = getI9Completion();
+        const legal = getLegalDocsCompletion();
         const w4 = getW4Completion();
         const signature = getSignatureCompletion();
         setCompletionState(statusI9, i9.complete, i9.missing);
+        setCompletionState(statusLegal, legal.complete, legal.complete ? 0 : 1);
         setCompletionState(statusW4, w4.complete, w4.missing);
         setCompletionState(statusSignature, signature.complete, signature.missing);
+        setSectionButtonState(i9Btn, i9.complete);
+        setSectionButtonState(legalBtn, legal.complete);
+        setSectionButtonState(w4Btn, w4.complete);
+        setSectionButtonState(signatureBtn, signature.complete);
+        updateRequiredLabelStates();
       }
       function show(panel) {
         const i9Active = panel === "i9";
+        const legalActive = panel === "legal";
         const w4Active = panel === "w4";
         const signatureActive = panel === "signature";
         i9Btn.classList.toggle("active", i9Active);
+        if (legalBtn) legalBtn.classList.toggle("active", legalActive);
         w4Btn.classList.toggle("active", w4Active);
         if (signatureBtn) signatureBtn.classList.toggle("active", signatureActive);
         i9Panel.classList.toggle("active", i9Active);
+        if (legalPanel) legalPanel.classList.toggle("active", legalActive);
         w4Panel.classList.toggle("active", w4Active);
         if (signaturePanel) signaturePanel.classList.toggle("active", signatureActive);
         if (paperworkTarget) paperworkTarget.value = "all";
@@ -649,6 +903,7 @@
         updateCompletionStatus();
       }
       i9Btn.addEventListener("click", () => show("i9"));
+      if (legalBtn) legalBtn.addEventListener("click", () => show("legal"));
       w4Btn.addEventListener("click", () => show("w4"));
       if (signatureBtn) signatureBtn.addEventListener("click", () => show("signature"));
       show("i9");
@@ -669,15 +924,68 @@
             </select>
           </div>
           <div class="field">
+            <label class="label">Document Title<span class="req">*</span></label>
+            <input name="i9_document_title[]" type="text" placeholder="Ex: U.S. Passport">
+          </div>
+          <div class="field">
+            <label class="label">Issuing Authority<span class="req">*</span></label>
+            <input name="i9_document_issuing_authority[]" type="text" placeholder="Ex: U.S. Department of State">
+          </div>
+          <div class="field">
+            <label class="label">Document Number<span class="req">*</span></label>
+            <input name="i9_document_number[]" type="text" placeholder="Ex: 123456789">
+          </div>
+          <div class="field">
+            <label class="label">Expiration Date</label>
+            <input name="i9_document_expiration[]" type="hidden" value="">
+            <div class="doc-date-row">
+              <select data-exp-part="month" class="doc-date-part">
+                <option value="">MM</option>
+              </select>
+              <span class="segment-sep">/</span>
+              <select data-exp-part="day" class="doc-date-part">
+                <option value="">DD</option>
+              </select>
+              <span class="segment-sep">/</span>
+              <select data-exp-part="year" class="doc-date-part">
+                <option value="">YYYY</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
             <label class="label">Document File<span class="req">*</span></label>
             <input name="i9_document_file[]" type="file" accept=".pdf,image/png,image/jpeg,image/webp,application/pdf">
           </div>
           <button type="button" class="doc-remove-btn">Remove</button>
         `;
         const select = row.querySelector("select[name='i9_document_list[]']");
+        const title = row.querySelector("input[name='i9_document_title[]']");
+        const issuing = row.querySelector("input[name='i9_document_issuing_authority[]']");
+        const number = row.querySelector("input[name='i9_document_number[]']");
+        const expirationMonth = row.querySelector("select[data-exp-part='month']");
+        const expirationDay = row.querySelector("select[data-exp-part='day']");
+        const expirationYear = row.querySelector("select[data-exp-part='year']");
         const file = row.querySelector("input[name='i9_document_file[]']");
         const removeBtn = row.querySelector(".doc-remove-btn");
+        populateLegalExpirationDropdowns(row);
         select?.addEventListener("change", updateCompletionStatus);
+        title?.addEventListener("input", updateCompletionStatus);
+        issuing?.addEventListener("input", updateCompletionStatus);
+        number?.addEventListener("input", updateCompletionStatus);
+        expirationMonth?.addEventListener("change", () => {
+          rebuildLegalExpirationDayDropdown(row);
+          syncLegalDocumentExpirationForRow(row);
+          updateCompletionStatus();
+        });
+        expirationYear?.addEventListener("change", () => {
+          rebuildLegalExpirationDayDropdown(row);
+          syncLegalDocumentExpirationForRow(row);
+          updateCompletionStatus();
+        });
+        expirationDay?.addEventListener("change", () => {
+          syncLegalDocumentExpirationForRow(row);
+          updateCompletionStatus();
+        });
         file?.addEventListener("change", updateCompletionStatus);
         removeBtn?.addEventListener("click", () => {
           row.remove();
@@ -758,17 +1066,20 @@
         const otherTotalLabel = document.getElementById("w4_other_dep_total");
         const under17Hidden = document.getElementById("w4_dep_under17");
         const otherHidden = document.getElementById("w4_other_dep");
-        if (!under17CountLabel || !otherCountLabel || !under17TotalLabel || !otherTotalLabel || !under17Hidden || !otherHidden) {
+        const totalHidden = document.getElementById("w4_dep_total");
+        if (!under17CountLabel || !otherCountLabel || !under17TotalLabel || !otherTotalLabel || !under17Hidden || !otherHidden || !totalHidden) {
           return;
         }
         const under17Count = parseWholeNumber(under17CountLabel.textContent);
         const otherCount = parseWholeNumber(otherCountLabel.textContent);
         const under17Total = under17Count * 2200;
         const otherTotal = otherCount * 500;
+        const combinedTotal = under17Total + otherTotal;
         under17TotalLabel.textContent = formatMoney(under17Total);
         otherTotalLabel.textContent = formatMoney(otherTotal);
         under17Hidden.value = under17Total > 0 ? String(under17Total) : "";
         otherHidden.value = otherTotal > 0 ? String(otherTotal) : "";
+        totalHidden.value = combinedTotal > 0 ? String(combinedTotal) : "";
       }
       setupSegmentedInputs(["personal_phone_1", "personal_phone_2", "personal_phone_3"]);
       setupSegmentedInputs(["personal_ssn_1", "personal_ssn_2", "personal_ssn_3"]);
@@ -979,7 +1290,8 @@
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
         ctx.lineWidth = 2.4;
-        ctx.strokeStyle = "#1f232a";
+        const signatureInk = getComputedStyle(document.documentElement).getPropertyValue("--sig-ink").trim();
+        ctx.strokeStyle = signatureInk || "#1f232a";
         ctx.beginPath();
         ctx.moveTo(lastX, lastY);
         ctx.lineTo(p.x, p.y);
@@ -1023,6 +1335,7 @@
       });
       document.getElementById("paperwork-form").addEventListener("submit", (event) => {
         syncPersonalInfoToForms();
+        syncAllLegalDocumentExpirations();
         if (ink && hidden.value === "") {
           hidden.value = canvas.toDataURL("image/png");
           if (textSig.value.trim() === "") {
@@ -1035,25 +1348,69 @@
         if (paperworkTarget) paperworkTarget.value = "all";
         updateW4DependentTotals();
         const i9Completion = getI9Completion();
+        const legalCompletion = getLegalDocsCompletion();
         const w4Completion = getW4Completion();
         const signatureCompletion = getSignatureCompletion();
-        const i9DocCompletion = getI9DocumentCompletion();
-        if (!i9Completion.complete || !w4Completion.complete || !signatureCompletion.complete) {
+        if (!i9Completion.complete || !legalCompletion.complete || !w4Completion.complete || !signatureCompletion.complete) {
           event.preventDefault();
           const parts = [];
           if (!i9Completion.complete) parts.push(`I-9 (${i9Completion.missing} remaining)`);
+          if (!legalCompletion.complete) parts.push("Legal Documents (incomplete)");
           if (!w4Completion.complete) parts.push(`W-4 (${w4Completion.missing} remaining)`);
           if (!signatureCompletion.complete) parts.push(`Signature (${signatureCompletion.missing} remaining)`);
           let msg = `Please complete required fields in: ${parts.join(", ")}.`;
-          if (!i9DocCompletion.complete && i9DocCompletion.reason) {
-            msg += `\n\nI-9 documents: ${i9DocCompletion.reason}`;
+          if (!legalCompletion.complete && legalCompletion.reason) {
+            msg += `\n\nLegal documents: ${legalCompletion.reason}`;
           }
           window.alert(msg);
           return;
         }
+        disableCompletelyEmptyLegalDocRows();
         updateCompletionStatus();
       });
     })();
   </script>
+    <script>
+    (function () {
+      const storageKey = "cfasuite-theme";
+      const root = document.documentElement;
+      const toggle = document.getElementById("theme-toggle");
+      const navToggle = document.getElementById("nav-toggle");
+      const navLinks = document.getElementById("nav-links");
+
+      function currentTheme() {
+        return root.classList.contains("dark") ? "dark" : "light";
+      }
+
+      function updateLabel() {
+        if (!toggle) return;
+        const next = currentTheme() === "dark" ? "light" : "dark";
+        toggle.textContent = next === "dark" ? "Dark" : "Light";
+        toggle.setAttribute("aria-label", "Switch to " + next + " mode");
+        toggle.title = "Switch to " + next + " mode";
+      }
+
+      updateLabel();
+
+      if (toggle) {
+        toggle.addEventListener("click", function () {
+          const next = currentTheme() === "dark" ? "light" : "dark";
+          root.classList.toggle("dark", next === "dark");
+          window.localStorage.setItem(storageKey, next);
+          updateLabel();
+        });
+      }
+
+      if (navToggle && navLinks) {
+        navToggle.addEventListener("click", function () {
+          const expanded = navToggle.getAttribute("aria-expanded") === "true";
+          navToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+          navLinks.classList.toggle("hidden", expanded);
+        });
+      }
+    })();
+  </script>
+
+
 </body>
 </html>

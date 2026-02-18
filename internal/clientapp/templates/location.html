@@ -7,384 +7,242 @@
   <title>Location Details</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script>
+    (function () {
+      var stored = localStorage.getItem("cfasuite-theme");
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    })();
+  </script>
   <style>
     :root {
-      --bg: #f3eee6;
-      --surface: #fffaf3;
-      --ink: #1f232a;
-      --line: #e4d6c0;
-      --muted: #69717c;
-      --accent: #b2472a;
-      --shadow: 0 24px 45px rgba(35, 29, 21, 0.14);
+      --bg: #ffffff; --fg: #09090b; --card: #ffffff;
+      --muted: #f4f4f5; --muted-fg: #71717a; --border: #e4e4e7;
+      --primary: #ea580c; --primary-fg: #ffffff;
+      --danger: #dc2626; --success: #16a34a;
+      --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
     }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: "Manrope", sans-serif;
-      color: var(--ink);
-      background:
-        radial-gradient(70rem 50rem at 120% -10%, #ffd8b6 0, transparent 55%),
-        radial-gradient(50rem 40rem at -10% 120%, #f9d8bd 0, transparent 52%),
-        var(--bg);
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      padding: 12px;
+    html.dark {
+      --bg: #09090b; --fg: #fafafa; --card: #09090b;
+      --muted: #27272a; --muted-fg: #a1a1aa; --border: #3f3f46;
+      --primary: #fb923c; --primary-fg: #431407;
+      --danger: #f87171; --success: #4ade80;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
     }
-    .card {
-      width: min(680px, 100%);
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      background: linear-gradient(155deg, var(--surface), #fff);
-      box-shadow: var(--shadow);
-      padding: 16px;
-    }
-    .back {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 800;
-      font-size: 0.9rem;
-    }
-    h1 {
-      margin: 12px 0 16px;
-      font: 800 clamp(1.6rem, 3.5vw, 2.5rem)/1.1 "Space Grotesk", sans-serif;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: 180px 1fr;
-      gap: 10px 14px;
-      font-size: 0.97rem;
-      margin-bottom: 20px;
-    }
-    .label {
-      color: var(--muted);
-      font-weight: 700;
-    }
-    .value {
-      font-weight: 800;
-    }
-    .import {
-      border-top: 1px dashed var(--line);
-      padding-top: 14px;
-      margin-top: 14px;
-    }
-    .add-employee {
-      border-top: 1px dashed var(--line);
-      padding-top: 16px;
-      margin-top: 10px;
-    }
-    .import h2, .employees h2, .add-employee h2 {
-      margin: 0 0 10px;
-      font: 800 1.1rem/1.2 "Space Grotesk", sans-serif;
-    }
-    .import form {
-      display: grid;
-      gap: 10px;
-    }
-    .add-employee form {
-      display: grid;
-      gap: 10px;
-    }
-    .add-employee input[type="text"],
-    .add-employee input[type="date"],
-    .add-employee select,
-    .add-employee input[type="file"] {
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: #fff;
-      min-height: 44px;
-      padding: 10px;
-      width: 100%;
-      font: 700 0.9rem/1 "Manrope", sans-serif;
-    }
-    .import input[type="file"] {
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: #fff;
-      min-height: 44px;
-      padding: 9px;
-      width: 100%;
-    }
-    .import button {
-      border: 0;
-      border-radius: 10px;
-      min-height: 44px;
-      padding: 11px 14px;
-      background: var(--accent);
-      color: #fff;
-      font-weight: 800;
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background-color: var(--bg); color: var(--fg); font-family: "Manrope", ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    h1, h2, h3 { margin: 0; font-family: "Space Grotesk", "Manrope", sans-serif; font-weight: 700; line-height: 1.25; }
+    h1 { font-size: clamp(1.375rem, 3vw, 1.875rem); }
+    h2 { font-size: 1.125rem; }
+    p { margin: 0; }
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .card, .panel { background-color: var(--card); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.5rem; box-shadow: var(--shadow); }
+    @media (max-width: 639px) { .card, .panel { padding: 1rem; } }
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]), select, textarea { display: block; width: 100%; min-height: 2.375rem; padding: 0.5rem 0.75rem; font: 0.875rem/1.5 inherit; color: var(--fg); background-color: var(--bg); border: 1px solid var(--border); border-radius: 0.375rem; transition: border-color 150ms, box-shadow 150ms; }
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]):focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(234,88,12,.15); }
+    html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]):focus, html.dark select:focus, html.dark textarea:focus { box-shadow: 0 0 0 3px rgba(251,146,60,.15); }
+    label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.375rem; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 0.5rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th { text-align: left; padding: 0.625rem 0.875rem; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-fg); background-color: var(--muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 0.625rem 0.875rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    .text-muted { color: var(--muted-fg); font-size: 0.875rem; }
+    .text-success { color: var(--success); }
+    .text-danger { color: var(--danger); }
+
+    .back { font-size: 0.8125rem; font-weight: 500; color: var(--muted-fg); display: inline-flex; align-items: center; margin-bottom: 1rem; }
+    .back:hover { color: var(--fg); text-decoration: none; }
+
+    .hub { display: grid; gap: 0.625rem; margin: 0.75rem 0 0; }
+    .hub-btn { width: 100%; text-align: left; padding: 0.875rem 1rem; background-color: var(--bg); border: 1px solid var(--border); border-radius: 0.5rem; cursor: pointer; font-family: inherit; color: var(--fg); transition: 150ms; }
+    .hub-btn:hover { background-color: var(--muted); }
+    .hub-btn.active { background-color: var(--muted); border-color: var(--primary); }
+    .hub-btn strong { display: block; font-size: 0.9375rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .hub-btn span { display: block; font-size: 0.8125rem; color: var(--muted-fg); }
+
+    .section { display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    .section.active { display: block; }
+
+    .section h2 { margin-bottom: 0.75rem; }
+
+    .section form { display: grid; gap: 0.625rem; }
+
+    .section button[type="submit"] {
+      background-color: var(--primary);
+      color: var(--primary-fg);
+      border: none;
+      border-radius: 0.375rem;
+      padding: 0.5rem 0.875rem;
+      font: 600 0.875rem/1.25 inherit;
       cursor: pointer;
+      min-height: 2.375rem;
     }
-    .add-employee button {
-      border: 0;
-      border-radius: 10px;
-      min-height: 44px;
-      padding: 11px 14px;
-      background: var(--accent);
-      color: #fff;
-      font-weight: 800;
-      cursor: pointer;
-    }
-    .notice {
-      margin: 0 0 10px;
-      font-weight: 700;
-      font-size: 0.9rem;
-    }
-    .notice.error { color: #9f1e1e; }
-    .notice.ok { color: #186243; }
-    .employees {
-      border-top: 1px dashed var(--line);
-      margin-top: 18px;
-      padding-top: 16px;
-    }
-    .hub {
-      display: grid;
-      gap: 10px;
-      margin: 6px 0 14px;
-    }
-    .hub-btn {
-      width: 100%;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: #fff;
-      text-align: left;
-      padding: 12px 13px;
-      cursor: pointer;
-      display: grid;
-      gap: 5px;
-      color: var(--ink);
-      font-family: "Manrope", sans-serif;
-    }
-    .hub-btn strong {
-      font-size: 0.92rem;
-      letter-spacing: 0.02em;
-    }
-    .hub-btn span {
-      color: var(--muted);
-      font-size: 0.82rem;
-      font-weight: 700;
-      line-height: 1.35;
-    }
-    .hub-btn.active {
-      border-color: #d2a474;
-      background: #fff2e2;
-    }
-    .section {
-      display: none;
-      border-top: 1px dashed var(--line);
-      padding-top: 16px;
-    }
-    .section.active {
-      display: block;
-    }
-    .employees-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 10px;
-    }
-    .employee-search {
-      display: grid;
-      gap: 6px;
-      margin-bottom: 10px;
-    }
-    .employee-search input {
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: #fff;
-      min-height: 40px;
-      padding: 9px 10px;
-      width: 100%;
-      font: 700 0.9rem/1 "Manrope", sans-serif;
-      color: var(--ink);
-    }
-    .employee-search-meta {
-      color: var(--muted);
-      font-size: 0.8rem;
-      font-weight: 700;
-    }
-    .archive-link {
-      color: #9d3d23;
-      text-decoration: none;
-      font-weight: 800;
-      font-size: 0.85rem;
-    }
-    .archive-link:hover {
-      text-decoration: underline;
-    }
-    .table-wrap {
-      overflow-x: auto;
-      border-radius: 12px;
-    }
+    .section button[type="submit"]:hover { opacity: 0.9; }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      overflow: hidden;
-      background: #fff;
-      min-width: 560px;
-    }
-    th, td {
-      text-align: left;
-      padding: 9px 11px;
-      border-bottom: 1px solid #efdfca;
-      font-size: 0.9rem;
-    }
-    th {
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      font-size: 0.76rem;
-      background: #faf2e5;
-      color: var(--muted);
-    }
-    tbody tr:last-child td { border-bottom: 0; }
-    .department-select {
-      min-height: 36px;
-      border: 1px solid #d8c8b2;
-      border-radius: 8px;
-      padding: 6px 8px;
-      background: #fff;
-      font: 700 0.86rem/1 "Manrope", sans-serif;
-      color: var(--ink);
-    }
+    .employees-head { display: flex; align-items: center; justify-content: space-between; gap: 0.625rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
 
-    .location-link {
-      color: #9d3d23;
-      text-decoration: none;
-      font-weight: 800;
-    }
+    .employee-search { display: grid; gap: 0.375rem; margin-bottom: 0.75rem; }
+    .employee-search-meta { color: var(--muted-fg); font-size: 0.8125rem; }
 
-    .location-link:hover {
-      text-decoration: underline;
-    }
+    .location-link { color: var(--primary); font-weight: 600; }
+    .location-link:hover { text-decoration: underline; }
 
-    @media (min-width: 700px) {
-      body { padding: 24px; }
-      .card { padding: 28px; }
-      .import form {
-        grid-template-columns: 1fr auto;
-        align-items: center;
-      }
-    }
+    .archive-link { color: var(--primary); font-size: 0.8125rem; font-weight: 600; }
+    .archive-link:hover { text-decoration: underline; }
 
-    @media (max-width: 680px) {
-      .grid { grid-template-columns: 1fr; }
-    }
+    .department-select { width: auto; min-width: 120px; }
+
+    .notice { margin: 0 0 0.75rem; font-size: 0.875rem; font-weight: 600; }
+    .notice.ok { color: var(--success); }
+    .notice.error { color: var(--danger); }
+
+    .meta-grid { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 1rem; font-size: 0.875rem; margin-bottom: 1.25rem; }
+    .meta-label { color: var(--muted-fg); font-weight: 600; }
+    .meta-value { font-weight: 600; }
   </style>
 </head>
-<body>
-  <section class="card">
-    <a class="back" href="/admin/locations/{{ .Location.Number }}">Back to Apps</a>
-    <h1>{{ .Location.Name }}</h1>
-    <div class="grid">
-      <div class="label">Location Number</div>
-      <div class="value">{{ .Location.Number }}</div>
-      <div class="label">Created At</div>
-      <div class="value">{{ .Location.CreatedAt }}</div>
+<body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
+
+  <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
+    <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
+      <a href="/admin" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
+      <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
+        <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employees</a>
+        <a href="/admin/locations/{{ .Location.Number }}/employees/archived" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Archived</a>
+      </nav>
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+          <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" class="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+          <span class="sr-only">Open menu</span>
+          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+      </div>
     </div>
+    <div id="nav-mobile" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 bg-white dark:bg-zinc-950 flex-col gap-1">
+      <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
+      <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+      <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employees</a>
+      <a href="/admin/locations/{{ .Location.Number }}/employees/archived" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Archived</a>
+    </div>
+  </header>
 
-    {{ if .SuccessMessage }}<p class="notice ok">{{ .SuccessMessage }}</p>{{ end }}
-    {{ if .Error }}<p class="notice error">{{ .Error }}</p>{{ end }}
+  <div class="pt-14 min-h-[calc(100vh-3.5rem)] px-4 py-8">
+    <div class="mx-auto max-w-[800px]">
+      <div class="card">
+        <a class="back" href="/admin/locations/{{ .Location.Number }}">&#8592; Back to Apps</a>
+        <h1>{{ .Location.Name }}</h1>
 
-    <section class="hub">
-      <button class="hub-btn" type="button" data-target="add-employees">
-        <strong>Add Employees</strong>
-        <span>Create a new employee and optionally attach initial paperwork.</span>
-      </button>
-      <button class="hub-btn" type="button" data-target="bulk-import">
-        <strong>Bulk Import</strong>
-        <span>Import employee bio and birthday reports in batch.</span>
-      </button>
-      <button class="hub-btn" type="button" data-target="view-employees">
-        <strong>View Employees</strong>
-        <span>Browse all active employees and manage departments quickly.</span>
-      </button>
-    </section>
+        <div class="meta-grid" style="margin-top:0.75rem;">
+          <div class="meta-label">Location Number</div>
+          <div class="meta-value">{{ .Location.Number }}</div>
+          <div class="meta-label">Created At</div>
+          <div class="meta-value">{{ .Location.CreatedAt }}</div>
+        </div>
 
-    <section class="section" data-panel="add-employees">
-      <section class="add-employee" style="border-top:0;padding-top:0;margin-top:0;">
-        <h2>Add Employee</h2>
-        <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/create" enctype="multipart/form-data">
-          <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-          <input type="text" name="first_name" placeholder="First Name" required>
-          <input type="text" name="last_name" placeholder="Last Name" required>
-          <select name="department">
-            {{ range .Departments }}
-              <option value="{{ . }}" {{ if eq . "INIT" }}selected{{ end }}>{{ . }}</option>
-            {{ end }}
-          </select>
-          <button type="submit">Create Employee</button>
-        </form>
-      </section>
-    </section>
+        {{ if .SuccessMessage }}<p class="notice ok">{{ .SuccessMessage }}</p>{{ end }}
+        {{ if .Error }}<p class="notice error">{{ .Error }}</p>{{ end }}
 
-    <section class="section" data-panel="bulk-import">
-      <section class="import">
-        <h2>Bulk Employee Imports</h2>
-        <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/import" enctype="multipart/form-data">
-          <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-          <input type="file" name="bio_file" accept=".xls,.xlsx,.xlsm,.xsl" required>
-          <button type="submit">Import Employees</button>
-        </form>
-        <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/birthdates/import" enctype="multipart/form-data" style="margin-top:10px;">
-          <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-          <input type="file" name="birthdate_file" accept=".xls,.xlsx,.xlsm,.xsl" required>
-          <button type="submit">Import Birthdays</button>
-        </form>
-      </section>
-    </section>
+        <section class="hub">
+          <button class="hub-btn" type="button" data-target="add-employees">
+            <strong>Add Employees</strong>
+            <span>Create a new employee and optionally attach initial paperwork.</span>
+          </button>
+          <button class="hub-btn" type="button" data-target="bulk-import">
+            <strong>Bulk Import</strong>
+            <span>Import employee bio and birthday reports in batch.</span>
+          </button>
+          <button class="hub-btn" type="button" data-target="view-employees">
+            <strong>View Employees</strong>
+            <span>Browse all active employees and manage departments quickly.</span>
+          </button>
+        </section>
 
-    <section class="section" data-panel="view-employees">
-      <section class="employees" style="border-top:0;padding-top:0;margin-top:0;">
-      <div class="employees-head">
-        <h2>View All Employees ({{ len .Employees }})</h2>
-        <a class="archive-link" href="/admin/locations/{{ .Location.Number }}/employees/archived">View Archived Employees</a>
-      </div>
-      <div class="employee-search">
-        <input id="employee-search-input" type="text" placeholder="Search employee by name">
-        <div id="employee-search-meta" class="employee-search-meta">Showing {{ len .Employees }} of {{ len .Employees }}</div>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Time Punch</th>
-              <th>Department</th>
-              <th>Birthday</th>
-            </tr>
-          </thead>
-          <tbody>
-            {{ if .Employees }}
-              {{ range .Employees }}
-                <tr class="employee-row" data-search-name="{{ .FirstName }} {{ .LastName }}">
-                  <td><a class="location-link" href="/admin/locations/{{ $.Location.Number }}/employees/{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }}{{ if eq .Department "INIT" }} *{{ end }}</a></td>
-                  <td>{{ .TimePunchName }}</td>
-                  <td>
-                    <select class="department-select" data-timepunch="{{ .TimePunchName }}">
-                      {{ $current := .Department }}
-                      {{ range $.Departments }}
-                        <option value="{{ . }}" {{ if eq . $current }}selected{{ end }}>{{ . }}</option>
-                      {{ end }}
-                    </select>
-                  </td>
-                  <td>{{ .Birthday }}</td>
-                </tr>
+        <section class="section" data-panel="add-employees">
+          <h2>Add Employee</h2>
+          <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/create" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+            <input type="text" name="first_name" placeholder="First Name" required>
+            <input type="text" name="last_name" placeholder="Last Name" required>
+            <select name="department">
+              {{ range .Departments }}
+                <option value="{{ . }}" {{ if eq . "INIT" }}selected{{ end }}>{{ . }}</option>
               {{ end }}
-            {{ else }}
-              <tr><td colspan="4">No employees imported for this location yet.</td></tr>
-            {{ end }}
-          </tbody>
-        </table>
+            </select>
+            <button type="submit">Create Employee</button>
+          </form>
+        </section>
+
+        <section class="section" data-panel="bulk-import">
+          <h2>Bulk Employee Imports</h2>
+          <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/import" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+            <input type="file" name="bio_file" accept=".xls,.xlsx,.xlsm,.xsl" required>
+            <button type="submit">Import Employees</button>
+          </form>
+          <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/birthdates/import" enctype="multipart/form-data" style="margin-top:0.625rem;">
+            <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+            <input type="file" name="birthdate_file" accept=".xls,.xlsx,.xlsm,.xsl" required>
+            <button type="submit">Import Birthdays</button>
+          </form>
+        </section>
+
+        <section class="section" data-panel="view-employees">
+          <div class="employees-head">
+            <h2>View All Employees ({{ len .Employees }})</h2>
+            <a class="archive-link" href="/admin/locations/{{ .Location.Number }}/employees/archived">View Archived Employees</a>
+          </div>
+          <div class="employee-search">
+            <input id="employee-search-input" type="text" placeholder="Search employee by name">
+            <div id="employee-search-meta" class="employee-search-meta">Showing {{ len .Employees }} of {{ len .Employees }}</div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Time Punch</th>
+                  <th>Department</th>
+                  <th>Birthday</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{ if .Employees }}
+                  {{ range .Employees }}
+                    <tr class="employee-row" data-search-name="{{ .FirstName }} {{ .LastName }}">
+                      <td><a class="location-link" href="/admin/locations/{{ $.Location.Number }}/employees/{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }}{{ if eq .Department "INIT" }} *{{ end }}</a></td>
+                      <td>{{ .TimePunchName }}</td>
+                      <td>
+                        <select class="department-select" data-timepunch="{{ .TimePunchName }}">
+                          {{ $current := .Department }}
+                          {{ range $.Departments }}
+                            <option value="{{ . }}" {{ if eq . $current }}selected{{ end }}>{{ . }}</option>
+                          {{ end }}
+                        </select>
+                      </td>
+                      <td>{{ .Birthday }}</td>
+                    </tr>
+                  {{ end }}
+                {{ else }}
+                  <tr><td colspan="4">No employees imported for this location yet.</td></tr>
+                {{ end }}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
-      </section>
-    </section>
-  </section>
+    </div>
+  </div>
+
   <script>
     const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
     const locationNumber = "{{ .Location.Number }}";
@@ -471,5 +329,30 @@
       filterEmployeesByName();
     }
   </script>
+
+  <script>
+    (function () {
+      var storageKey = "cfasuite-theme";
+      var root = document.documentElement;
+      var toggle = document.getElementById("theme-toggle");
+      var navToggle = document.getElementById("nav-toggle");
+      var navMobile = document.getElementById("nav-mobile");
+      if (toggle) {
+        toggle.addEventListener("click", function () {
+          var isDark = root.classList.toggle("dark");
+          localStorage.setItem(storageKey, isDark ? "dark" : "light");
+        });
+      }
+      if (navToggle && navMobile) {
+        navToggle.addEventListener("click", function () {
+          var expanded = navToggle.getAttribute("aria-expanded") === "true";
+          navToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+          navMobile.classList.toggle("hidden", expanded);
+          if (!expanded) { navMobile.style.display = "flex"; } else { navMobile.style.removeProperty("display"); }
+        });
+      }
+    })();
+  </script>
+
 </body>
 </html>

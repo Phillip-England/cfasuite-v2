@@ -27,6 +27,8 @@ func Execute(args []string) error {
 	switch args[0] {
 	case "setup":
 		return runSetup(args[1:])
+	case "assets":
+		return runAssets(args[1:])
 	case "run":
 		return runCommand(args[1:])
 	default:
@@ -35,7 +37,7 @@ func Execute(args []string) error {
 }
 
 func usageError() error {
-	return fmt.Errorf("%w: cfasuite <setup|run> [...]", ErrUsage)
+	return fmt.Errorf("%w: cfasuite <setup|assets|run> [...]", ErrUsage)
 }
 
 func runSetup(args []string) error {
@@ -107,6 +109,13 @@ func runAPI(ctx context.Context) error {
 }
 
 func runClient(ctx context.Context) error {
+	if err := ensureClientAssets(ctx); err != nil {
+		return err
+	}
+	return runClientServer(ctx)
+}
+
+func runClientServer(ctx context.Context) error {
 	cfg := clientapp.DefaultConfigFromEnv()
 	if err := clientapp.Run(ctx, cfg); err != nil && !errors.Is(err, context.Canceled) {
 		return err
@@ -115,12 +124,16 @@ func runClient(ctx context.Context) error {
 }
 
 func runAll(ctx context.Context) error {
+	if err := ensureClientAssets(ctx); err != nil {
+		return err
+	}
+
 	errCh := make(chan error, 2)
 
 	go func() { errCh <- runAPI(ctx) }()
 	go func() {
 		time.Sleep(500 * time.Millisecond)
-		errCh <- runClient(ctx)
+		errCh <- runClientServer(ctx)
 	}()
 
 	for i := 0; i < 2; i++ {

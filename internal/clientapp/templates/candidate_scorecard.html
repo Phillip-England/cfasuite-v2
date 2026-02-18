@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Candidate Scorecard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script>
+    (function () {
+      var stored = localStorage.getItem("cfasuite-theme");
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    })();
+  </script>
+  <style>
+    :root {
+      --bg: #ffffff; --fg: #09090b; --card: #ffffff;
+      --muted: #f4f4f5; --muted-fg: #71717a; --border: #e4e4e7;
+      --primary: #ea580c; --primary-fg: #ffffff;
+    }
+    html.dark {
+      --bg: #09090b; --fg: #fafafa; --card: #09090b;
+      --muted: #27272a; --muted-fg: #a1a1aa; --border: #3f3f46;
+      --primary: #fb923c; --primary-fg: #431407;
+    }
+    body { margin: 0; background: var(--bg); color: var(--fg); font-family: "Manrope", sans-serif; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 5rem 1rem 2rem; }
+    .card { border: 1px solid var(--border); background: var(--card); border-radius: 12px; padding: 1rem; }
+    .stack { display: grid; gap: 0.875rem; }
+    .meta { color: var(--muted-fg); font-size: 0.875rem; }
+    .interview { border: 1px solid var(--border); border-radius: 10px; padding: 0.875rem; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted-fg); font-size: 0.75rem; text-transform: uppercase; }
+    .pill { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; padding: 0.12rem 0.5rem; font-size: 0.75rem; }
+    .back { color: var(--muted-fg); text-decoration: none; font-size: 0.825rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap stack">
+    <a class="back" href="/admin/locations/{{ .Location.Number }}/candidates">&#8592; Back to Candidates</a>
+    <section class="card stack">
+      <h1 style="margin:0;font-family:'Space Grotesk',sans-serif;">Candidate Scorecard</h1>
+      <div class="meta">{{ .Candidate.FirstName }} {{ .Candidate.LastName }} | Status: {{ .Candidate.Status }}{{ if .Candidate.HiredTimePunchName }} | Employee: {{ .Candidate.HiredTimePunchName }}{{ end }}</div>
+      {{ if .Candidate.Interviews }}
+        <div class="stack">
+          {{ range .Candidate.Interviews }}
+            <article class="interview stack">
+              <div style="display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap;">
+                <strong>{{ .InterviewType }}</strong>
+                <span class="meta">{{ .CreatedAt }}</span>
+              </div>
+              <div class="meta">Interviewer: {{ .InterviewerTimePunchName }}</div>
+              {{ if .Notes }}<div>{{ .Notes }}</div>{{ end }}
+              <div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Value</th>
+                      <th>Grade</th>
+                      <th>Comment</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {{ range .Grades }}
+                      <tr>
+                        <td>{{ .ValueName }}</td>
+                        <td><span class="pill">{{ .LetterGrade }}</span></td>
+                        <td>{{ if .Comment }}{{ .Comment }}{{ else }}-{{ end }}</td>
+                      </tr>
+                    {{ end }}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          {{ end }}
+        </div>
+      {{ else }}
+        <p class="meta">No interviews recorded for this candidate yet.</p>
+      {{ end }}
+    </section>
+  </div>
+</body>
+</html>

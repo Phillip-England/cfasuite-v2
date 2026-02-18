@@ -7,547 +7,344 @@
   <title>Employee Details</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script>
+    (function () {
+      var stored = localStorage.getItem("cfasuite-theme");
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    })();
+  </script>
   <style>
     :root {
-      --bg: #f3eee6;
-      --surface: #fffaf3;
-      --ink: #1f232a;
-      --line: #e4d6c0;
-      --muted: #69717c;
-      --accent: #b2472a;
-      --shadow: 0 24px 45px rgba(35, 29, 21, 0.14);
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: "Manrope", sans-serif;
-      color: var(--ink);
-      background:
-        radial-gradient(70rem 50rem at 120% -10%, #ffd8b6 0, transparent 55%),
-        radial-gradient(50rem 40rem at -10% 120%, #f9d8bd 0, transparent 52%),
-        var(--bg);
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      padding: 12px;
-    }
-    .card {
-      width: min(680px, 100%);
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      background: linear-gradient(155deg, var(--surface), #fff);
-      box-shadow: var(--shadow);
-      padding: 16px;
-    }
-    .back {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 800;
-      font-size: 0.9rem;
-    }
-    h1 {
-      margin: 12px 0 10px;
-      font: 800 clamp(1.6rem, 3.5vw, 2.5rem)/1.1 "Space Grotesk", sans-serif;
-    }
-    .sub {
-      margin: 0 0 18px;
-      color: var(--muted);
-      font-weight: 700;
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: 180px 1fr;
-      gap: 10px 14px;
-      font-size: 0.97rem;
-      margin-bottom: 20px;
-    }
-    .label {
-      color: var(--muted);
-      font-weight: 700;
-    }
-    .value {
-      font-weight: 800;
-    }
-    .department {
-      border-top: 1px dashed var(--line);
-      margin-top: 8px;
-      padding-top: 14px;
-    }
-    .i9 {
-      border-top: 1px dashed var(--line);
-      margin-top: 8px;
-      padding-top: 14px;
-    }
-    .submenu {
-      display: grid;
-      gap: 10px;
-      margin: 4px 0 14px;
-    }
-    .submenu-btn {
-      width: 100%;
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--ink);
-      border-radius: 14px;
-      padding: 11px 12px;
-      font: 800 0.9rem/1.2 "Manrope", sans-serif;
-      cursor: pointer;
-      text-align: left;
-    }
-    .submenu-btn.active {
-      border-color: #d2a474;
-      background: #fff2e2;
-    }
-    .panel {
-      display: none;
-      border-top: 1px dashed var(--line);
-      margin-top: 6px;
-      padding-top: 14px;
-    }
-    .panel.active {
-      display: block;
-    }
-    .i9 .hint {
-      margin: 0 0 10px;
-      color: var(--muted);
-      font-size: 0.86rem;
-      font-weight: 700;
-    }
-    .i9 .paperwork-cards {
-      margin-top: 10px;
-      display: grid;
-      gap: 10px;
-    }
-    .i9 .paperwork-card {
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: #fff;
-      padding: 10px;
-      display: grid;
-      gap: 8px;
-    }
-    .i9 .paperwork-card-title {
-      margin: 0;
-      font-size: 0.82rem;
-      font-weight: 900;
-      letter-spacing: 0.03em;
-      text-transform: uppercase;
-      color: #4a515c;
-    }
-    .i9 .paperwork-meta {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.86rem;
-      font-weight: 700;
-    }
-    .i9 .paperwork-actions {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .i9 .doc-link {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 800;
-      font-size: 0.9rem;
-    }
-    .i9 .doc-link:hover {
-      text-decoration: underline;
-    }
-    .photo {
-      border-top: 1px dashed var(--line);
-      margin-top: 8px;
-      padding-top: 14px;
-    }
-    .photo-preview {
-      width: 180px;
-      max-width: 100%;
-      height: auto;
-      max-height: 280px;
-      border-radius: 14px;
-      border: 1px solid var(--line);
-      object-fit: contain;
-      display: block;
-      background: #f7f3ed;
-    }
-    .crop-stage {
-      position: relative;
-      width: 180px;
-      max-width: 100%;
-    }
-    .crop-selection {
-      position: absolute;
-      border: 2px solid #fff;
-      box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.38);
-      border-radius: 10px;
-      cursor: move;
-      touch-action: none;
-      display: none;
-    }
-    .crop-selection.is-active {
-      display: block;
-    }
-    .crop-selection.is-locked {
-      box-shadow: none;
-      cursor: default;
-    }
-    .crop-selection.is-locked .crop-handle {
-      display: none;
-    }
-    .crop-handle {
-      position: absolute;
-      width: 18px;
-      height: 18px;
-      right: -9px;
-      bottom: -9px;
-      border-radius: 999px;
-      border: 2px solid #fff;
-      background: var(--accent);
-      cursor: nwse-resize;
-      touch-action: none;
-    }
-    .preview-row {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 8px;
-    }
-    .preview-box {
-      display: grid;
-      gap: 6px;
-    }
-    .preview-box.crop-result-box {
-      display: none;
-    }
-    .preview-box.crop-result-box.is-active {
-      display: grid;
-    }
-    .preview-label {
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: var(--muted);
-    }
-    .controls {
-      display: grid;
-      gap: 8px;
-      margin-top: 10px;
-    }
-    .paperwork-switch {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin: 8px 0 12px;
-    }
-    .paperwork-btn {
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 10px 11px;
-      background: #fff;
-      font: 800 0.86rem/1 "Manrope", sans-serif;
-      color: var(--ink);
-      cursor: pointer;
-    }
-    .paperwork-btn.active {
-      background: #fff2e2;
-      border-color: #d2a474;
-    }
-    .paperwork-form-card {
-      display: none;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 10px;
-      background: #fff;
-    }
-    .paperwork-form-card.active {
-      display: block;
-    }
-    .signature-pad-shell {
-      border: 1px dashed var(--line);
-      border-radius: 12px;
-      padding: 10px;
-      background: #fff9f2;
-      display: grid;
-      gap: 8px;
-    }
-    .signature-pad {
-      width: 100%;
-      height: 170px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: #fff;
-      touch-action: none;
-    }
-    .signature-status {
-      min-height: 18px;
-      color: var(--muted);
-      font-size: 0.82rem;
-      font-weight: 700;
-    }
-    .crop-tools {
-      display: none;
-      gap: 8px;
-      position: relative;
-      z-index: 20;
-    }
-    .crop-tools.is-active {
-      display: grid;
-    }
-    .button-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .controls label {
-      font-size: 0.8rem;
-      color: var(--muted);
-      font-weight: 700;
-    }
-    .segment-row {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr auto 1fr;
-      gap: 6px;
-      align-items: center;
-    }
-    .segment-sep {
-      color: var(--muted);
-      font-weight: 800;
-      user-select: none;
-      text-align: center;
-    }
-    .segment {
-      text-align: center;
-      letter-spacing: 0.06em;
-    }
-    .controls input[type="range"] {
-      width: 100%;
-    }
-    .btn {
-      border: 0;
-      border-radius: 10px;
-      min-height: 44px;
-      padding: 10px 12px;
-      font-weight: 800;
-      cursor: pointer;
-    }
-    .btn-primary {
-      background: var(--accent);
-      color: #fff;
-    }
-    .btn-secondary {
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--ink);
-    }
-    .upload-link-box {
-      margin-top: 10px;
-      font-size: 0.84rem;
-      color: var(--muted);
-      word-break: break-all;
-    }
-    .copy-row {
-      display: grid;
-      gap: 8px;
-      grid-template-columns: 1fr;
-    }
-    .copy-row input {
-      width: 100%;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      min-height: 44px;
-      padding: 10px 12px;
-      background: #fff;
-      color: var(--ink);
-      font: 700 0.9rem/1.2 "Manrope", sans-serif;
-    }
-    @media (min-width: 760px) {
-      .copy-row {
-        grid-template-columns: 1fr auto auto;
-        align-items: center;
-      }
-    }
-    .department label {
-      font-weight: 800;
-      display: block;
-      margin-bottom: 8px;
-    }
-    .department select {
-      width: 100%;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      min-height: 44px;
-      padding: 10px 12px;
-      background: #fff;
-      font: 700 0.92rem/1 "Manrope", sans-serif;
-      color: var(--ink);
-    }
-    .message {
-      margin-top: 8px;
-      min-height: 1.3em;
-      font-size: 0.9rem;
-      font-weight: 700;
-    }
-    .message.ok { color: #186243; }
-    .message.error { color: #9f1e1e; }
-    @media (min-width: 760px) {
-      body { padding: 24px; }
-      .card { padding: 28px; }
-    }
+      --bg: #ffffff; --fg: #09090b; --card: #ffffff;
+      --muted: #f4f4f5; --muted-fg: #71717a; --border: #e4e4e7;
+      --primary: #ea580c; --primary-fg: #ffffff;
+      --danger: #dc2626; --success: #16a34a;
+      --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    }
+    html.dark {
+      --bg: #09090b; --fg: #fafafa; --card: #09090b;
+      --muted: #27272a; --muted-fg: #a1a1aa; --border: #3f3f46;
+      --primary: #fb923c; --primary-fg: #431407;
+      --danger: #f87171; --success: #4ade80;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background-color: var(--bg); color: var(--fg); font-family: "Manrope", ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    h1, h2, h3 { margin: 0; font-family: "Space Grotesk", "Manrope", sans-serif; font-weight: 700; line-height: 1.25; }
+    h1 { font-size: clamp(1.375rem, 3vw, 1.875rem); }
+    h2 { font-size: 1.125rem; }
+    p { margin: 0; }
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .card, .panel { background-color: var(--card); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.5rem; box-shadow: var(--shadow); }
+    @media (max-width: 639px) { .card, .panel { padding: 1rem; } }
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]), select, textarea { display: block; width: 100%; min-height: 2.375rem; padding: 0.5rem 0.75rem; font: 0.875rem/1.5 inherit; color: var(--fg); background-color: var(--bg); border: 1px solid var(--border); border-radius: 0.375rem; transition: border-color 150ms, box-shadow 150ms; }
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]):focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(234,88,12,.15); }
+    html.dark input:focus, html.dark select:focus, html.dark textarea:focus { box-shadow: 0 0 0 3px rgba(251,146,60,.15); }
+    label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.375rem; }
+    .text-muted { color: var(--muted-fg); font-size: 0.875rem; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; min-height: 2.375rem; padding: 0.5rem 0.875rem; font: 600 0.875rem/1.25 inherit; border-radius: 0.375rem; border: 1px solid transparent; cursor: pointer; transition: 150ms; white-space: nowrap; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background-color: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+    .btn-primary:hover:not(:disabled) { opacity: 0.9; }
+    .btn-secondary { background-color: var(--bg); color: var(--fg); border-color: var(--border); }
+    .btn-secondary:hover:not(:disabled) { background-color: var(--muted); }
+    .btn-sm { min-height: 2rem; padding: 0.3125rem 0.625rem; font-size: 0.8125rem; }
+
+    /* Back link */
+    .back { font-size: 0.8125rem; font-weight: 500; color: var(--muted-fg); display: inline-flex; align-items: center; gap: 0.25rem; margin-bottom: 1rem; }
+    .back:hover { color: var(--fg); text-decoration: none; }
+
+    /* Submenu */
+    .submenu { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0; }
+    .submenu-btn { padding: 0.375rem 0.75rem; font-size: 0.8125rem; font-weight: 500; background-color: transparent; border: 1px solid var(--border); border-radius: 0.375rem; cursor: pointer; font-family: inherit; color: var(--muted-fg); transition: 150ms; }
+    .submenu-btn:hover { background-color: var(--muted); color: var(--fg); }
+    .submenu-btn.active { background-color: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+    /* Panel */
+    .panel { background: none; border: none; padding: 0; box-shadow: none; display: none; border-top: 1px solid var(--border); padding-top: 1rem; margin-top: 0; }
+    .panel.active { display: block; }
+
+    /* Info grid */
+    .grid { display: grid; grid-template-columns: 160px 1fr; gap: 0.5rem 1rem; font-size: 0.875rem; margin-bottom: 1rem; }
+    .label { color: var(--muted-fg); font-weight: 500; }
+    .value { font-weight: 600; }
+
+    /* Section dividers */
+    .section-divider { border-top: 1px solid var(--border); margin-top: 1rem; padding-top: 1rem; }
+
+    /* Photo */
+    .photo-preview { width: 180px; max-width: 100%; height: auto; max-height: 280px; border-radius: 0.5rem; border: 1px solid var(--border); object-fit: contain; display: block; background: var(--muted); }
+    .crop-stage { position: relative; width: 180px; max-width: 100%; }
+    .crop-selection { position: absolute; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(0,0,0,.4); border-radius: 0.375rem; cursor: move; touch-action: none; display: none; }
+    .crop-selection.is-active { display: block; }
+    .crop-selection.is-locked { box-shadow: none; cursor: default; }
+    .crop-selection.is-locked .crop-handle { display: none; }
+    .crop-handle { position: absolute; width: 18px; height: 18px; right: -9px; bottom: -9px; border-radius: 999px; border: 2px solid #fff; background: var(--primary); cursor: nwse-resize; touch-action: none; }
+    .preview-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+    .preview-box { display: grid; gap: 0.375rem; }
+    .preview-box.crop-result-box { display: none; }
+    .preview-box.crop-result-box.is-active { display: grid; }
+    .preview-label { font-size: 0.75rem; font-weight: 600; color: var(--muted-fg); }
+    .crop-tools { display: none; gap: 0.5rem; position: relative; z-index: 20; }
+    .crop-tools.is-active { display: grid; }
+    .button-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .controls { display: grid; gap: 0.5rem; margin-top: 0.625rem; }
+    .controls label { font-size: 0.8rem; color: var(--muted-fg); font-weight: 600; }
+    .controls input[type="range"] { width: 100%; }
+    .upload-link-box { margin-top: 0.625rem; font-size: 0.8125rem; color: var(--muted-fg); word-break: break-all; }
+
+    /* Copy row */
+    .copy-row { display: grid; gap: 0.5rem; grid-template-columns: 1fr; }
+    @media (min-width: 640px) { .copy-row { grid-template-columns: 1fr auto auto; align-items: center; } }
+
+    /* Segment inputs */
+    .segment-row { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 0.375rem; align-items: center; }
+    .segment-sep { color: var(--muted-fg); font-weight: 700; text-align: center; user-select: none; }
+    .segment { text-align: center; letter-spacing: 0.06em; }
+
+    /* Paperwork cards */
+    .paperwork-cards { display: grid; gap: 0.625rem; margin-top: 0.625rem; }
+    .paperwork-card { border: 1px solid var(--border); border-radius: 0.5rem; background: var(--bg); padding: 0.875rem; display: grid; gap: 0.5rem; }
+    .paperwork-card-title { margin: 0; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted-fg); }
+    .paperwork-meta { margin: 0; color: var(--muted-fg); font-size: 0.875rem; }
+    .paperwork-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    .doc-link { color: var(--primary); font-weight: 600; font-size: 0.875rem; }
+    .doc-link:hover { text-decoration: underline; }
+
+    /* Paperwork switch */
+    .paperwork-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin: 0.5rem 0 0.75rem; }
+    .paperwork-btn { border: 1px solid var(--border); border-radius: 0.375rem; padding: 0.5rem 0.75rem; background: var(--bg); font: 600 0.8125rem/1 inherit; color: var(--fg); cursor: pointer; transition: 150ms; }
+    .paperwork-btn:hover { background-color: var(--muted); }
+    .paperwork-btn.active { background-color: var(--fg); color: var(--bg); border-color: var(--fg); }
+    .paperwork-form-card { display: none; border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.875rem; background: var(--bg); }
+    .paperwork-form-card.active { display: block; }
+
+    /* Signature pad */
+    .signature-pad-shell { border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.75rem; background: var(--muted); display: grid; gap: 0.5rem; }
+    .signature-pad { width: 100%; height: 170px; border: 1px solid var(--border); border-radius: 0.375rem; background: var(--bg); touch-action: none; }
+    .signature-status { min-height: 1.125rem; color: var(--muted-fg); font-size: 0.8125rem; font-weight: 600; }
+
+    /* Status messages */
+    .message { margin-top: 0.5rem; min-height: 1.3em; font-size: 0.875rem; font-weight: 500; }
+    .message.ok { color: var(--success); }
+    .message.error { color: var(--danger); }
+    .notice.ok { color: var(--success); font-weight: 500; }
+    .notice.error { color: var(--danger); font-weight: 500; }
+
+    /* Hint text */
+    .hint { color: var(--muted-fg); font-size: 0.8125rem; margin-bottom: 0.375rem; }
+
+    /* Sub heading */
+    .sub { color: var(--muted-fg); font-size: 0.875rem; margin-top: 0.25rem; margin-bottom: 0; }
   </style>
 </head>
-<body>
-  <section class="card">
-    <a class="back" href="{{ if .IsArchivedEmployee }}/admin/locations/{{ .Location.Number }}/employees/archived{{ else }}/admin/locations/{{ .Location.Number }}/employees{{ end }}">Back to {{ if .IsArchivedEmployee }}Archived Employees{{ else }}Employees{{ end }}</a>
-    <h1>{{ .Employee.FirstName }} {{ .Employee.LastName }}</h1>
-    <p class="sub">Location {{ .Location.Name }} ({{ .Location.Number }}){{ if .IsArchivedEmployee }} • Archived {{ .Employee.ArchivedAt }}{{ end }}</p>
+<body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
 
-    <section class="submenu">
-      <button class="submenu-btn" type="button" data-target="employee-view">View Employee</button>
-      <button class="submenu-btn" type="button" data-target="paperwork-upload">Paperwork Link</button>
-      <button class="submenu-btn" type="button" data-target="paperwork-view">View Paperwork</button>
-    </section>
-
-    <section class="panel" data-panel="employee-view">
-      <div class="grid">
-        <div class="label">Time Punch Name</div>
-        <div class="value">{{ .Employee.TimePunchName }}</div>
-        <div class="label">Birthday</div>
-        <div class="value">{{ .Employee.Birthday }}</div>
+  <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
+    <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
+      <a href="/admin" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
+      <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
+        <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employees</a>
+        <a href="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employee</a>
+      </nav>
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+          <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" class="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+          <span class="sr-only">Open menu</span>
+          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
       </div>
+    </div>
+    <div id="nav-mobile" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 bg-white dark:bg-zinc-950 flex-col gap-1">
+      <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
+      <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+      <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employees</a>
+      <a href="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employee</a>
+    </div>
+  </header>
 
-      {{ if not .IsArchivedEmployee }}
-      <section class="photo">
-        <label style="font-weight:800;display:block;margin-bottom:8px;">Profile Photo</label>
-        <div class="preview-row">
-          <div class="preview-box">
-            <span class="preview-label">Selected Image</span>
-            <div class="crop-stage">
-              <img id="photo-preview" class="photo-preview" src="{{ if .Employee.HasPhoto }}/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/photo{{ else }}data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='100%25' height='100%25' fill='%23f7f3ed'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2369717c' font-family='Manrope' font-size='14'%3ENo Photo%3C/text%3E%3C/svg%3E{{ end }}" alt="Profile photo">
-              <div id="crop-selection" class="crop-selection">
-                <div id="crop-handle" class="crop-handle"></div>
+  <div class="pt-14 min-h-[calc(100vh-3.5rem)] px-4 py-8">
+    <div class="mx-auto max-w-[720px]">
+      <div class="card">
+
+        <a class="back" href="{{ if .IsArchivedEmployee }}/admin/locations/{{ .Location.Number }}/employees/archived{{ else }}/admin/locations/{{ .Location.Number }}/employees{{ end }}">&#8592; Back to {{ if .IsArchivedEmployee }}Archived Employees{{ else }}Employees{{ end }}</a>
+
+        <h1>{{ .Employee.FirstName }} {{ .Employee.LastName }}</h1>
+        <p class="sub">Location {{ .Location.Name }} ({{ .Location.Number }}){{ if .IsArchivedEmployee }} &bull; Archived {{ .Employee.ArchivedAt }}{{ end }}</p>
+
+        <section class="submenu">
+          <button class="submenu-btn" type="button" data-target="employee-view">View Employee</button>
+          <button class="submenu-btn" type="button" data-target="paperwork-upload">Paperwork Link</button>
+          <button class="submenu-btn" type="button" data-target="paperwork-view">View Paperwork</button>
+        </section>
+
+        <section class="panel" data-panel="employee-view">
+          <div class="grid">
+            <div class="label">Time Punch Name</div>
+            <div class="value">{{ .Employee.TimePunchName }}</div>
+            <div class="label">Birthday</div>
+            <div class="value">{{ .Employee.Birthday }}</div>
+          </div>
+
+          {{ if not .IsArchivedEmployee }}
+          <div class="section-divider">
+            <label style="margin-bottom:0.5rem;">Profile Photo</label>
+            <div class="preview-row">
+              <div class="preview-box">
+                <span class="preview-label">Selected Image</span>
+                <div class="crop-stage">
+                  <img id="photo-preview" class="photo-preview" src="{{ if .Employee.HasPhoto }}/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/photo{{ else }}data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='100%25' height='100%25' fill='%23f4f4f5'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2371717a' font-family='Manrope' font-size='14'%3ENo Photo%3C/text%3E%3C/svg%3E{{ end }}" alt="Profile photo">
+                  <div id="crop-selection" class="crop-selection">
+                    <div id="crop-handle" class="crop-handle"></div>
+                  </div>
+                </div>
+              </div>
+              <div id="crop-result-box" class="preview-box crop-result-box">
+                <span class="preview-label">Cropped Result</span>
+                <canvas id="crop-result" class="photo-preview" width="180" height="180"></canvas>
               </div>
             </div>
-          </div>
-          <div id="crop-result-box" class="preview-box crop-result-box">
-            <span class="preview-label">Cropped Result</span>
-            <canvas id="crop-result" class="photo-preview" width="180" height="180"></canvas>
-          </div>
-        </div>
-        <form id="photo-form" class="controls" method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/photo" enctype="multipart/form-data">
-          <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-          <input type="hidden" id="crop_x" name="crop_x" value="0">
-          <input type="hidden" id="crop_y" name="crop_y" value="0">
-          <input type="hidden" id="crop_size" name="crop_size" value="0">
-          <input id="photo_file" type="file" name="photo_file" accept="image/png,image/jpeg,image/webp" required>
-          <div id="crop-tools" class="crop-tools">
-            <p class="sub" style="margin:0;">Drag the crop box. Use the bottom-right handle to resize.</p>
-            <div class="button-row">
-              <button id="confirm-crop" type="button" class="btn btn-secondary">Confirm Crop</button>
-              <button id="upload-photo-btn" type="submit" class="btn btn-primary" disabled>Upload Photo</button>
-              <button id="cancel-upload" type="button" class="btn btn-secondary">Cancel Upload</button>
-            </div>
-          </div>
-        </form>
-        <button id="generate-link" type="button" style="margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff;font-weight:800;cursor:pointer;">Generate Secure Upload Link</button>
-        <div id="upload-link-box" class="upload-link-box"></div>
-      </section>
-
-      <section class="department">
-        <label for="department">Department</label>
-        <select id="department">
-          {{ $current := .Employee.Department }}
-          {{ range $.Departments }}
-            <option value="{{ . }}" {{ if eq . $current }}selected{{ end }}>{{ . }}</option>
-          {{ end }}
-        </select>
-        <div id="message" class="message">{{ if .SuccessMessage }}{{ .SuccessMessage }}{{ end }}{{ if .Error }}{{ .Error }}{{ end }}</div>
-      </section>
-      {{ else }}
-      <p class="sub" style="margin-top:12px;">Archived employee profiles are read-only.</p>
-      {{ end }}
-    </section>
-
-    <section class="panel" data-panel="paperwork-upload">
-      <section class="i9" style="border-top:0;padding-top:0;margin-top:0;">
-        <label style="font-weight:800;display:block;margin-bottom:8px;">Employee Paperwork Link</label>
-        {{ if .IsArchivedEmployee }}
-          <p class="hint">Archived employee paperwork is read-only.</p>
-        {{ else }}
-          <div style="margin-bottom:10px;">
-            <div class="copy-row">
-              <input id="paperwork-link-input" type="text" value="{{ .EmployeePaperworkLink }}" readonly>
-              <button id="copy-paperwork-link" class="btn btn-secondary" type="button">Copy Link</button>
-              <button id="view-paperwork-link" class="btn btn-secondary" type="button">View Form</button>
-            </div>
-            <div id="paperwork-link-box" class="upload-link-box"></div>
-          </div>
-          <p class="hint">Paperwork submission is only available through this employee link.</p>
-          <p class="hint">Admin upload forms are disabled for security and consistency.</p>
-        {{ end }}
-      </section>
-    </section>
-
-    <section class="panel" data-panel="paperwork-view">
-      <section class="i9" style="border-top:0;padding-top:0;margin-top:0;">
-        <label style="font-weight:800;display:block;margin-bottom:8px;">View Employee Paperwork</label>
-        <div class="paperwork-cards">
-          {{ if and .EmployeeI9 .EmployeeI9.HasFile }}
-            <article class="paperwork-card">
-              <p class="paperwork-card-title">I-9 Form</p>
-              <p class="paperwork-meta">Document Title: {{ .EmployeeI9.FileName }}</p>
-              <div class="paperwork-actions">
-                <a class="doc-link" href="/admin/locations/{{ .Location.Number }}/employees{{ if .IsArchivedEmployee }}/archived{{ end }}/{{ .Employee.TimePunchName }}/i9/file" target="_blank" rel="noreferrer">View Document</a>
+            <form id="photo-form" class="controls" method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/photo" enctype="multipart/form-data">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+              <input type="hidden" id="crop_x" name="crop_x" value="0">
+              <input type="hidden" id="crop_y" name="crop_y" value="0">
+              <input type="hidden" id="crop_size" name="crop_size" value="0">
+              <input id="photo_file" type="file" name="photo_file" accept="image/png,image/jpeg,image/webp" required>
+              <div id="crop-tools" class="crop-tools">
+                <p class="hint" style="margin:0;">Drag the crop box. Use the bottom-right handle to resize.</p>
+                <div class="button-row">
+                  <button id="confirm-crop" type="button" class="btn btn-secondary btn-sm">Confirm Crop</button>
+                  <button id="upload-photo-btn" type="submit" class="btn btn-primary btn-sm" disabled>Upload Photo</button>
+                  <button id="cancel-upload" type="button" class="btn btn-secondary btn-sm">Cancel Upload</button>
+                </div>
               </div>
-            </article>
+            </form>
+            <button id="generate-link" type="button" class="btn btn-secondary btn-sm" style="margin-top:0.625rem;">Generate Secure Upload Link</button>
+            <div id="upload-link-box" class="upload-link-box"></div>
+          </div>
+
+          <div class="section-divider">
+            <label for="department">Department</label>
+            <select id="department">
+              {{ $current := .Employee.Department }}
+              {{ range $.Departments }}
+                <option value="{{ . }}" {{ if eq . $current }}selected{{ end }}>{{ . }}</option>
+              {{ end }}
+            </select>
+            <div id="message" class="message">{{ if .SuccessMessage }}{{ .SuccessMessage }}{{ end }}{{ if .Error }}{{ .Error }}{{ end }}</div>
+          </div>
           {{ else }}
-            <article class="paperwork-card">
-              <p class="paperwork-card-title">I-9 Form</p>
-              <p class="paperwork-meta">No I-9 uploaded yet.</p>
-            </article>
+          <p class="hint" style="margin-top:0.75rem;">Archived employee profiles are read-only.</p>
           {{ end }}
+        </section>
 
-          {{ if and .EmployeeW4 .EmployeeW4.HasFile }}
-            <article class="paperwork-card">
-              <p class="paperwork-card-title">W-4 Form</p>
-              <p class="paperwork-meta">Document Title: {{ .EmployeeW4.FileName }}</p>
-              <div class="paperwork-actions">
-                <a class="doc-link" href="/admin/locations/{{ .Location.Number }}/employees{{ if .IsArchivedEmployee }}/archived{{ end }}/{{ .Employee.TimePunchName }}/w4/file" target="_blank" rel="noreferrer">View Document</a>
-              </div>
-            </article>
+        <section class="panel" data-panel="paperwork-upload">
+          <label style="margin-bottom:0.5rem;">Employee Paperwork Link</label>
+          {{ if .IsArchivedEmployee }}
+            <p class="hint">Archived employee paperwork is read-only.</p>
           {{ else }}
-            <article class="paperwork-card">
-              <p class="paperwork-card-title">W-4 Form</p>
-              <p class="paperwork-meta">No W-4 uploaded yet.</p>
-            </article>
+            <div style="margin-bottom:0.625rem;">
+              <div class="copy-row">
+                <input id="paperwork-link-input" type="text" value="{{ .EmployeePaperworkLink }}" readonly>
+                <button id="copy-paperwork-link" class="btn btn-secondary btn-sm" type="button">Copy Link</button>
+                <button id="view-paperwork-link" class="btn btn-secondary btn-sm" type="button">View Form</button>
+              </div>
+              <div id="paperwork-link-box" class="upload-link-box"></div>
+            </div>
+            <p class="hint">Paperwork submission is only available through this employee link.</p>
+            <p class="hint">Admin upload forms are disabled for security and consistency.</p>
           {{ end }}
+        </section>
 
-          {{ if .EmployeeI9Documents }}
-            {{ range .EmployeeI9Documents }}
+        <section class="panel" data-panel="paperwork-view">
+          <label style="margin-bottom:0.5rem;">View Employee Paperwork</label>
+          <div class="paperwork-cards">
+            {{ if and .EmployeeI9 .EmployeeI9.HasFile }}
               <article class="paperwork-card">
-                <p class="paperwork-card-title">I-9 Supporting Document{{ if .ListType }} ({{ if eq .ListType "a" }}List A{{ else if eq .ListType "b" }}List B{{ else if eq .ListType "c" }}List C{{ else if eq .ListType "signature" }}Signature{{ else }}{{ .ListType }}{{ end }}){{ end }}</p>
-                <p class="paperwork-meta">Document Title: {{ .FileName }}</p>
+                <p class="paperwork-card-title">I-9 Form</p>
+                <p class="paperwork-meta">Document Title: {{ .EmployeeI9.FileName }}</p>
                 <div class="paperwork-actions">
-                  <a class="doc-link" href="/admin/locations/{{ $.Location.Number }}/employees{{ if $.IsArchivedEmployee }}/archived{{ end }}/{{ $.Employee.TimePunchName }}/i9/documents/{{ .ID }}" target="_blank" rel="noreferrer">View Document</a>
-                  {{ if not $.IsArchivedEmployee }}
-                    <form method="post" action="/admin/locations/{{ $.Location.Number }}/employees/{{ $.Employee.TimePunchName }}/i9/documents/{{ .ID }}/delete" onsubmit="return confirm('Delete this document?');">
-                      <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                      <button class="btn btn-secondary" type="submit" style="min-height:34px;padding:6px 10px;">Delete</button>
-                    </form>
-                  {{ end }}
+                  <a class="doc-link" href="/admin/locations/{{ .Location.Number }}/employees{{ if .IsArchivedEmployee }}/archived{{ end }}/{{ .Employee.TimePunchName }}/i9/file" target="_blank" rel="noreferrer">View Document</a>
                 </div>
               </article>
+            {{ else }}
+              <article class="paperwork-card">
+                <p class="paperwork-card-title">I-9 Form</p>
+                <p class="paperwork-meta">No I-9 uploaded yet.</p>
+              </article>
             {{ end }}
-          {{ else }}
-            <article class="paperwork-card">
-              <p class="paperwork-card-title">I-9 Supporting Documents</p>
-              <p class="paperwork-meta">No I-9 supporting documents uploaded yet.</p>
-            </article>
-          {{ end }}
-        </div>
-      </section>
-    </section>
-  </section>
+
+            {{ if and .EmployeeW4 .EmployeeW4.HasFile }}
+              <article class="paperwork-card">
+                <p class="paperwork-card-title">W-4 Form</p>
+                <p class="paperwork-meta">Document Title: {{ .EmployeeW4.FileName }}</p>
+                <div class="paperwork-actions">
+                  <a class="doc-link" href="/admin/locations/{{ .Location.Number }}/employees{{ if .IsArchivedEmployee }}/archived{{ end }}/{{ .Employee.TimePunchName }}/w4/file" target="_blank" rel="noreferrer">View Document</a>
+                </div>
+              </article>
+            {{ else }}
+              <article class="paperwork-card">
+                <p class="paperwork-card-title">W-4 Form</p>
+                <p class="paperwork-meta">No W-4 uploaded yet.</p>
+              </article>
+            {{ end }}
+
+            {{ if .EmployeeScorecards }}
+              {{ range .EmployeeScorecards }}
+                <article class="paperwork-card">
+                  <p class="paperwork-card-title">Interview Scorecard</p>
+                  <p class="paperwork-meta">Candidate: {{ .FirstName }} {{ .LastName }}</p>
+                  <p class="paperwork-meta">Status: {{ .Status }}</p>
+                  <div class="paperwork-actions">
+                    <a class="doc-link" href="/admin/locations/{{ $.Location.Number }}/candidates/{{ .ID }}/scorecard" target="_blank" rel="noreferrer">View Scorecard</a>
+                  </div>
+                </article>
+              {{ end }}
+            {{ else }}
+              <article class="paperwork-card">
+                <p class="paperwork-card-title">Interview Scorecard</p>
+                <p class="paperwork-meta">No scorecards available for this employee.</p>
+              </article>
+            {{ end }}
+
+            {{ if .EmployeeI9Documents }}
+              {{ range .EmployeeI9Documents }}
+                <article class="paperwork-card">
+                  <p class="paperwork-card-title">I-9 Supporting Document{{ if .ListType }} ({{ if eq .ListType "a" }}List A{{ else if eq .ListType "b" }}List B{{ else if eq .ListType "c" }}List C{{ else if eq .ListType "signature" }}Signature{{ else }}{{ .ListType }}{{ end }}){{ end }}</p>
+                  <p class="paperwork-meta">Document Title: {{ .FileName }}</p>
+                  <div class="paperwork-actions">
+                    <a class="doc-link" href="/admin/locations/{{ $.Location.Number }}/employees{{ if $.IsArchivedEmployee }}/archived{{ end }}/{{ $.Employee.TimePunchName }}/i9/documents/{{ .ID }}" target="_blank" rel="noreferrer">View Document</a>
+                    {{ if not $.IsArchivedEmployee }}
+                      <form method="post" action="/admin/locations/{{ $.Location.Number }}/employees/{{ $.Employee.TimePunchName }}/i9/documents/{{ .ID }}/delete" onsubmit="return confirm('Delete this document?');">
+                        <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                        <button class="btn btn-secondary btn-sm" type="submit">Delete</button>
+                      </form>
+                    {{ end }}
+                  </div>
+                </article>
+              {{ end }}
+            {{ else }}
+              <article class="paperwork-card">
+                <p class="paperwork-card-title">I-9 Supporting Documents</p>
+                <p class="paperwork-meta">No I-9 supporting documents uploaded yet.</p>
+              </article>
+            {{ end }}
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
 
   {{ if not .IsArchivedEmployee }}
   <script>
@@ -991,5 +788,29 @@
       showPanel("employee-view");
     }
   </script>
+  <script>
+    (function () {
+      var storageKey = "cfasuite-theme";
+      var root = document.documentElement;
+      var toggle = document.getElementById("theme-toggle");
+      var navToggle = document.getElementById("nav-toggle");
+      var navMobile = document.getElementById("nav-mobile");
+      if (toggle) {
+        toggle.addEventListener("click", function () {
+          var isDark = root.classList.toggle("dark");
+          localStorage.setItem(storageKey, isDark ? "dark" : "light");
+        });
+      }
+      if (navToggle && navMobile) {
+        navToggle.addEventListener("click", function () {
+          var expanded = navToggle.getAttribute("aria-expanded") === "true";
+          navToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+          navMobile.classList.toggle("hidden", expanded);
+          if (!expanded) { navMobile.style.display = "flex"; } else { navMobile.style.removeProperty("display"); }
+        });
+      }
+    })();
+  </script>
+
 </body>
 </html>

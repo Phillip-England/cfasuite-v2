@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interview Scorecard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script>
+    (function () {
+      var stored = localStorage.getItem("cfasuite-theme");
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    })();
+  </script>
+  <style>
+    :root {
+      --bg: #ffffff; --fg: #09090b; --card: #ffffff;
+      --muted: #f4f4f5; --muted-fg: #71717a; --border: #e4e4e7;
+      --primary: #ea580c; --primary-fg: #ffffff; --danger:#dc2626;
+    }
+    html.dark {
+      --bg: #09090b; --fg: #fafafa; --card: #09090b;
+      --muted: #27272a; --muted-fg: #a1a1aa; --border: #3f3f46;
+      --primary: #fb923c; --primary-fg: #431407; --danger:#f87171;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg); font-family: "Manrope", sans-serif; }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 2rem 1rem; display:grid; gap:1rem; }
+    .card { border: 1px solid var(--border); border-radius: 12px; background: var(--card); padding: 1rem; }
+    h1, h2 { font-family: "Space Grotesk", sans-serif; margin: 0; }
+    .meta { color: var(--muted-fg); font-size: 0.875rem; }
+    .stack { display: grid; gap: 0.875rem; }
+    label { display:block; font-weight:600; font-size:0.875rem; margin-bottom:0.3rem; }
+    input, select, textarea { width:100%; min-height:2.4rem; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--fg); padding:0.55rem 0.65rem; font:inherit; }
+    textarea { min-height: 8rem; resize: vertical; }
+    .value-card { border:1px solid var(--border); border-radius:10px; padding:0.875rem; }
+    .grid-2 { display:grid; gap:0.75rem; grid-template-columns: repeat(2, minmax(0,1fr)); }
+    @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
+    .btn { min-height:2.4rem; border:1px solid var(--primary); background:var(--primary); color:var(--primary-fg); border-radius:8px; padding:0.5rem 0.85rem; font-weight:700; cursor:pointer; }
+    .msg { font-size:0.875rem; }
+    .msg.error { color: var(--danger); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card stack">
+      <h1>Interview Scorecard</h1>
+      <p class="meta">Location: {{ if .Location }}{{ .Location.Name }} ({{ .Location.Number }}){{ end }}</p>
+      <p class="meta">Candidate: {{ if .Candidate }}{{ .Candidate.FirstName }} {{ .Candidate.LastName }}{{ end }}</p>
+      <p class="meta">Interviewer: {{ if .Employee }}{{ .Employee.TimePunchName }}{{ end }} | Type: {{ .ReturnPath }}</p>
+      {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
+      {{ if .SuccessMessage }}<p class="msg">{{ .SuccessMessage }}</p>{{ end }}
+
+      <form method="post" action="/interview/{{ .Token }}" class="stack">
+        {{ range .CandidateValues }}
+          <article class="value-card stack">
+            <div>
+              <h2 style="font-size:1rem;">{{ .Name }}</h2>
+              {{ if .Description }}<p class="meta" style="margin-top:0.25rem;">{{ .Description }}</p>{{ end }}
+            </div>
+            <div class="grid-2">
+              <div>
+                <label for="grade_{{ .ID }}">Grade</label>
+                <select id="grade_{{ .ID }}" name="grade_{{ .ID }}" required>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                  <option value="F">F</option>
+                </select>
+              </div>
+              <div>
+                <label for="comment_{{ .ID }}">Comment (up to 1000 chars)</label>
+                <textarea id="comment_{{ .ID }}" name="comment_{{ .ID }}" maxlength="1000" placeholder="What did you observe for this value?"></textarea>
+              </div>
+            </div>
+          </article>
+        {{ end }}
+        <div>
+          <label for="notes">Overall Interview Notes</label>
+          <textarea id="notes" name="notes" maxlength="3000" placeholder="Optional overall comments."></textarea>
+        </div>
+        <div>
+          <button class="btn" type="submit">Submit Interview Scorecard</button>
+        </div>
+      </form>
+    </section>
+  </div>
+</body>
+</html>

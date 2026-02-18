@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ .CSRF }}">
+  <title>Candidate Details</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script>
+    (function () {
+      var stored = localStorage.getItem("cfasuite-theme");
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    })();
+  </script>
+  <style>
+    :root { --bg:#fff; --fg:#09090b; --card:#fff; --muted:#f4f4f5; --muted-fg:#71717a; --border:#e4e4e7; --primary:#ea580c; --primary-fg:#fff; --danger:#dc2626; }
+    html.dark { --bg:#09090b; --fg:#fafafa; --card:#09090b; --muted:#27272a; --muted-fg:#a1a1aa; --border:#3f3f46; --primary:#fb923c; --primary-fg:#431407; --danger:#f87171; }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font-family:"Manrope",sans-serif}
+    h1,h2,h3{margin:0;font-family:"Space Grotesk",sans-serif}.wrap{max-width:980px;margin:0 auto;padding:5rem 1rem 2rem;display:grid;gap:1rem}
+    .card{border:1px solid var(--border);border-radius:12px;background:var(--card);padding:1rem}.stack{display:grid;gap:.875rem}
+    .meta{color:var(--muted-fg);font-size:.875rem}.row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+    .btn{display:inline-flex;align-items:center;justify-content:center;min-height:2.3rem;padding:.5rem .85rem;border-radius:8px;border:1px solid transparent;cursor:pointer;font-weight:700;text-decoration:none}
+    .btn-primary{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)} .btn-outline{background:transparent;color:var(--fg);border-color:var(--border)} .btn-danger{background:transparent;color:var(--danger);border-color:var(--danger)}
+    input,select,textarea{width:100%;min-height:2.35rem;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);padding:.55rem .65rem;font:inherit}
+    label{display:block;font-size:.875rem;font-weight:600;margin-bottom:.35rem} .grid-2{display:grid;gap:.75rem;grid-template-columns:repeat(2,minmax(0,1fr))}
+    @media (max-width:780px){.grid-2{grid-template-columns:1fr}}
+    textarea{min-height:7rem;resize:vertical}
+    .link-box{border:1px solid var(--border);border-radius:10px;padding:.75rem;background:color-mix(in srgb,var(--card) 96%,var(--muted))}
+    .copy-row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}.copy-row input{flex:1;min-width:220px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem}
+    .pill{display:inline-flex;border:1px solid var(--border);border-radius:999px;padding:.1rem .5rem;font-size:.75rem;color:var(--muted-fg)}
+    .interview{border:1px solid var(--border);border-radius:10px;padding:.8rem}
+    .alert{border:1px solid var(--border);border-radius:8px;padding:.55rem .7rem;font-size:.875rem}
+    .hub{display:grid;gap:.75rem;grid-template-columns:1fr;margin-top:.5rem}
+    @media (min-width:680px){.hub{grid-template-columns:repeat(3,1fr)}}
+    .hub-btn{width:100%;text-align:left;padding:.875rem 1rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--fg)}
+    .hub-btn.active{background:var(--muted);border-color:var(--primary)} .hub-btn strong{display:block;margin-bottom:.2rem}
+    .hub-btn span{color:var(--muted-fg);font-size:.8rem}
+    .panel{display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)}
+    .panel.active{display:block}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a href="/admin/locations/{{ .Location.Number }}/candidates" class="meta" style="text-decoration:none;">&#8592; Back to Active Candidates</a>
+
+    <section class="card stack">
+      <h1>{{ .Candidate.FirstName }} {{ .Candidate.LastName }}</h1>
+      <div class="meta">Status: {{ .Candidate.Status }}{{ if .Candidate.HiredTimePunchName }} | Hired as: {{ .Candidate.HiredTimePunchName }}{{ end }}</div>
+      {{ if .SuccessMessage }}<div class="alert">{{ .SuccessMessage }}</div>{{ end }}
+      {{ if .Error }}<div class="alert" style="color:var(--danger)">{{ .Error }}</div>{{ end }}
+
+      <div class="hub">
+        <button class="hub-btn" type="button" data-target="create-interviews"><strong>Create Interviews</strong><span>Create interview links or complete one in admin.</span></button>
+        <button class="hub-btn" type="button" data-target="view-interviews"><strong>View Interviews</strong><span>See all interviews and open each one.</span></button>
+        <button class="hub-btn" type="button" data-target="decision"><strong>Decision</strong><span>Hire or pass this candidate.</span></button>
+      </div>
+
+      <section class="panel" data-panel="create-interviews">
+        {{ if eq .Candidate.Status "active" }}
+        <div class="stack">
+          <h2 style="font-size:1.05rem;">Generate Interview Link</h2>
+          <div class="grid-2">
+            <div>
+              <label for="interviewer">Interviewer</label>
+              <select id="interviewer">
+                <option value="">Select interviewer</option>
+                {{ range .Employees }}
+                  <option value="{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }} ({{ .TimePunchName }})</option>
+                {{ end }}
+              </select>
+            </div>
+            <div>
+              <label for="interview-type">Interview Name</label>
+              <select id="interview-type">
+                <option value="">Select interview name</option>
+                {{ range .InterviewNames }}
+                  <option value="{{ .Name }}">{{ .Name }}</option>
+                {{ end }}
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <button id="generate-link" type="button" class="btn btn-primary" {{ if or (not .CandidateValues) (not .InterviewNames) }}disabled{{ end }}>Generate Interview Link</button>
+            <a class="btn btn-outline" href="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/scorecard">View Scorecard</a>
+          </div>
+          {{ if not .CandidateValues }}<p class="meta">Create candidate values first.</p>{{ end }}
+          {{ if not .InterviewNames }}<p class="meta">Create interview names first.</p>{{ end }}
+          <div id="link-box" class="link-box" style="display:none;">
+            <div class="copy-row">
+              <input id="link-input" type="text" readonly>
+              <button id="copy-link" class="btn btn-outline" type="button">Copy</button>
+              <a id="text-link" class="btn btn-outline" href="#" target="_blank" rel="noreferrer">Text Link</a>
+            </div>
+            <div id="link-status" class="meta" style="margin-top:.4rem;"></div>
+          </div>
+        </div>
+
+        <div class="stack" style="margin-top:1rem;">
+          <h2 style="font-size:1.05rem;">Interview Completion</h2>
+          <p class="meta">Interviews can only be completed through a generated interview link. Admin submission is disabled.</p>
+        </div>
+        {{ else }}
+          <p class="meta">This candidate is no longer active. New interviews are disabled.</p>
+        {{ end }}
+      </section>
+
+      <section class="panel" data-panel="view-interviews">
+        <div class="stack">
+          <h2 style="font-size:1.05rem;">All Interviews</h2>
+          {{ if .Candidate.Interviews }}
+            {{ range .Candidate.Interviews }}
+              <article class="interview">
+                <div class="row" style="justify-content:space-between;">
+                  <div>
+                    <strong>{{ .InterviewType }}</strong>
+                    <div class="meta">{{ .CreatedAt }} | Interviewer: {{ .InterviewerTimePunchName }}</div>
+                  </div>
+                  <a class="btn btn-outline" href="/admin/locations/{{ $.Location.Number }}/candidates/{{ $.Candidate.ID }}/interviews/{{ .ID }}">Open Interview</a>
+                </div>
+              </article>
+            {{ end }}
+          {{ else }}
+            <p class="meta">No interviews yet.</p>
+          {{ end }}
+        </div>
+      </section>
+
+      <section class="panel" data-panel="decision">
+        <div class="stack">
+          <h2 style="font-size:1.05rem;">Candidate Decision</h2>
+          {{ if eq .Candidate.Status "active" }}
+            <div class="row">
+              <form method="post" action="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/decision">
+                <input type="hidden" name="csrf_token" value="{{ .CSRF }}"><input type="hidden" name="decision" value="hire">
+                <button class="btn btn-primary" type="submit">Hire Candidate</button>
+              </form>
+              <form method="post" action="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/decision">
+                <input type="hidden" name="csrf_token" value="{{ .CSRF }}"><input type="hidden" name="decision" value="pass">
+                <button class="btn btn-danger" type="submit">Pass Candidate</button>
+              </form>
+            </div>
+          {{ else }}
+            <p class="meta">Decision already made: {{ .Candidate.Status }}.</p>
+          {{ end }}
+          <a class="btn btn-outline" href="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/scorecard">View Full Scorecard</a>
+        </div>
+      </section>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      var hubButtons = Array.from(document.querySelectorAll(".hub-btn"));
+      var panels = Array.from(document.querySelectorAll(".panel[data-panel]"));
+      function showPanel(name) {
+        hubButtons.forEach(function (btn) { btn.classList.toggle("active", btn.getAttribute("data-target") === name); });
+        panels.forEach(function (panel) { panel.classList.toggle("active", panel.getAttribute("data-panel") === name); });
+        if (window.location.hash !== "#" + name) { window.history.replaceState(null, "", "#" + name); }
+      }
+      hubButtons.forEach(function (btn) { btn.addEventListener("click", function () { showPanel(btn.getAttribute("data-target")); }); });
+      var initial = window.location.hash ? window.location.hash.slice(1) : "create-interviews";
+      var exists = panels.some(function (p) { return p.getAttribute("data-panel") === initial; });
+      showPanel(exists ? initial : "create-interviews");
+
+      var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || "";
+      var generateBtn = document.getElementById("generate-link");
+      var interviewer = document.getElementById("interviewer");
+      var interviewType = document.getElementById("interview-type");
+      var linkBox = document.getElementById("link-box");
+      var linkInput = document.getElementById("link-input");
+      var copyBtn = document.getElementById("copy-link");
+      var textBtn = document.getElementById("text-link");
+      var status = document.getElementById("link-status");
+      var locationNumber = "{{ .Location.Number }}";
+      var candidateID = "{{ .Candidate.ID }}";
+      if (!generateBtn) return;
+      generateBtn.addEventListener("click", async function () {
+        if (!interviewer || !interviewer.value) { alert("Select an interviewer first."); return; }
+        if (!interviewType || !interviewType.value) { alert("Select an interview name first."); return; }
+        generateBtn.disabled = true;
+        try {
+          var res = await fetch("/admin/locations/" + encodeURIComponent(locationNumber) + "/candidates/" + encodeURIComponent(candidateID) + "/interview-link", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+            body: JSON.stringify({ interviewerTimePunchName: interviewer.value, interviewType: interviewType.value })
+          });
+          var payload = await res.json().catch(function () { return {}; });
+          if (!res.ok) throw new Error(payload.error || "Unable to generate interview link.");
+          linkBox.style.display = "block";
+          linkInput.value = payload.link || "";
+          status.textContent = payload.expiresAt ? ("Expires: " + payload.expiresAt) : "";
+          textBtn.href = "sms:?&body=" + encodeURIComponent("Please complete this interview scorecard: " + (payload.link || ""));
+        } catch (err) {
+          alert(err && err.message ? err.message : "Unable to generate interview link.");
+        } finally {
+          generateBtn.disabled = false;
+        }
+      });
+      if (copyBtn) {
+        copyBtn.addEventListener("click", async function () {
+          try { await navigator.clipboard.writeText(linkInput.value || ""); status.textContent = "Interview link copied."; }
+          catch (e) { status.textContent = "Unable to copy link."; }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

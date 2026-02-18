@@ -6,214 +6,228 @@
   <title>Uniform Item</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script>
+    (function () {
+      var stored = localStorage.getItem("cfasuite-theme");
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    })();
+  </script>
   <style>
-    :root { --bg:#f3eee6; --surface:#fffaf3; --ink:#1f232a; --line:#e4d6c0; --muted:#69717c; --accent:#b2472a; --shadow:0 24px 45px rgba(35,29,21,.14); }
-    * { box-sizing: border-box; }
-    body { font-family: "Manrope", sans-serif; margin: 0; padding: 12px; color: var(--ink); background: radial-gradient(70rem 50rem at 120% -10%,#ffd8b6 0,transparent 55%), radial-gradient(50rem 40rem at -10% 120%,#f9d8bd 0,transparent 52%), var(--bg); }
-    .card { width: 100%; max-width: 960px; margin: 0 auto; background: linear-gradient(155deg,var(--surface),#fff); border: 1px solid var(--line); border-radius: 18px; padding: 14px; box-shadow: var(--shadow); }
-    .back { color: var(--accent); text-decoration: none; font-weight: 800; font-size: 0.92rem; }
-    h1 { margin: 10px 0 8px; font: 800 clamp(1.5rem,4vw,2.2rem)/1.1 "Space Grotesk",sans-serif; }
-    p.sub { margin: 0 0 14px; color: #69717c; }
-    .msg { font-weight: 700; margin: 0 0 10px; }
-    .msg.error { color: #9f1e1e; }
-    .msg.ok { color: #186243; }
-    .hub { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; margin-bottom: 12px; }
-    .hub-btn {
-      border: 1px solid #d8c7b2;
-      background: #fff;
-      color: #2d3038;
-      border-radius: 12px;
-      text-align: left;
-      padding: 11px 12px;
-      cursor: pointer;
-      min-height: 56px;
+    :root {
+      --bg: #ffffff; --fg: #09090b; --card: #ffffff;
+      --muted: #f4f4f5; --muted-fg: #71717a; --border: #e4e4e7;
+      --primary: #ea580c; --primary-fg: #ffffff;
+      --danger: #dc2626; --success: #16a34a;
+      --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
     }
-    .hub-btn strong { display: block; font: 800 0.98rem/1.1 "Space Grotesk", sans-serif; margin-bottom: 3px; }
-    .hub-btn span { display: block; color: #646c77; font-size: 0.82rem; font-weight: 700; }
-    .hub-btn.active { border-color: #c69b78; background: #fff6ec; }
-    .section { border: 1px solid #e4d6c0; border-radius: 12px; padding: 14px; margin-bottom: 12px; background: #fff; }
-    .section[data-panel] { display: none; }
+    html.dark {
+      --bg: #09090b; --fg: #fafafa; --card: #09090b;
+      --muted: #27272a; --muted-fg: #a1a1aa; --border: #3f3f46;
+      --primary: #fb923c; --primary-fg: #431407;
+      --danger: #f87171; --success: #4ade80;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background-color: var(--bg); color: var(--fg); font-family: "Manrope", ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    h1, h2, h3 { margin: 0; font-family: "Space Grotesk", "Manrope", sans-serif; font-weight: 700; line-height: 1.25; }
+    h1 { font-size: clamp(1.375rem, 3vw, 1.875rem); }
+    h2 { font-size: 1.125rem; }
+    p { margin: 0; }
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .card, .panel { background-color: var(--card); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.5rem; box-shadow: var(--shadow); }
+    @media (max-width: 639px) { .card, .panel { padding: 1rem; } }
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]), select, textarea { display: block; width: 100%; min-height: 2.375rem; padding: 0.5rem 0.75rem; font: 0.875rem/1.5 inherit; color: var(--fg); background-color: var(--bg); border: 1px solid var(--border); border-radius: 0.375rem; transition: border-color 150ms, box-shadow 150ms; }
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]):focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(234,88,12,.15); }
+    html.dark input:focus, html.dark select:focus, html.dark textarea:focus { box-shadow: 0 0 0 3px rgba(251,146,60,.15); }
+    label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.375rem; }
+    .text-muted { color: var(--muted-fg); font-size: 0.875rem; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; min-height: 2.375rem; padding: 0.5rem 0.875rem; font: 600 0.875rem/1.25 inherit; border-radius: 0.375rem; border: 1px solid transparent; cursor: pointer; transition: 150ms; white-space: nowrap; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background-color: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+    .btn-primary:hover:not(:disabled) { opacity: 0.9; }
+    .btn-secondary { background-color: var(--bg); color: var(--fg); border-color: var(--border); }
+    .btn-secondary:hover:not(:disabled) { background-color: var(--muted); }
+    .btn-danger { background-color: transparent; color: var(--danger); border-color: var(--border); }
+    .btn-danger:hover:not(:disabled) { background-color: rgba(220,38,38,.08); border-color: var(--danger); }
+    .btn-sm { min-height: 2rem; padding: 0.3125rem 0.625rem; font-size: 0.8125rem; }
+    .hub { display: grid; gap: 0.75rem; grid-template-columns: 1fr 1fr; margin-bottom: 1rem; }
+    .hub-btn { width: 100%; text-align: left; padding: 0.875rem 1rem; background-color: var(--bg); border: 1px solid var(--border); border-radius: 0.5rem; cursor: pointer; font-family: inherit; color: var(--fg); transition: 150ms; }
+    .hub-btn:hover { background-color: var(--muted); }
+    .hub-btn.active { background-color: var(--muted); border-color: var(--primary); }
+    .hub-btn strong { display: block; font-size: 0.9375rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .hub-btn span { display: block; font-size: 0.8125rem; color: var(--muted-fg); }
+    .section[data-panel] { display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
     .section[data-panel].active { display: block; }
-    .section h2 { margin: 0 0 10px; font-size: 1.05rem; }
-    form { display: grid; gap: 10px; }
-    label { display: grid; gap: 6px; font-size: 0.9rem; font-weight: 700; color: #3b424d; }
-    input, button { border-radius: 10px; padding: 10px 11px; font: 600 0.94rem/1.2 "Manrope",sans-serif; }
-    input { border: 1px solid #dbcab4; background: #fffefb; min-height: 44px; }
-    button { border: 0; background: #b2472a; color: #fff; font-weight: 700; cursor: pointer; min-height: 44px; }
-    .small-btn { background: #41566e; font-size: 0.84rem; padding: 8px 10px; }
-    .preview-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 180px)); gap: 10px; margin-top: 6px; }
-    .preview-box { border: 1px dashed #dbcab4; border-radius: 10px; background: #fffefb; padding: 8px; }
-    .preview-label { display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: #69717c; margin-bottom: 6px; letter-spacing: 0.05em; }
-    .preview-image { width: 100%; max-height: 320px; border-radius: 8px; object-fit: contain; background: #f4f0ea; border: 1px solid #e4d6c0; display: block; }
-    .crop-tools { display: none; gap: 8px; position: relative; z-index: 20; }
+    .back { font-size: 0.8125rem; font-weight: 500; color: var(--muted-fg); display: inline-flex; align-items: center; gap: 0.25rem; margin-bottom: 1rem; }
+    .back:hover { color: var(--fg); text-decoration: none; }
+    .notice, .msg { font-size: 0.875rem; font-weight: 500; margin-bottom: 0.75rem; }
+    .notice.ok, .msg.ok { color: var(--success); }
+    .notice.error, .msg.error { color: var(--danger); }
+    .gallery-help { font-size: 0.8125rem; color: var(--muted-fg); margin-bottom: 0.5rem; }
+    .gallery { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); margin-top: 0.75rem; }
+    .gallery-card { position: relative; border: 1px solid var(--border); border-radius: 0.5rem; overflow: hidden; background: var(--bg); min-height: 132px; }
+    .gallery-card img { width: 100%; aspect-ratio: 1/1; object-fit: cover; display: block; background: var(--muted); }
+    .gallery-card[draggable="true"] { cursor: grab; }
+    .gallery-card.dragging { opacity: 0.45; }
+    .gallery-card.drag-over { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(234,88,12,.2); }
+    .card-badge { position: absolute; left: 6px; bottom: 6px; background: rgba(0,0,0,.65); color: #fff; border-radius: 999px; padding: 2px 6px; font-size: 0.6875rem; font-weight: 600; }
+    .remove-form { position: absolute; top: 4px; right: 4px; margin: 0; }
+    .remove-btn { width: 22px; height: 22px; min-height: 22px; border-radius: 999px; border: 1px solid rgba(255,255,255,.7); background: rgba(0,0,0,.65); color: #fff; font-size: 0.875rem; padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; }
+    .preview-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 180px)); gap: 0.75rem; margin-top: 0.75rem; }
+    .preview-box { border: 1px dashed var(--border); border-radius: 0.5rem; background: var(--bg); padding: 0.5rem; }
+    .preview-label { display: block; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; color: var(--muted-fg); margin-bottom: 0.375rem; letter-spacing: 0.05em; }
+    .preview-image { width: 100%; max-height: 320px; border-radius: 0.375rem; object-fit: contain; background: var(--muted); border: 1px solid var(--border); display: block; }
+    .crop-tools { display: none; gap: 0.5rem; position: relative; z-index: 20; }
     .crop-tools.is-active { display: grid; }
     .crop-result-box { display: none; }
     .crop-result-box.is-active { display: block; }
     .crop-stage { position: relative; width: 100%; }
-    .crop-selection {
-      position: absolute;
-      border: 2px solid #fff;
-      box-shadow: 0 0 0 9999px rgba(0,0,0,.38);
-      border-radius: 8px;
-      cursor: move;
-      touch-action: none;
-      display: none;
-    }
+    .crop-selection { position: absolute; border: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(0,0,0,.4); border-radius: 0.375rem; cursor: move; touch-action: none; display: none; }
     .crop-selection.is-active { display: block; }
     .crop-selection.is-locked { box-shadow: none; cursor: default; }
     .crop-selection.is-locked .crop-handle { display: none; }
-    .crop-handle {
-      position: absolute;
-      width: 18px;
-      height: 18px;
-      right: -9px;
-      bottom: -9px;
-      border-radius: 999px;
-      border: 2px solid #fff;
-      background: #b2472a;
-      cursor: nwse-resize;
-      touch-action: none;
-    }
-    .gallery-help { margin: 0 0 8px; font-size: 0.82rem; color: #69717c; font-weight: 700; }
-    .gallery { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
-    .gallery-card {
-      position: relative;
-      border: 1px solid #efdfca;
-      border-radius: 12px;
-      overflow: hidden;
-      background: #fff;
-      min-height: 132px;
-    }
-    .gallery-card img {
-      width: 100%;
-      aspect-ratio: 1 / 1;
-      object-fit: cover;
-      display: block;
-      background: #f4f0ea;
-    }
-    .gallery-card[draggable="true"] { cursor: grab; }
-    .gallery-card.dragging { opacity: 0.45; }
-    .gallery-card.drag-over { border-color: #b2472a; box-shadow: 0 0 0 2px rgba(178, 71, 42, 0.16); }
-    .card-badge {
-      position: absolute;
-      left: 8px;
-      bottom: 8px;
-      background: rgba(20, 18, 15, 0.68);
-      color: #fff;
-      border-radius: 999px;
-      padding: 3px 7px;
-      font-size: 0.68rem;
-      font-weight: 700;
-      letter-spacing: 0.02em;
-    }
-    .remove-form {
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      margin: 0;
-    }
-    .remove-btn {
-      width: 22px;
-      height: 22px;
-      min-height: 22px;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.8);
-      background: rgba(23, 18, 14, 0.72);
-      color: #fff;
-      font: 800 0.8rem/1 "Space Grotesk", sans-serif;
-      padding: 0;
-      cursor: pointer;
-    }
-    @media (min-width: 760px) {
-      body { padding: 24px; }
-      .card { padding: 20px; }
-    }
+    .crop-handle { position: absolute; width: 18px; height: 18px; right: -9px; bottom: -9px; border-radius: 999px; border: 2px solid #fff; background: var(--primary); cursor: nwse-resize; touch-action: none; }
+    form { display: grid; gap: 0.75rem; }
   </style>
 </head>
-<body>
-  <section class="card">
-    <a class="back" href="/admin/locations/{{ .Location.Number }}/uniforms">Back to Uniforms</a>
-    <h1>{{ .UniformItem.Name }}</h1>
-    <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})</p>
-    {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
-    {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
+<body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
 
-    <section class="hub">
-      <button class="hub-btn" type="button" data-target="details-panel">
-        <strong>Item Details</strong>
-        <span>Update name, price, and size options.</span>
-      </button>
-      <button class="hub-btn" type="button" data-target="gallery-panel">
-        <strong>Gallery</strong>
-        <span>Add photos, reorder by drag/drop, remove with the corner ×.</span>
-      </button>
-    </section>
+  <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
+    <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
+      <a href="/admin" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
+      <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
+        <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/admin/locations/{{ .Location.Number }}/uniforms" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Uniforms</a>
+        <a href="/admin/locations/{{ .Location.Number }}/uniform-items/{{ .UniformItem.ID }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Item</a>
+      </nav>
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+          <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" class="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+          <span class="sr-only">Open menu</span>
+          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="nav-mobile" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 bg-white dark:bg-zinc-950 flex-col gap-1">
+      <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
+      <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+      <a href="/admin/locations/{{ .Location.Number }}/uniforms" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Uniforms</a>
+      <a href="/admin/locations/{{ .Location.Number }}/uniform-items/{{ .UniformItem.ID }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Item</a>
+    </div>
+  </header>
 
-    <section class="section" data-panel="details-panel">
-      <h2>Item Details</h2>
-      <form method="post" action="/admin/locations/{{ .Location.Number }}/uniform-items/{{ .UniformItem.ID }}/update">
-        <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-        <input type="hidden" name="next" value="/admin/locations/{{ .Location.Number }}/uniform-items/{{ .UniformItem.ID }}">
-        <label>Name<input type="text" name="name" value="{{ .UniformItem.Name }}" required></label>
-        <label>Price (USD)<input type="text" name="price" value="{{ printf "%.2f" .UniformItem.Price }}" required></label>
-        <label>Sizes (optional, comma-separated)<input type="text" name="sizes" value="{{ range $idx, $size := .UniformItem.Sizes }}{{ if $idx }},{{ end }}{{ $size }}{{ end }}" placeholder="XS,S,M,L"></label>
-        <button type="submit">Save Item</button>
-      </form>
-    </section>
+  <div class="pt-14 min-h-[calc(100vh-3.5rem)] px-4 py-8">
+    <div class="mx-auto max-w-[1000px]">
+      <div class="card">
+        <a class="back" href="/admin/locations/{{ .Location.Number }}/uniforms">&#8592; Back to Uniforms</a>
+        <h1 style="margin-bottom: 0.25rem;">{{ .UniformItem.Name }}</h1>
+        <p class="text-muted" style="margin-bottom: 1rem;">{{ .Location.Name }} ({{ .Location.Number }})</p>
+        {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
+        {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
 
-    <section class="section" data-panel="gallery-panel">
-      <h2>Add Gallery Images</h2>
-      <form method="post" enctype="multipart/form-data" action="/admin/locations/{{ .Location.Number }}/uniform-items/{{ .UniformItem.ID }}/images">
-        <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-        <input type="hidden" id="crop_x" name="crop_x" value="0">
-        <input type="hidden" id="crop_y" name="crop_y" value="0">
-        <input type="hidden" id="crop_size" name="crop_size" value="0">
-        <label>Upload Image<input id="photo_file" type="file" name="photo_file" accept="image/png,image/jpeg,image/webp" required></label>
-        <div class="preview-row">
-          <div class="preview-box">
-            <span class="preview-label">Selected Image</span>
-            <div class="crop-stage">
-              <img id="photo-preview" class="preview-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='100%25' height='100%25' fill='%23f4f0ea'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2369717c' font-size='12' font-family='sans-serif'%3ESelect Image%3C/text%3E%3C/svg%3E" alt="Selected image preview">
-              <div id="crop-selection" class="crop-selection">
-                <div id="crop-handle" class="crop-handle"></div>
+        <div class="hub">
+          <button class="hub-btn" type="button" data-target="details-panel">
+            <strong>Item Details</strong>
+            <span>Update name, price, and size options.</span>
+          </button>
+          <button class="hub-btn" type="button" data-target="gallery-panel">
+            <strong>Gallery</strong>
+            <span>Add photos, reorder by drag/drop, remove with the corner &times;.</span>
+          </button>
+        </div>
+
+        <section class="section" data-panel="details-panel">
+          <h2 style="margin-bottom: 1rem;">Item Details</h2>
+          <form method="post" action="/admin/locations/{{ .Location.Number }}/uniform-items/{{ .UniformItem.ID }}/update">
+            <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+            <input type="hidden" name="next" value="/admin/locations/{{ .Location.Number }}/uniform-items/{{ .UniformItem.ID }}">
+            <div>
+              <label for="item-name">Name</label>
+              <input id="item-name" type="text" name="name" value="{{ .UniformItem.Name }}" required>
+            </div>
+            <div>
+              <label for="item-price">Price (USD)</label>
+              <input id="item-price" type="text" name="price" value="{{ printf "%.2f" .UniformItem.Price }}" required>
+            </div>
+            <div>
+              <label for="item-sizes">Sizes (optional, comma-separated)</label>
+              <input id="item-sizes" type="text" name="sizes" value="{{ range $idx, $size := .UniformItem.Sizes }}{{ if $idx }},{{ end }}{{ $size }}{{ end }}" placeholder="XS,S,M,L">
+            </div>
+            <div>
+              <button type="submit" class="btn btn-primary">Save Item</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="section" data-panel="gallery-panel">
+          <h2 style="margin-bottom: 1rem;">Add Gallery Images</h2>
+          <form method="post" enctype="multipart/form-data" action="/admin/locations/{{ .Location.Number }}/uniform-items/{{ .UniformItem.ID }}/images">
+            <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+            <input type="hidden" id="crop_x" name="crop_x" value="0">
+            <input type="hidden" id="crop_y" name="crop_y" value="0">
+            <input type="hidden" id="crop_size" name="crop_size" value="0">
+            <div>
+              <label for="photo_file">Upload Image</label>
+              <input id="photo_file" type="file" name="photo_file" accept="image/png,image/jpeg,image/webp" required>
+            </div>
+            <div class="preview-row">
+              <div class="preview-box">
+                <span class="preview-label">Selected Image</span>
+                <div class="crop-stage">
+                  <img id="photo-preview" class="preview-image" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Crect width='100%25' height='100%25' fill='%23f4f4f5'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2371717a' font-size='12' font-family='sans-serif'%3ESelect Image%3C/text%3E%3C/svg%3E" alt="Selected image preview">
+                  <div id="crop-selection" class="crop-selection">
+                    <div id="crop-handle" class="crop-handle"></div>
+                  </div>
+                </div>
+              </div>
+              <div id="crop-result-box" class="preview-box crop-result-box">
+                <span class="preview-label">Cropped Result</span>
+                <canvas id="crop-result" class="preview-image" width="180" height="180"></canvas>
               </div>
             </div>
-          </div>
-          <div id="crop-result-box" class="preview-box crop-result-box">
-            <span class="preview-label">Cropped Result</span>
-            <canvas id="crop-result" class="preview-image" width="180" height="180"></canvas>
-          </div>
-        </div>
-        <div id="crop-tools" class="crop-tools">
-          <p class="sub" style="margin:0;">Drag the crop box. Use the bottom-right handle to resize.</p>
-          <button id="confirm-crop" type="button" class="small-btn">Confirm Crop</button>
-        </div>
-        <button id="add-image-btn" type="submit" disabled>Add Image</button>
-      </form>
-
-      <h2 style="margin-top:14px;">Current Gallery</h2>
-      <p class="gallery-help">Drag cards to reorder. Tap the corner <strong>×</strong> to remove an image.</p>
-      <div id="gallery" class="gallery" data-location-number="{{ .Location.Number }}" data-item-id="{{ .UniformItem.ID }}" data-csrf="{{ .CSRF }}">
-        {{ if .UniformItem.Images }}
-          {{ range .UniformItem.Images }}
-            <div class="gallery-card" {{ if gt .ID 0 }}draggable="true" data-image-id="{{ .ID }}"{{ end }}>
-              <img src="data:{{ .ImageMime }};base64,{{ .ImageData }}" alt="{{ $.UniformItem.Name }}">
-              {{ if gt .ID 0 }}
-                <span class="card-badge">Drag</span>
-                <form class="remove-form" method="post" action="/admin/locations/{{ $.Location.Number }}/uniform-items/{{ $.UniformItem.ID }}/images/{{ .ID }}/delete" onsubmit="return confirm('Remove this image?');">
-                  <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                  <button class="remove-btn" type="submit" aria-label="Remove image">&times;</button>
-                </form>
-              {{ end }}
+            <div id="crop-tools" class="crop-tools">
+              <p class="text-muted" style="margin:0;">Drag the crop box. Use the bottom-right handle to resize.</p>
+              <button id="confirm-crop" type="button" class="btn btn-secondary btn-sm">Confirm Crop</button>
             </div>
-          {{ end }}
-        {{ else }}
-          <p>No gallery images found.</p>
-        {{ end }}
+            <div>
+              <button id="add-image-btn" type="submit" class="btn btn-primary" disabled>Add Image</button>
+            </div>
+          </form>
+
+          <h2 style="margin-top: 1.25rem; margin-bottom: 0.5rem;">Current Gallery</h2>
+          <p class="gallery-help">Drag cards to reorder. Tap the corner <strong>&times;</strong> to remove an image.</p>
+          <div id="gallery" class="gallery" data-location-number="{{ .Location.Number }}" data-item-id="{{ .UniformItem.ID }}" data-csrf="{{ .CSRF }}">
+            {{ if .UniformItem.Images }}
+              {{ range .UniformItem.Images }}
+                <div class="gallery-card" {{ if gt .ID 0 }}draggable="true" data-image-id="{{ .ID }}"{{ end }}>
+                  <img src="data:{{ .ImageMime }};base64,{{ .ImageData }}" alt="{{ $.UniformItem.Name }}">
+                  {{ if gt .ID 0 }}
+                    <span class="card-badge">Drag</span>
+                    <form class="remove-form" method="post" action="/admin/locations/{{ $.Location.Number }}/uniform-items/{{ $.UniformItem.ID }}/images/{{ .ID }}/delete" onsubmit="return confirm('Remove this image?');">
+                      <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                      <button class="remove-btn" type="submit" aria-label="Remove image">&times;</button>
+                    </form>
+                  {{ end }}
+                </div>
+              {{ end }}
+            {{ else }}
+              <p class="text-muted">No gallery images found.</p>
+            {{ end }}
+          </div>
+        </section>
       </div>
-    </section>
-  </section>
+    </div>
+  </div>
+
   <script>
     const photoFile = document.getElementById("photo_file");
     const preview = document.getElementById("photo-preview");
@@ -450,5 +464,30 @@
     }
     setCropModeActive(false);
   </script>
+
+  <script>
+    (function () {
+      var storageKey = "cfasuite-theme";
+      var root = document.documentElement;
+      var toggle = document.getElementById("theme-toggle");
+      var navToggle = document.getElementById("nav-toggle");
+      var navMobile = document.getElementById("nav-mobile");
+      if (toggle) {
+        toggle.addEventListener("click", function () {
+          var isDark = root.classList.toggle("dark");
+          localStorage.setItem(storageKey, isDark ? "dark" : "light");
+        });
+      }
+      if (navToggle && navMobile) {
+        navToggle.addEventListener("click", function () {
+          var expanded = navToggle.getAttribute("aria-expanded") === "true";
+          navToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+          navMobile.classList.toggle("hidden", expanded);
+          if (!expanded) { navMobile.style.display = "flex"; } else { navMobile.style.removeProperty("display"); }
+        });
+      }
+    })();
+  </script>
+
 </body>
 </html>

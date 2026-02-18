@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ .CSRF }}">
+  <title>Candidates</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script>
+    (function () {
+      var stored = localStorage.getItem("cfasuite-theme");
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    })();
+  </script>
+  <style>
+    :root {
+      --bg: #ffffff; --fg: #09090b; --card: #ffffff;
+      --muted: #f4f4f5; --muted-fg: #71717a; --border: #e4e4e7;
+      --primary: #ea580c; --primary-fg: #ffffff;
+      --danger: #dc2626; --success: #16a34a;
+      --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    }
+    html.dark {
+      --bg: #09090b; --fg: #fafafa; --card: #09090b;
+      --muted: #27272a; --muted-fg: #a1a1aa; --border: #3f3f46;
+      --primary: #fb923c; --primary-fg: #431407;
+      --danger: #f87171; --success: #4ade80;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; background-color: var(--bg); color: var(--fg); font-family: "Manrope", ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    h1, h2, h3 { margin: 0; font-family: "Space Grotesk", "Manrope", sans-serif; font-weight: 700; line-height: 1.25; }
+    h1 { font-size: clamp(1.375rem, 3vw, 1.875rem); }
+    h2 { font-size: 1.125rem; }
+    p { margin: 0; }
+    .text-muted { color: var(--muted-fg); font-size: 0.875rem; }
+    .card, .panel { background-color: var(--card); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.25rem; box-shadow: var(--shadow); }
+    .stack { display: grid; gap: 1rem; }
+    .grid-2 { display: grid; gap: 0.75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { display: grid; gap: 0.75rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    @media (max-width: 900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+    input, select, textarea { display: block; width: 100%; min-height: 2.375rem; padding: 0.5rem 0.75rem; font: 0.875rem/1.5 inherit; color: var(--fg); background-color: var(--bg); border: 1px solid var(--border); border-radius: 0.5rem; }
+    textarea { min-height: 5.5rem; resize: vertical; }
+    label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.375rem; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 2.375rem; padding: 0.5rem 0.875rem; font: 600 0.875rem/1.25 inherit; border-radius: 0.5rem; border: 1px solid transparent; cursor: pointer; }
+    .btn-primary { background-color: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+    .btn-outline { background-color: transparent; color: var(--fg); border-color: var(--border); }
+    .btn-danger { background-color: transparent; color: var(--danger); border-color: var(--danger); }
+    .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    .pill { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 999px; padding: 0.125rem 0.625rem; font-size: 0.75rem; color: var(--muted-fg); }
+    .alert { border-radius: 0.5rem; padding: 0.625rem 0.75rem; font-size: 0.875rem; border: 1px solid var(--border); }
+    .alert-success { border-color: color-mix(in srgb, var(--success) 35%, var(--border)); color: var(--success); }
+    .alert-error { border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); color: var(--danger); }
+    .back { font-size: 0.8125rem; font-weight: 500; color: var(--muted-fg); display: inline-flex; align-items: center; margin-bottom: 1rem; text-decoration: none; }
+    .candidate-card { border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; background: color-mix(in srgb, var(--card) 94%, var(--muted)); }
+    .value-item { border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.75rem; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 0.625rem; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+    th { color: var(--muted-fg); font-weight: 600; }
+
+    .hub { display: grid; gap: 0.75rem; grid-template-columns: 1fr; margin-top: 0.75rem; }
+    @media (min-width: 640px) { .hub { grid-template-columns: repeat(4, 1fr); } }
+    .hub-btn { width: 100%; text-align: left; padding: 0.875rem 1rem; background-color: var(--bg); border: 1px solid var(--border); border-radius: 0.5rem; cursor: pointer; font-family: inherit; color: var(--fg); transition: 150ms; }
+    .hub-btn:hover { background-color: var(--muted); }
+    .hub-btn.active { background-color: var(--muted); border-color: var(--primary); }
+    .hub-btn strong { display: block; font-size: 0.9375rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .hub-btn span { display: block; font-size: 0.8125rem; color: var(--muted-fg); }
+    .section { display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    .section.active { display: block; }
+    .link-box { border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.75rem; background: color-mix(in srgb, var(--card) 96%, var(--muted)); }
+    .copy-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    .copy-row input { flex: 1; min-width: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
+  </style>
+</head>
+<body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
+  <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
+    <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
+      <a href="/admin" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
+      <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
+        <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/admin/locations/{{ .Location.Number }}/candidates" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Candidates</a>
+      </nav>
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+          <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="pt-14 min-h-[calc(100vh-3.5rem)] px-4 py-8">
+    <div class="mx-auto max-w-[1100px] stack">
+      <div class="card stack">
+        <a class="back" href="/admin/locations/{{ .Location.Number }}">&#8592; Back to Apps</a>
+        <div>
+          <h1>Candidates</h1>
+          <p class="text-muted" style="margin-top:0.25rem;">{{ .Location.Name }} ({{ .Location.Number }})</p>
+        </div>
+        {{ if .SuccessMessage }}<div class="alert alert-success">{{ .SuccessMessage }}</div>{{ end }}
+        {{ if .Error }}<div class="alert alert-error">{{ .Error }}</div>{{ end }}
+
+        <div class="hub">
+          <button class="hub-btn" type="button" data-target="new-candidate">
+            <strong>New Candidate</strong>
+            <span>Create candidate profiles quickly.</span>
+          </button>
+          <button class="hub-btn" type="button" data-target="values">
+            <strong>Interview Values</strong>
+            <span>Manage location-specific grading values.</span>
+          </button>
+          <button class="hub-btn" type="button" data-target="interviews">
+            <strong>Interviews</strong>
+            <span>Run interviews, then hire or pass.</span>
+          </button>
+          <button class="hub-btn" type="button" data-target="archive">
+            <strong>Archive</strong>
+            <span>Search passed and hired candidates.</span>
+          </button>
+        </div>
+
+        <section class="section" data-panel="new-candidate">
+          <div class="panel stack">
+            <div>
+              <h2>New Candidate</h2>
+              <p class="text-muted" style="margin-top:0.25rem;">Create with first and last name only.</p>
+            </div>
+            <form method="post" action="/admin/locations/{{ .Location.Number }}/candidates" class="stack">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+              <div class="grid-2">
+                <div>
+                  <label for="first_name">First Name</label>
+                  <input id="first_name" name="first_name" type="text" maxlength="80" required>
+                </div>
+                <div>
+                  <label for="last_name">Last Name</label>
+                  <input id="last_name" name="last_name" type="text" maxlength="80" required>
+                </div>
+              </div>
+              <div><button class="btn btn-primary" type="submit">Create Candidate</button></div>
+            </form>
+          </div>
+        </section>
+
+        <section class="section" data-panel="values">
+          <div class="panel stack">
+            <div>
+              <h2>Interview Values</h2>
+              <p class="text-muted" style="margin-top:0.25rem;">Per-location grading values for all interviews.</p>
+            </div>
+            <form method="post" action="/admin/locations/{{ .Location.Number }}/candidate-values" class="stack">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+              <div>
+                <label for="value_name">Value Name</label>
+                <input id="value_name" name="name" type="text" maxlength="80" required>
+              </div>
+              <div>
+                <label for="value_description">Description</label>
+                <textarea id="value_description" name="description" maxlength="400" placeholder="What does this value mean for this location?"></textarea>
+              </div>
+              <div><button class="btn btn-primary" type="submit">Add Value</button></div>
+            </form>
+            <div class="stack">
+              {{ if .CandidateValues }}
+                {{ range .CandidateValues }}
+                  <div class="value-item stack">
+                    <div class="row" style="justify-content:space-between;">
+                      <strong>{{ .Name }}</strong>
+                      <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidate-values/{{ .ID }}/delete">
+                        <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                        <button class="btn btn-danger" type="submit">Delete</button>
+                      </form>
+                    </div>
+                    {{ if .Description }}<p class="text-muted">{{ .Description }}</p>{{ end }}
+                  </div>
+                {{ end }}
+              {{ else }}
+                <p class="text-muted">No values yet. Add at least one value before interviews.</p>
+              {{ end }}
+            </div>
+
+            <div style="height:1px;background:var(--border);margin:.5rem 0;"></div>
+            <div>
+              <h2 style="font-size:1rem;">Interview Names</h2>
+              <p class="text-muted" style="margin-top:.25rem;">These names appear in interview dropdowns for this location.</p>
+            </div>
+            <form method="post" action="/admin/locations/{{ .Location.Number }}/candidate-interview-names" class="row">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+              <input type="text" name="name" maxlength="80" placeholder="Example: Onboarding Interview" required style="max-width:320px;">
+              <button class="btn btn-primary" type="submit">Add Name</button>
+            </form>
+            <div class="stack">
+              {{ if .InterviewNames }}
+                {{ range .InterviewNames }}
+                  <div class="value-item row" style="justify-content:space-between;">
+                    <strong>{{ .Name }}</strong>
+                    <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidate-interview-names/{{ .ID }}/delete">
+                      <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                      <button class="btn btn-danger" type="submit">Delete</button>
+                    </form>
+                  </div>
+                {{ end }}
+              {{ else }}
+                <p class="text-muted">No interview names configured yet.</p>
+              {{ end }}
+            </div>
+          </div>
+        </section>
+
+        <section class="section" data-panel="interviews">
+          <div class="stack">
+            <div>
+              <h2>Active Candidates</h2>
+              <p class="text-muted" style="margin-top:0.25rem;">Search candidates and open a dedicated candidate page for interviewing details.</p>
+            </div>
+            <div>
+              <input id="active-candidate-search" type="text" placeholder="Search active candidates by name">
+            </div>
+            {{ if .Candidates }}
+              <div class="stack" id="active-candidate-list">
+                {{ range .Candidates }}
+                  <article class="candidate-card stack active-candidate-row" data-search-name="{{ .FirstName }} {{ .LastName }}">
+                    <div class="row" style="justify-content:space-between;">
+                      <div>
+                        <h3>{{ .FirstName }} {{ .LastName }}</h3>
+                        <p class="text-muted" style="margin-top:0.25rem;">Created {{ .CreatedAt }}</p>
+                      </div>
+                      <div class="row">
+                        <a class="btn btn-primary" href="/admin/locations/{{ $.Location.Number }}/candidates/{{ .ID }}">Open Candidate</a>
+                        <a class="btn btn-outline" href="/admin/locations/{{ $.Location.Number }}/candidates/{{ .ID }}/scorecard">Scorecard</a>
+                        <span class="pill">{{ .Status }}</span>
+                      </div>
+                    </div>
+                  </article>
+                {{ end }}
+              </div>
+            {{ else }}
+              <p class="text-muted">No active candidates.</p>
+            {{ end }}
+          </div>
+        </section>
+
+        <section class="section" data-panel="archive">
+          <div class="stack">
+            <div>
+              <h2>Archive</h2>
+              <p class="text-muted" style="margin-top:0.25rem;">Search passed or hired candidates.</p>
+            </div>
+            <form method="get" action="/admin/locations/{{ .Location.Number }}/candidates" class="row">
+              <input type="text" name="archive_search" value="{{ .Search }}" placeholder="Search by first or last name" style="max-width:320px;">
+              <button class="btn btn-outline" type="submit">Search</button>
+            </form>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Hired Employee</th>
+                    <th>Archived At</th>
+                    <th>Scorecard</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {{ if .ArchivedCandidates }}
+                    {{ range .ArchivedCandidates }}
+                      <tr>
+                        <td>{{ .FirstName }} {{ .LastName }}</td>
+                        <td>{{ .Status }}</td>
+                        <td>{{ if .HiredTimePunchName }}<a href="/admin/locations/{{ $.Location.Number }}/employees/{{ .HiredTimePunchName }}">{{ .HiredTimePunchName }}</a>{{ else }}-{{ end }}</td>
+                        <td>{{ if .ArchivedAt }}{{ .ArchivedAt }}{{ else }}-{{ end }}</td>
+                        <td><a class="btn btn-outline" href="/admin/locations/{{ $.Location.Number }}/candidates/{{ .ID }}/scorecard">View</a></td>
+                      </tr>
+                    {{ end }}
+                  {{ else }}
+                    <tr>
+                      <td colspan="5" class="text-muted">No archived candidates.</td>
+                    </tr>
+                  {{ end }}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var storageKey = "cfasuite-theme";
+      var root = document.documentElement;
+      var toggle = document.getElementById("theme-toggle");
+      if (toggle) {
+        toggle.addEventListener("click", function () {
+          var isDark = root.classList.toggle("dark");
+          localStorage.setItem(storageKey, isDark ? "dark" : "light");
+        });
+      }
+
+      var hubButtons = Array.from(document.querySelectorAll(".hub-btn"));
+      var panels = Array.from(document.querySelectorAll(".section[data-panel]"));
+
+      function showPanel(name) {
+        hubButtons.forEach(function (btn) {
+          btn.classList.toggle("active", btn.getAttribute("data-target") === name);
+        });
+        panels.forEach(function (panel) {
+          panel.classList.toggle("active", panel.getAttribute("data-panel") === name);
+        });
+        if (window.location.hash !== "#" + name) {
+          window.history.replaceState(null, "", "#" + name);
+        }
+      }
+
+      hubButtons.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          showPanel(btn.getAttribute("data-target"));
+        });
+      });
+
+      var initial = window.location.hash ? window.location.hash.slice(1) : "interviews";
+      var exists = panels.some(function (panel) { return panel.getAttribute("data-panel") === initial; });
+      showPanel(exists ? initial : "interviews");
+      var activeSearchInput = document.getElementById("active-candidate-search");
+      var activeRows = Array.from(document.querySelectorAll(".active-candidate-row"));
+      if (activeSearchInput && activeRows.length > 0) {
+        activeSearchInput.addEventListener("input", function () {
+          var query = (activeSearchInput.value || "").toLowerCase().trim();
+          activeRows.forEach(function (row) {
+            var name = (row.getAttribute("data-search-name") || "").toLowerCase();
+            row.style.display = !query || name.indexOf(query) >= 0 ? "" : "none";
+          });
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/assets/app.css">
   <title>Time Off Request</title>
   <style>
     :root {
@@ -78,9 +79,77 @@
       body { padding: 22px; }
       .card { padding: 20px; }
     }
+</style>
+  <script>
+    (function () {
+      const stored = localStorage.getItem("cfasuite-theme");
+      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    })();
+  </script>
+
+  <style>
+    :root {
+      --bg: #ffffff;
+      --surface: #ffffff;
+      --paper: #ffffff;
+      --ink: #0f172a;
+      --muted: #52525b;
+      --line: #e4e4e7;
+      --brand: #ea580c;
+      --brand-dark: #c2410c;
+      --accent: #ea580c;
+      --shadow: 0 16px 34px rgba(15, 23, 42, 0.10);
+    }
+
+    html.dark {
+      --bg: #000000;
+      --surface: #09090b;
+      --paper: #09090b;
+      --ink: #f4f4f5;
+      --muted: #a1a1aa;
+      --line: #27272a;
+      --brand: #fb923c;
+      --brand-dark: #fdba74;
+      --accent: #fb923c;
+      --shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
+    }
+
+    html.dark input,
+    html.dark select,
+    html.dark textarea,
+    html.dark table,
+    html.dark .card,
+    html.dark .panel {
+      background-color: #09090b !important;
+      color: var(--ink) !important;
+      border-color: var(--line) !important;
+    }
   </style>
+
 </head>
-<body>
+<body class="min-h-screen pt-20 bg-white text-zinc-900 dark:bg-black dark:text-zinc-100 transition-colors duration-200">
+  <button id="theme-toggle" type="button" class="fixed top-3 right-3 z-[1200] rounded-full border border-zinc-300/80 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.08em] text-zinc-700 dark:text-zinc-200 shadow-sm backdrop-blur">Dark</button>
+  <nav id="app-nav" class="fixed top-3 left-3 right-20 z-[1100]">
+    <div class="mx-auto max-w-6xl rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur px-3 py-2">
+      <div class="flex items-center justify-between gap-3">
+        <div class="text-sm font-extrabold tracking-[0.06em] uppercase text-zinc-800 dark:text-zinc-100">CFA Suite</div>
+        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" class="md:hidden inline-flex items-center justify-center rounded-md border border-zinc-300 dark:border-zinc-700 p-2 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+          <span class="sr-only">Toggle navigation</span>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
+            <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
+      </div>
+      <div id="nav-links" class="mt-2 hidden flex-col gap-1 text-xs font-semibold md:mt-2 md:flex md:flex-row md:flex-wrap md:items-center md:gap-2">
+        <a href="/time-off/{{ .Token }}" class="block px-2.5 py-1 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black">Time Off Form</a>
+      
+      </div>
+    </div>
+  </nav>
+
+
   <section class="card">
     <h1>Time Off Request</h1>
     <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})</p>
@@ -190,5 +259,47 @@
       sync();
     })();
   </script>
+    <script>
+    (function () {
+      const storageKey = "cfasuite-theme";
+      const root = document.documentElement;
+      const toggle = document.getElementById("theme-toggle");
+      const navToggle = document.getElementById("nav-toggle");
+      const navLinks = document.getElementById("nav-links");
+
+      function currentTheme() {
+        return root.classList.contains("dark") ? "dark" : "light";
+      }
+
+      function updateLabel() {
+        if (!toggle) return;
+        const next = currentTheme() === "dark" ? "light" : "dark";
+        toggle.textContent = next === "dark" ? "Dark" : "Light";
+        toggle.setAttribute("aria-label", "Switch to " + next + " mode");
+        toggle.title = "Switch to " + next + " mode";
+      }
+
+      updateLabel();
+
+      if (toggle) {
+        toggle.addEventListener("click", function () {
+          const next = currentTheme() === "dark" ? "light" : "dark";
+          root.classList.toggle("dark", next === "dark");
+          window.localStorage.setItem(storageKey, next);
+          updateLabel();
+        });
+      }
+
+      if (navToggle && navLinks) {
+        navToggle.addEventListener("click", function () {
+          const expanded = navToggle.getAttribute("aria-expanded") === "true";
+          navToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+          navLinks.classList.toggle("hidden", expanded);
+        });
+      }
+    })();
+  </script>
+
+
 </body>
 </html>

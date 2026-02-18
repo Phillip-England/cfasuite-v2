@@ -13,6 +13,7 @@ import (
 	"image/png"
 	"io"
 	"log"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -65,13 +66,15 @@ type loginRequest struct {
 }
 
 type createLocationRequest struct {
-	Name            string `json:"name"`
-	Number          string `json:"number"`
-	BusinessName    string `json:"businessName"`
-	BusinessStreet  string `json:"businessStreet"`
-	BusinessCity    string `json:"businessCity"`
-	BusinessState   string `json:"businessState"`
-	BusinessAddress string `json:"businessAddress"`
+	Name                 string `json:"name"`
+	Number               string `json:"number"`
+	EmployerRepSignature string `json:"employerRepSignature"`
+	BusinessName         string `json:"businessName"`
+	BusinessStreet       string `json:"businessStreet"`
+	BusinessCity         string `json:"businessCity"`
+	BusinessState        string `json:"businessState"`
+	BusinessEIN          string `json:"businessEin"`
+	BusinessAddress      string `json:"businessAddress"`
 }
 
 type updateLocationRequest struct {
@@ -117,6 +120,42 @@ type updateUniformItemRequest struct {
 	Name  string `json:"name"`
 	Price string `json:"price"`
 	Sizes string `json:"sizes"`
+}
+
+type createCandidateRequest struct {
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+}
+
+type createCandidateValueRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type updateCandidateValueRequest struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type createCandidateInterviewNameRequest struct {
+	Name string `json:"name"`
+}
+
+type createCandidateInterviewRequest struct {
+	InterviewerTimePunchName string            `json:"interviewerTimePunchName"`
+	InterviewType            string            `json:"interviewType"`
+	Grades                   map[string]string `json:"grades"`
+	GradeComments            map[string]string `json:"gradeComments"`
+	Notes                    string            `json:"notes"`
+}
+
+type updateCandidateDecisionRequest struct {
+	Decision string `json:"decision"`
+}
+
+type createCandidateInterviewLinkRequest struct {
+	InterviewerTimePunchName string `json:"interviewerTimePunchName"`
+	InterviewType            string `json:"interviewType"`
 }
 
 type createUniformOrderRequest struct {
@@ -191,6 +230,10 @@ type employeeI9Document struct {
 	LocationNumber string    `json:"locationNumber"`
 	TimePunchName  string    `json:"timePunchName"`
 	ListType       string    `json:"listType,omitempty"`
+	DocumentTitle  string    `json:"documentTitle,omitempty"`
+	IssuingAuth    string    `json:"issuingAuthority,omitempty"`
+	DocumentNumber string    `json:"documentNumber,omitempty"`
+	ExpirationDate string    `json:"expirationDate,omitempty"`
 	FileName       string    `json:"fileName"`
 	FileMime       string    `json:"fileMime"`
 	CreatedAt      time.Time `json:"createdAt"`
@@ -247,6 +290,16 @@ type employeePaperworkToken struct {
 	ExpiresAt     time.Time
 }
 
+type candidateInterviewToken struct {
+	Token                    string
+	LocationNumber           string
+	CandidateID              int64
+	InterviewerTimePunchName string
+	InterviewType            string
+	ExpiresAt                time.Time
+	UsedAt                   *time.Time
+}
+
 type locationTimePunchToken struct {
 	Token          string
 	LocationNumber string
@@ -300,11 +353,13 @@ type locationSettings struct {
 	BusinessStreet       string   `json:"businessStreet"`
 	BusinessCity         string   `json:"businessCity"`
 	BusinessState        string   `json:"businessState"`
+	BusinessEIN          string   `json:"businessEin"`
 	BusinessAddress      string   `json:"businessAddress"`
 	W4EmployerName       string   `json:"w4EmployerName"`
 	W4EmployerStreet     string   `json:"w4EmployerStreet"`
 	W4EmployerCity       string   `json:"w4EmployerCity"`
 	W4EmployerState      string   `json:"w4EmployerState"`
+	W4EmployerEIN        string   `json:"w4EmployerEin"`
 	W4EmployerAddress    string   `json:"w4EmployerAddress"`
 	Departments          []string `json:"departments"`
 }
@@ -367,6 +422,58 @@ type uniformOrderLineInput struct {
 	UnitPriceCents int64
 }
 
+type candidate struct {
+	ID                  int64                `json:"id"`
+	LocationNumber      string               `json:"locationNumber"`
+	FirstName           string               `json:"firstName"`
+	LastName            string               `json:"lastName"`
+	Status              string               `json:"status"`
+	HiredTimePunchName  string               `json:"hiredTimePunchName"`
+	CreatedAt           time.Time            `json:"createdAt"`
+	UpdatedAt           time.Time            `json:"updatedAt"`
+	ArchivedAt          time.Time            `json:"archivedAt,omitempty"`
+	Interviews          []candidateInterview `json:"interviews,omitempty"`
+	AverageGradePercent float64              `json:"averageGradePercent,omitempty"`
+}
+
+type candidateValue struct {
+	ID             int64     `json:"id"`
+	LocationNumber string    `json:"locationNumber"`
+	Name           string    `json:"name"`
+	Description    string    `json:"description"`
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+}
+
+type candidateInterviewName struct {
+	ID             int64     `json:"id"`
+	LocationNumber string    `json:"locationNumber"`
+	Name           string    `json:"name"`
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+}
+
+type candidateInterview struct {
+	ID                       int64                     `json:"id"`
+	CandidateID              int64                     `json:"candidateId"`
+	LocationNumber           string                    `json:"locationNumber"`
+	InterviewerTimePunchName string                    `json:"interviewerTimePunchName"`
+	InterviewType            string                    `json:"interviewType"`
+	Notes                    string                    `json:"notes"`
+	CreatedAt                time.Time                 `json:"createdAt"`
+	Grades                   []candidateInterviewGrade `json:"grades"`
+}
+
+type candidateInterviewGrade struct {
+	ID          int64   `json:"id"`
+	InterviewID int64   `json:"interviewId"`
+	ValueID     int64   `json:"valueId"`
+	ValueName   string  `json:"valueName"`
+	LetterGrade string  `json:"letterGrade"`
+	Comment     string  `json:"comment"`
+	Score       float64 `json:"score"`
+}
+
 type server struct {
 	store      *sqliteStore
 	sessionTTL time.Duration
@@ -411,6 +518,7 @@ func Run(ctx context.Context, cfg Config) error {
 	mux.Handle("/api/admin/locations/", middleware.Chain(http.HandlerFunc(s.locationByNumberHandler), s.requireAdmin, s.csrfProtect))
 	mux.Handle("/api/public/employee-photo-upload/", http.HandlerFunc(s.publicEmployeePhotoUploadHandler))
 	mux.Handle("/api/public/employee-paperwork/", http.HandlerFunc(s.publicEmployeePaperworkHandler))
+	mux.Handle("/api/public/interview/", http.HandlerFunc(s.publicCandidateInterviewHandler))
 	mux.Handle("/api/public/time-punch/", http.HandlerFunc(s.publicTimePunchHandler))
 	mux.Handle("/api/public/time-off/", http.HandlerFunc(s.publicTimeOffHandler))
 	mux.Handle("/api/public/uniform-order/", http.HandlerFunc(s.publicUniformOrderHandler))
@@ -627,6 +735,141 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
+	}
+
+	if len(parts) == 2 && parts[1] == "candidate-values" {
+		switch r.Method {
+		case http.MethodGet:
+			s.listLocationCandidateValues(w, r, locationNumber)
+			return
+		case http.MethodPost:
+			s.createLocationCandidateValue(w, r, locationNumber)
+			return
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+	}
+
+	if len(parts) == 2 && parts[1] == "candidate-interview-names" {
+		switch r.Method {
+		case http.MethodGet:
+			s.listLocationCandidateInterviewNames(w, r, locationNumber)
+			return
+		case http.MethodPost:
+			s.createLocationCandidateInterviewName(w, r, locationNumber)
+			return
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+	}
+
+	if len(parts) == 3 && parts[1] == "candidate-interview-names" {
+		nameID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+		if err != nil || nameID <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid interview name id")
+			return
+		}
+		if r.Method != http.MethodDelete {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		s.deleteLocationCandidateInterviewName(w, r, locationNumber, nameID)
+		return
+	}
+
+	if len(parts) == 3 && parts[1] == "candidate-values" {
+		valueID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+		if err != nil || valueID <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid candidate value id")
+			return
+		}
+		switch r.Method {
+		case http.MethodPut:
+			s.updateLocationCandidateValue(w, r, locationNumber, valueID)
+			return
+		case http.MethodDelete:
+			s.deleteLocationCandidateValue(w, r, locationNumber, valueID)
+			return
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+	}
+
+	if len(parts) == 2 && parts[1] == "candidates" {
+		switch r.Method {
+		case http.MethodGet:
+			s.listLocationCandidates(w, r, locationNumber)
+			return
+		case http.MethodPost:
+			s.createLocationCandidate(w, r, locationNumber)
+			return
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+	}
+
+	if len(parts) == 3 && parts[1] == "candidates" {
+		candidateID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+		if err != nil || candidateID <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid candidate id")
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			s.getLocationCandidate(w, r, locationNumber, candidateID)
+			return
+		case http.MethodPut:
+			s.updateLocationCandidateDecision(w, r, locationNumber, candidateID)
+			return
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+	}
+
+	if len(parts) == 4 && parts[1] == "candidates" && parts[3] == "scorecard" {
+		candidateID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+		if err != nil || candidateID <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid candidate id")
+			return
+		}
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		s.getLocationCandidateScorecard(w, r, locationNumber, candidateID)
+		return
+	}
+
+	if len(parts) == 4 && parts[1] == "candidates" && parts[3] == "interviews" {
+		if candidateID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64); err != nil || candidateID <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid candidate id")
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		writeError(w, http.StatusForbidden, "admin interview submission is disabled; use a generated interview link")
+		return
+	}
+
+	if len(parts) == 4 && parts[1] == "candidates" && parts[3] == "interview-link" {
+		candidateID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+		if err != nil || candidateID <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid candidate id")
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		s.createLocationCandidateInterviewLink(w, r, locationNumber, candidateID)
+		return
 	}
 
 	if len(parts) == 2 && parts[1] == "employees" {
@@ -945,6 +1188,20 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		s.updateEmployeeDepartment(w, r, locationNumber, timePunchName)
+		return
+	}
+
+	if len(parts) == 4 && parts[1] == "employees" && parts[3] == "scorecards" {
+		timePunchName, err := url.PathUnescape(parts[2])
+		if err != nil || strings.TrimSpace(timePunchName) == "" {
+			http.NotFound(w, r)
+			return
+		}
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		s.listEmployeeCandidateScorecards(w, r, locationNumber, timePunchName)
 		return
 	}
 
@@ -1347,6 +1604,20 @@ func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.R
 			writeError(w, http.StatusBadRequest, "invalid paperwork target")
 			return
 		}
+		applyI9SignatureNameFallback(r.PostForm)
+		if normalizedState := normalizeUSStateCode(r.PostForm.Get("state")); normalizedState != "" {
+			r.PostForm.Set("state", normalizedState)
+		}
+		drawnSignature := strings.TrimSpace(r.PostForm.Get("employee_signature_drawn"))
+		if drawnSignature == "" {
+			writeError(w, http.StatusBadRequest, "drawn signature is required")
+			return
+		}
+		signatureImageData, _, err := parseDataURLBinary(drawnSignature, []string{"image/png", "image/jpeg", "image/webp"}, 2<<20)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "drawn signature is required")
+			return
+		}
 		savedAny := false
 		if saveI9 {
 			if !isMultipart {
@@ -1362,10 +1633,15 @@ func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.R
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			applyI9SignatureNameFallback(r.PostForm)
+			applyI9DocumentValuesToForm(r.PostForm, i9Uploads)
 			i9Data, i9Err := generateFilledI9PDF(r.PostForm)
 			if i9Err != nil {
 				writeError(w, http.StatusBadRequest, i9Err.Error())
+				return
+			}
+			i9Data, err = stampDrawnSignatureOnPDF(i9Data, signatureImageData, i9EmployeeSignaturePlacement)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
 			if err := withSQLiteRetry(func() error {
@@ -1388,6 +1664,10 @@ func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.R
 						locationNumber,
 						timePunchName,
 						current.ListType,
+						current.DocumentTitle,
+						current.IssuingAuthority,
+						current.DocumentNumber,
+						current.ExpirationDate,
 						current.Data,
 						current.Mime,
 						current.FileName,
@@ -1398,27 +1678,16 @@ func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.R
 				}
 			}
 			savedAny = true
-			drawnSignature := strings.TrimSpace(r.PostForm.Get("employee_signature_drawn"))
-			if drawnSignature != "" {
-				imageData, imageMime, err := parseDataURLBinary(drawnSignature, []string{"image/png", "image/jpeg", "image/webp"}, 2<<20)
-				if err == nil {
-					fileExt := ".png"
-					if imageMime == "image/jpeg" {
-						fileExt = ".jpg"
-					} else if imageMime == "image/webp" {
-						fileExt = ".webp"
-					}
-					signatureName := "i9-signature-" + time.Now().UTC().Format("20060102-150405") + fileExt
-					_ = withSQLiteRetry(func() error {
-						return s.store.addEmployeeI9Document(r.Context(), locationNumber, timePunchName, "signature", imageData, imageMime, signatureName)
-					})
-				}
-			}
 		}
 		if saveW4 {
 			w4Data, w4Err := generateFilledW4PDF(r.PostForm)
 			if w4Err != nil {
 				writeError(w, http.StatusBadRequest, w4Err.Error())
+				return
+			}
+			w4Data, err = stampDrawnSignatureOnPDF(w4Data, signatureImageData, w4EmployeeSignaturePlacement)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
 			if err := withSQLiteRetry(func() error {
@@ -1455,6 +1724,123 @@ func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.R
 	}
 }
 
+func (s *server) publicCandidateInterviewHandler(w http.ResponseWriter, r *http.Request) {
+	trimmed := strings.TrimPrefix(r.URL.Path, "/api/public/interview/")
+	trimmed = strings.Trim(trimmed, "/")
+	if trimmed == "" {
+		http.NotFound(w, r)
+		return
+	}
+	token := strings.TrimSpace(trimmed)
+	record, err := s.store.getCandidateInterviewToken(r.Context(), token)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "invalid or expired interview link")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to validate interview link")
+		return
+	}
+	candidateRecord, err := s.store.getCandidateByID(r.Context(), record.LocationNumber, record.CandidateID)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "candidate not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load candidate")
+		return
+	}
+	if candidateRecord.Status != "active" {
+		writeError(w, http.StatusGone, "candidate is no longer available for interview")
+		return
+	}
+	values, err := s.store.listCandidateValues(r.Context(), record.LocationNumber)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load candidate values")
+		return
+	}
+	if len(values) == 0 {
+		writeError(w, http.StatusBadRequest, "candidate values are not configured for this location")
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		loc, err := s.store.getLocationByNumber(r.Context(), record.LocationNumber)
+		if err != nil {
+			if errors.Is(err, errNotFound) {
+				writeError(w, http.StatusNotFound, "location not found")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "unable to load location")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"locationNumber":           record.LocationNumber,
+			"locationName":             loc.Name,
+			"candidateId":              candidateRecord.ID,
+			"candidateFirstName":       candidateRecord.FirstName,
+			"candidateLastName":        candidateRecord.LastName,
+			"interviewerTimePunchName": record.InterviewerTimePunchName,
+			"interviewType":            record.InterviewType,
+			"expiresAt":                record.ExpiresAt.Format(time.RFC3339),
+			"values":                   values,
+		})
+	case http.MethodPost:
+		if err := r.ParseForm(); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid interview form")
+			return
+		}
+		interviewGrades := make([]candidateInterviewGrade, 0, len(values))
+		for _, value := range values {
+			grade := normalizeLetterGrade(r.PostForm.Get("grade_" + strconv.FormatInt(value.ID, 10)))
+			if grade == "" {
+				writeError(w, http.StatusBadRequest, "every value must be graded with A, B, C, D, or F")
+				return
+			}
+			comment := strings.TrimSpace(r.PostForm.Get("comment_" + strconv.FormatInt(value.ID, 10)))
+			if len([]rune(comment)) > 1000 {
+				writeError(w, http.StatusBadRequest, "value comments must be 1000 characters or fewer")
+				return
+			}
+			interviewGrades = append(interviewGrades, candidateInterviewGrade{
+				ValueID:     value.ID,
+				ValueName:   value.Name,
+				LetterGrade: grade,
+				Comment:     comment,
+				Score:       letterGradeScore(grade),
+			})
+		}
+		notes := strings.TrimSpace(r.PostForm.Get("notes"))
+		if len([]rune(notes)) > 3000 {
+			writeError(w, http.StatusBadRequest, "notes must be 3000 characters or fewer")
+			return
+		}
+		interview := candidateInterview{
+			CandidateID:              record.CandidateID,
+			LocationNumber:           record.LocationNumber,
+			InterviewerTimePunchName: record.InterviewerTimePunchName,
+			InterviewType:            record.InterviewType,
+			Notes:                    notes,
+			CreatedAt:                time.Now().UTC(),
+			Grades:                   interviewGrades,
+		}
+		id, err := s.store.createCandidateInterview(r.Context(), interview)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "unable to create interview")
+			return
+		}
+		_ = s.store.markCandidateInterviewTokenUsed(r.Context(), token)
+		interview.ID = id
+		writeJSON(w, http.StatusOK, map[string]any{
+			"message":   "interview submitted",
+			"candidate": candidateRecord,
+			"interview": interview,
+		})
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
 func applyI9SignatureNameFallback(values url.Values) {
 	if values == nil {
 		return
@@ -1474,11 +1860,43 @@ func applyI9SignatureNameFallback(values url.Values) {
 }
 
 type i9SupportingDocumentUpload struct {
-	ListType string
-	Data     []byte
-	Mime     string
-	FileName string
+	ListType         string
+	DocumentTitle    string
+	IssuingAuthority string
+	DocumentNumber   string
+	ExpirationDate   string
+	Data             []byte
+	Mime             string
+	FileName         string
 }
+
+type signaturePlacement struct {
+	Page             int
+	PageHeightPoints float64
+	TopLeftX         float64
+	TopLeftY         float64
+	BottomRightX     float64
+	BottomRightY     float64
+}
+
+var (
+	w4EmployeeSignaturePlacement = signaturePlacement{
+		Page:             1,
+		PageHeightPoints: 791.97,
+		TopLeftX:         101,
+		TopLeftY:         680,
+		BottomRightX:     217,
+		BottomRightY:     700,
+	}
+	i9EmployeeSignaturePlacement = signaturePlacement{
+		Page:             1,
+		PageHeightPoints: 792,
+		TopLeftX:         120,
+		TopLeftY:         350,
+		BottomRightX:     236,
+		BottomRightY:     371,
+	}
+)
 
 func collectI9SupportingDocumentsFromRequest(r *http.Request) ([]i9SupportingDocumentUpload, error) {
 	if r == nil || r.MultipartForm == nil {
@@ -1487,6 +1905,22 @@ func collectI9SupportingDocumentsFromRequest(r *http.Request) ([]i9SupportingDoc
 	listValues := r.MultipartForm.Value["i9_document_list[]"]
 	if len(listValues) == 0 {
 		listValues = r.MultipartForm.Value["i9_document_list"]
+	}
+	titleValues := r.MultipartForm.Value["i9_document_title[]"]
+	if len(titleValues) == 0 {
+		titleValues = r.MultipartForm.Value["i9_document_title"]
+	}
+	authorityValues := r.MultipartForm.Value["i9_document_issuing_authority[]"]
+	if len(authorityValues) == 0 {
+		authorityValues = r.MultipartForm.Value["i9_document_issuing_authority"]
+	}
+	numberValues := r.MultipartForm.Value["i9_document_number[]"]
+	if len(numberValues) == 0 {
+		numberValues = r.MultipartForm.Value["i9_document_number"]
+	}
+	expirationValues := r.MultipartForm.Value["i9_document_expiration[]"]
+	if len(expirationValues) == 0 {
+		expirationValues = r.MultipartForm.Value["i9_document_expiration"]
 	}
 	fileHeaders := r.MultipartForm.File["i9_document_file[]"]
 	if len(fileHeaders) == 0 {
@@ -1504,9 +1938,22 @@ func collectI9SupportingDocumentsFromRequest(r *http.Request) ([]i9SupportingDoc
 		if idx >= len(listValues) {
 			return nil, errors.New("choose list A, B, or C for each uploaded i-9 document")
 		}
+		if idx >= len(titleValues) || idx >= len(authorityValues) || idx >= len(numberValues) {
+			return nil, errors.New("enter document title, issuing authority, and document number for each uploaded i-9 document")
+		}
 		listType, ok := normalizeI9ListType(listValues[idx])
 		if !ok {
 			return nil, errors.New("choose list A, B, or C for each uploaded i-9 document")
+		}
+		documentTitle := strings.TrimSpace(titleValues[idx])
+		issuingAuthority := strings.TrimSpace(authorityValues[idx])
+		documentNumber := strings.TrimSpace(numberValues[idx])
+		if documentTitle == "" || issuingAuthority == "" || documentNumber == "" {
+			return nil, errors.New("enter document title, issuing authority, and document number for each uploaded i-9 document")
+		}
+		expiration := ""
+		if idx < len(expirationValues) {
+			expiration = strings.TrimSpace(expirationValues[idx])
 		}
 		raw, mime, fileName, err := readMultipartFileHeader(header, 12<<20, []string{"application/pdf", "image/png", "image/jpeg", "image/webp"})
 		if err != nil {
@@ -1517,10 +1964,14 @@ func collectI9SupportingDocumentsFromRequest(r *http.Request) ([]i9SupportingDoc
 			return nil, err
 		}
 		uploads = append(uploads, i9SupportingDocumentUpload{
-			ListType: listType,
-			Data:     pdfData,
-			Mime:     "application/pdf",
-			FileName: pdfName,
+			ListType:         listType,
+			DocumentTitle:    documentTitle,
+			IssuingAuthority: issuingAuthority,
+			DocumentNumber:   documentNumber,
+			ExpirationDate:   expiration,
+			Data:             pdfData,
+			Mime:             "application/pdf",
+			FileName:         pdfName,
 		})
 	}
 	if len(uploads) == 0 {
@@ -1563,6 +2014,49 @@ func validateI9DocumentRequirements(uploads []i9SupportingDocumentUpload) error 
 		return nil
 	}
 	return errors.New("i-9 documents must include either one List A document, or one List B and one List C document")
+}
+
+func applyI9DocumentValuesToForm(values url.Values, uploads []i9SupportingDocumentUpload) {
+	if values == nil || len(uploads) == 0 {
+		return
+	}
+	// Clear all list fields first so regenerated submissions do not keep stale values.
+	for _, key := range []string{
+		"list_a_title", "list_a_issuing_authority", "list_a_number", "list_a_expiration",
+		"list_b_title", "list_b_issuing_authority", "list_b_number", "list_b_expiration",
+		"list_c_title", "list_c_issuing_authority", "list_c_number", "list_c_expiration",
+	} {
+		values.Del(key)
+	}
+	setIfEmpty := func(key, val string) {
+		if strings.TrimSpace(values.Get(key)) != "" {
+			return
+		}
+		val = strings.TrimSpace(val)
+		if val == "" {
+			return
+		}
+		values.Set(key, val)
+	}
+	for _, upload := range uploads {
+		switch strings.TrimSpace(strings.ToLower(upload.ListType)) {
+		case "a":
+			setIfEmpty("list_a_title", upload.DocumentTitle)
+			setIfEmpty("list_a_issuing_authority", upload.IssuingAuthority)
+			setIfEmpty("list_a_number", upload.DocumentNumber)
+			setIfEmpty("list_a_expiration", upload.ExpirationDate)
+		case "b":
+			setIfEmpty("list_b_title", upload.DocumentTitle)
+			setIfEmpty("list_b_issuing_authority", upload.IssuingAuthority)
+			setIfEmpty("list_b_number", upload.DocumentNumber)
+			setIfEmpty("list_b_expiration", upload.ExpirationDate)
+		case "c":
+			setIfEmpty("list_c_title", upload.DocumentTitle)
+			setIfEmpty("list_c_issuing_authority", upload.IssuingAuthority)
+			setIfEmpty("list_c_number", upload.DocumentNumber)
+			setIfEmpty("list_c_expiration", upload.ExpirationDate)
+		}
+	}
 }
 
 func readMultipartFileHeader(header *multipart.FileHeader, maxBytes int64, allowedMimes []string) ([]byte, string, string, error) {
@@ -1666,6 +2160,305 @@ func ensurePDFFileName(name string) string {
 		base = "i9-supporting-document"
 	}
 	return base + ".pdf"
+}
+
+func stampDrawnSignatureOnPDF(pdfData, signatureData []byte, placement signaturePlacement) ([]byte, error) {
+	if len(pdfData) == 0 {
+		return nil, errors.New("generated pdf is empty")
+	}
+	if len(signatureData) == 0 {
+		return nil, errors.New("drawn signature is required")
+	}
+	boxWidth := placement.BottomRightX - placement.TopLeftX
+	boxHeight := placement.BottomRightY - placement.TopLeftY
+	if boxWidth <= 0 || boxHeight <= 0 {
+		return nil, errors.New("invalid signature box dimensions")
+	}
+	preparedSig, err := prepareSignatureImageForBox(signatureData, int(math.Round(boxWidth)), int(math.Round(boxHeight)))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := exec.LookPath("pdfcpu"); err != nil {
+		return nil, errors.New("pdfcpu is required on the host to place drawn signatures")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "cfasuite-signature-stamp-*")
+	if err != nil {
+		return nil, errors.New("unable to prepare signature stamping")
+	}
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
+
+	inPath := filepath.Join(tmpDir, "in.pdf")
+	outPath := filepath.Join(tmpDir, "out.pdf")
+	sigPath := filepath.Join(tmpDir, "signature.png")
+	if err := os.WriteFile(inPath, pdfData, 0o600); err != nil {
+		return nil, errors.New("unable to stage generated pdf")
+	}
+	if err := os.WriteFile(sigPath, preparedSig, 0o600); err != nil {
+		return nil, errors.New("unable to stage drawn signature")
+	}
+
+	bottomLeftY := placement.PageHeightPoints - placement.BottomRightY
+	desc := fmt.Sprintf(
+		"pos:bl, off:%0.2f %0.2f, scale:%0.2f abs, op:1, rot:0",
+		placement.TopLeftX,
+		bottomLeftY,
+		boxWidth,
+	)
+	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(
+		ctx,
+		"pdfcpu",
+		"stamp",
+		"add",
+		"-p",
+		strconv.Itoa(placement.Page),
+		"-m",
+		"image",
+		"--",
+		sigPath,
+		desc,
+		inPath,
+		outPath,
+	)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("unable to place drawn signature: %s", strings.TrimSpace(string(output)))
+	}
+	stampedPDF, err := os.ReadFile(outPath)
+	if err != nil {
+		return nil, errors.New("unable to read stamped pdf")
+	}
+	if len(stampedPDF) == 0 {
+		return nil, errors.New("stamped pdf is empty")
+	}
+	return stampedPDF, nil
+}
+
+func prepareSignatureImageForBox(signatureData []byte, boxWidth, boxHeight int) ([]byte, error) {
+	if boxWidth <= 0 || boxHeight <= 0 {
+		return nil, errors.New("invalid signature box size")
+	}
+	src, err := decodeImageWithWebPFallback(signatureData)
+	if err != nil {
+		return nil, errors.New("unable to decode drawn signature")
+	}
+	cropRect := detectSignatureBounds(src)
+	if cropRect.Empty() {
+		cropRect = src.Bounds()
+	}
+	cropped := image.NewNRGBA(image.Rect(0, 0, cropRect.Dx(), cropRect.Dy()))
+	stddraw.Draw(cropped, cropped.Bounds(), src, cropRect.Min, stddraw.Src)
+
+	scale := 8
+	targetW := boxWidth * scale
+	targetH := boxHeight * scale
+	if targetW < 300 {
+		targetW = 300
+	}
+	if targetH < 80 {
+		targetH = 80
+	}
+	canvas := image.NewNRGBA(image.Rect(0, 0, targetW, targetH))
+	margin := int(math.Round(float64(targetH) * 0.10))
+	if margin < 6 {
+		margin = 6
+	}
+	availableW := targetW - margin*2
+	availableH := targetH - margin*2
+	if availableW <= 0 || availableH <= 0 {
+		return nil, errors.New("signature box margin is too large")
+	}
+	scaleFactor := math.Min(float64(availableW)/float64(cropped.Bounds().Dx()), float64(availableH)/float64(cropped.Bounds().Dy()))
+	drawW := int(math.Round(float64(cropped.Bounds().Dx()) * scaleFactor))
+	drawH := int(math.Round(float64(cropped.Bounds().Dy()) * scaleFactor))
+	if drawW < 1 {
+		drawW = 1
+	}
+	if drawH < 1 {
+		drawH = 1
+	}
+	offsetX := (targetW - drawW) / 2
+	offsetY := (targetH - drawH) / 2
+	dstRect := image.Rect(offsetX, offsetY, offsetX+drawW, offsetY+drawH)
+	xdraw.ApproxBiLinear.Scale(canvas, dstRect, cropped, cropped.Bounds(), stddraw.Over, nil)
+
+	var out bytes.Buffer
+	if err := png.Encode(&out, canvas); err != nil {
+		return nil, errors.New("unable to encode drawn signature")
+	}
+	if out.Len() == 0 {
+		return nil, errors.New("drawn signature image is empty")
+	}
+	return out.Bytes(), nil
+}
+
+func decodeImageWithWebPFallback(raw []byte) (image.Image, error) {
+	img, _, err := image.Decode(bytes.NewReader(raw))
+	if err == nil {
+		return img, nil
+	}
+	if decoded, webpErr := webp.Decode(bytes.NewReader(raw)); webpErr == nil {
+		return decoded, nil
+	}
+	return nil, err
+}
+
+func detectSignatureBounds(img image.Image) image.Rectangle {
+	bounds := img.Bounds()
+	minX, minY := bounds.Max.X, bounds.Max.Y
+	maxX, maxY := bounds.Min.X, bounds.Min.Y
+	found := false
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			r, g, b, a := img.At(x, y).RGBA()
+			if a == 0 {
+				continue
+			}
+			// Ignore near-white pixels so anti-aliased canvas backgrounds do not bloat bounds.
+			if r > 0xf000 && g > 0xf000 && b > 0xf000 {
+				continue
+			}
+			if x < minX {
+				minX = x
+			}
+			if y < minY {
+				minY = y
+			}
+			if x > maxX {
+				maxX = x
+			}
+			if y > maxY {
+				maxY = y
+			}
+			found = true
+		}
+	}
+	if !found {
+		return image.Rectangle{}
+	}
+	return image.Rect(minX, minY, maxX+1, maxY+1)
+}
+
+func normalizeUSStateCode(value string) string {
+	key := strings.ToUpper(strings.TrimSpace(value))
+	if key == "" {
+		return ""
+	}
+	stateByName := map[string]string{
+		"ALABAMA":                  "AL",
+		"ALASKA":                   "AK",
+		"ARIZONA":                  "AZ",
+		"ARKANSAS":                 "AR",
+		"CALIFORNIA":               "CA",
+		"COLORADO":                 "CO",
+		"CONNECTICUT":              "CT",
+		"DELAWARE":                 "DE",
+		"DISTRICT OF COLUMBIA":     "DC",
+		"FLORIDA":                  "FL",
+		"GEORGIA":                  "GA",
+		"HAWAII":                   "HI",
+		"IDAHO":                    "ID",
+		"ILLINOIS":                 "IL",
+		"INDIANA":                  "IN",
+		"IOWA":                     "IA",
+		"KANSAS":                   "KS",
+		"KENTUCKY":                 "KY",
+		"LOUISIANA":                "LA",
+		"MAINE":                    "ME",
+		"MARYLAND":                 "MD",
+		"MASSACHUSETTS":            "MA",
+		"MICHIGAN":                 "MI",
+		"MINNESOTA":                "MN",
+		"MISSISSIPPI":              "MS",
+		"MISSOURI":                 "MO",
+		"MONTANA":                  "MT",
+		"NEBRASKA":                 "NE",
+		"NEVADA":                   "NV",
+		"NEW HAMPSHIRE":            "NH",
+		"NEW JERSEY":               "NJ",
+		"NEW MEXICO":               "NM",
+		"NEW YORK":                 "NY",
+		"NORTH CAROLINA":           "NC",
+		"NORTH DAKOTA":             "ND",
+		"OHIO":                     "OH",
+		"OKLAHOMA":                 "OK",
+		"OREGON":                   "OR",
+		"PENNSYLVANIA":             "PA",
+		"RHODE ISLAND":             "RI",
+		"SOUTH CAROLINA":           "SC",
+		"SOUTH DAKOTA":             "SD",
+		"TENNESSEE":                "TN",
+		"TEXAS":                    "TX",
+		"UTAH":                     "UT",
+		"VERMONT":                  "VT",
+		"VIRGINIA":                 "VA",
+		"WASHINGTON":               "WA",
+		"WEST VIRGINIA":            "WV",
+		"WISCONSIN":                "WI",
+		"WYOMING":                  "WY",
+		"AMERICAN SAMOA":           "AS",
+		"GUAM":                     "GU",
+		"NORTHERN MARIANA ISLANDS": "MP",
+		"PUERTO RICO":              "PR",
+		"US VIRGIN ISLANDS":        "VI",
+		"U.S. VIRGIN ISLANDS":      "VI",
+		"VIRGIN ISLANDS":           "VI",
+		"CANADA":                   "CAN",
+		"MEXICO":                   "MEX",
+	}
+	validCodes := map[string]struct{}{
+		"AK": {}, "AL": {}, "AR": {}, "AS": {}, "AZ": {}, "CA": {}, "CO": {}, "CT": {}, "DC": {}, "DE": {},
+		"FL": {}, "GA": {}, "GU": {}, "HI": {}, "IA": {}, "ID": {}, "IL": {}, "IN": {}, "KS": {}, "KY": {},
+		"LA": {}, "MA": {}, "MD": {}, "ME": {}, "MI": {}, "MN": {}, "MO": {}, "MP": {}, "MS": {}, "MT": {},
+		"NC": {}, "ND": {}, "NE": {}, "NH": {}, "NJ": {}, "NM": {}, "NV": {}, "NY": {}, "OH": {}, "OK": {},
+		"OR": {}, "PA": {}, "PR": {}, "RI": {}, "SC": {}, "SD": {}, "TN": {}, "TX": {}, "UT": {}, "VA": {},
+		"VI": {}, "VT": {}, "WA": {}, "WI": {}, "WV": {}, "WY": {}, "CAN": {}, "MEX": {},
+	}
+	if _, ok := validCodes[key]; ok {
+		return key
+	}
+	key = strings.ReplaceAll(key, ".", "")
+	key = strings.Join(strings.Fields(key), " ")
+	if _, ok := validCodes[key]; ok {
+		return key
+	}
+	compact := strings.Map(func(r rune) rune {
+		if r >= 'A' && r <= 'Z' {
+			return r
+		}
+		return -1
+	}, key)
+	if _, ok := validCodes[compact]; ok {
+		return compact
+	}
+	if mapped, ok := stateByName[key]; ok {
+		return mapped
+	}
+	compactNameMap := map[string]string{
+		"DISTRICTOFCOLUMBIA":     "DC",
+		"NORTHCAROLINA":          "NC",
+		"NORTHDAKOTA":            "ND",
+		"SOUTHCAROLINA":          "SC",
+		"SOUTHDAKOTA":            "SD",
+		"NEWHAMPSHIRE":           "NH",
+		"NEWJERSEY":              "NJ",
+		"NEWMEXICO":              "NM",
+		"NEWYORK":                "NY",
+		"WESTVIRGINIA":           "WV",
+		"NORTHERNMARIANAISLANDS": "MP",
+		"AMERICANSAMOA":          "AS",
+		"PUERTORICO":             "PR",
+		"USVIRGINISLANDS":        "VI",
+		"UVIRGINISLANDS":         "VI",
+		"VIRGINISLANDS":          "VI",
+	}
+	if mapped, ok := compactNameMap[compact]; ok {
+		return mapped
+	}
+	return ""
 }
 
 func paperworkEmployeePatchFromForm(existing *employee, form url.Values) (*employee, error) {
@@ -2609,11 +3402,13 @@ func (s *server) updateLocationSettings(w http.ResponseWriter, r *http.Request, 
 		BusinessStreet       string   `json:"businessStreet"`
 		BusinessCity         string   `json:"businessCity"`
 		BusinessState        string   `json:"businessState"`
+		BusinessEIN          string   `json:"businessEin"`
 		BusinessAddress      string   `json:"businessAddress"`
 		W4EmployerName       string   `json:"w4EmployerName"`
 		W4EmployerStreet     string   `json:"w4EmployerStreet"`
 		W4EmployerCity       string   `json:"w4EmployerCity"`
 		W4EmployerState      string   `json:"w4EmployerState"`
+		W4EmployerEIN        string   `json:"w4EmployerEin"`
 		W4EmployerAddress    string   `json:"w4EmployerAddress"`
 		Departments          []string `json:"departments"`
 	}
@@ -2626,11 +3421,13 @@ func (s *server) updateLocationSettings(w http.ResponseWriter, r *http.Request, 
 	req.BusinessStreet = strings.TrimSpace(req.BusinessStreet)
 	req.BusinessCity = strings.TrimSpace(req.BusinessCity)
 	req.BusinessState = strings.TrimSpace(req.BusinessState)
+	req.BusinessEIN = strings.TrimSpace(req.BusinessEIN)
 	req.BusinessAddress = strings.TrimSpace(req.BusinessAddress)
 	req.W4EmployerName = strings.TrimSpace(req.W4EmployerName)
 	req.W4EmployerStreet = strings.TrimSpace(req.W4EmployerStreet)
 	req.W4EmployerCity = strings.TrimSpace(req.W4EmployerCity)
 	req.W4EmployerState = strings.TrimSpace(req.W4EmployerState)
+	req.W4EmployerEIN = strings.TrimSpace(req.W4EmployerEIN)
 	req.W4EmployerAddress = strings.TrimSpace(req.W4EmployerAddress)
 	if len(req.EmployerRepSignature) > 120 {
 		writeError(w, http.StatusBadRequest, "employer representative signature must be 120 characters or fewer")
@@ -2647,6 +3444,9 @@ func (s *server) updateLocationSettings(w http.ResponseWriter, r *http.Request, 
 	}
 	if req.BusinessState == "" {
 		req.BusinessState = req.W4EmployerState
+	}
+	if req.BusinessEIN == "" {
+		req.BusinessEIN = req.W4EmployerEIN
 	}
 	if req.BusinessStreet == "" && req.BusinessCity == "" && req.BusinessState == "" {
 		street, city, state := splitBusinessAddressParts(req.BusinessAddress)
@@ -2674,6 +3474,10 @@ func (s *server) updateLocationSettings(w http.ResponseWriter, r *http.Request, 
 		writeError(w, http.StatusBadRequest, "business state is required")
 		return
 	}
+	if req.BusinessEIN == "" {
+		writeError(w, http.StatusBadRequest, "business EIN is required")
+		return
+	}
 	if len(req.BusinessName) > 160 {
 		writeError(w, http.StatusBadRequest, "business or organization name must be 160 characters or fewer")
 		return
@@ -2690,6 +3494,10 @@ func (s *server) updateLocationSettings(w http.ResponseWriter, r *http.Request, 
 		writeError(w, http.StatusBadRequest, "business state must be 60 characters or fewer")
 		return
 	}
+	if len(req.BusinessEIN) > 32 {
+		writeError(w, http.StatusBadRequest, "business EIN must be 32 characters or fewer")
+		return
+	}
 	if len(req.BusinessAddress) > 260 {
 		writeError(w, http.StatusBadRequest, "business address must be 260 characters or fewer")
 		return
@@ -2703,11 +3511,13 @@ func (s *server) updateLocationSettings(w http.ResponseWriter, r *http.Request, 
 			BusinessStreet:       req.BusinessStreet,
 			BusinessCity:         req.BusinessCity,
 			BusinessState:        req.BusinessState,
+			BusinessEIN:          req.BusinessEIN,
 			BusinessAddress:      req.BusinessAddress,
 			W4EmployerName:       req.BusinessName,
 			W4EmployerStreet:     req.BusinessStreet,
 			W4EmployerCity:       req.BusinessCity,
 			W4EmployerState:      req.BusinessState,
+			W4EmployerEIN:        req.BusinessEIN,
 			W4EmployerAddress:    req.BusinessAddress,
 			Departments:          departments,
 		})
@@ -2716,6 +3526,561 @@ func (s *server) updateLocationSettings(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"message": "settings saved"})
+}
+
+func (s *server) listLocationCandidateValues(w http.ResponseWriter, r *http.Request, number string) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	values, err := s.store.listCandidateValues(r.Context(), number)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load candidate values")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"count":  len(values),
+		"values": values,
+	})
+}
+
+func (s *server) createLocationCandidateValue(w http.ResponseWriter, r *http.Request, number string) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	var req createCandidateValueRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	req.Description = strings.TrimSpace(req.Description)
+	if req.Name == "" {
+		writeError(w, http.StatusBadRequest, "value name is required")
+		return
+	}
+	if len([]rune(req.Name)) > 80 {
+		writeError(w, http.StatusBadRequest, "value name must be 80 characters or fewer")
+		return
+	}
+	if len([]rune(req.Description)) > 400 {
+		writeError(w, http.StatusBadRequest, "value description must be 400 characters or fewer")
+		return
+	}
+	value := candidateValue{
+		LocationNumber: number,
+		Name:           req.Name,
+		Description:    req.Description,
+		CreatedAt:      time.Now().UTC(),
+		UpdatedAt:      time.Now().UTC(),
+	}
+	id, err := s.store.createCandidateValue(r.Context(), value)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			writeError(w, http.StatusConflict, "a candidate value with this name already exists")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to create candidate value")
+		return
+	}
+	value.ID = id
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"message": "candidate value created",
+		"value":   value,
+	})
+}
+
+func (s *server) updateLocationCandidateValue(w http.ResponseWriter, r *http.Request, number string, valueID int64) {
+	var req updateCandidateValueRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	req.Description = strings.TrimSpace(req.Description)
+	if req.Name == "" {
+		writeError(w, http.StatusBadRequest, "value name is required")
+		return
+	}
+	if len([]rune(req.Name)) > 80 {
+		writeError(w, http.StatusBadRequest, "value name must be 80 characters or fewer")
+		return
+	}
+	if len([]rune(req.Description)) > 400 {
+		writeError(w, http.StatusBadRequest, "value description must be 400 characters or fewer")
+		return
+	}
+	if err := s.store.updateCandidateValue(r.Context(), number, valueID, req.Name, req.Description); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "candidate value not found")
+			return
+		}
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			writeError(w, http.StatusConflict, "a candidate value with this name already exists")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to update candidate value")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "candidate value updated"})
+}
+
+func (s *server) deleteLocationCandidateValue(w http.ResponseWriter, r *http.Request, number string, valueID int64) {
+	if err := s.store.deleteCandidateValue(r.Context(), number, valueID); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "candidate value not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to delete candidate value")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "candidate value deleted"})
+}
+
+func (s *server) listLocationCandidateInterviewNames(w http.ResponseWriter, r *http.Request, number string) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	names, err := s.store.listCandidateInterviewNames(r.Context(), number)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load interview names")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"count": len(names),
+		"names": names,
+	})
+}
+
+func (s *server) createLocationCandidateInterviewName(w http.ResponseWriter, r *http.Request, number string) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	var req createCandidateInterviewNameRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	if req.Name == "" {
+		writeError(w, http.StatusBadRequest, "interview name is required")
+		return
+	}
+	if len([]rune(req.Name)) > 80 {
+		writeError(w, http.StatusBadRequest, "interview name must be 80 characters or fewer")
+		return
+	}
+	record := candidateInterviewName{
+		LocationNumber: number,
+		Name:           req.Name,
+		CreatedAt:      time.Now().UTC(),
+		UpdatedAt:      time.Now().UTC(),
+	}
+	id, err := s.store.createCandidateInterviewName(r.Context(), record)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") {
+			writeError(w, http.StatusConflict, "an interview name with this value already exists")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to create interview name")
+		return
+	}
+	record.ID = id
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"message": "interview name created",
+		"name":    record,
+	})
+}
+
+func (s *server) deleteLocationCandidateInterviewName(w http.ResponseWriter, r *http.Request, number string, nameID int64) {
+	if err := s.store.deleteCandidateInterviewName(r.Context(), number, nameID); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "interview name not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to delete interview name")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "interview name deleted"})
+}
+
+func (s *server) listLocationCandidates(w http.ResponseWriter, r *http.Request, number string) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	archived := parseBoolQueryValue(r.URL.Query().Get("archived"))
+	search := strings.TrimSpace(r.URL.Query().Get("search"))
+	candidates, err := s.store.listCandidates(r.Context(), number, archived, search)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load candidates")
+		return
+	}
+	for i := range candidates {
+		interviews, err := s.store.listCandidateInterviews(r.Context(), number, candidates[i].ID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "unable to load candidate interviews")
+			return
+		}
+		candidates[i].Interviews = interviews
+		candidates[i].AverageGradePercent = candidateAverageGradePercent(interviews)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"count":      len(candidates),
+		"candidates": candidates,
+	})
+}
+
+func (s *server) createLocationCandidate(w http.ResponseWriter, r *http.Request, number string) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	var req createCandidateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	req.FirstName = strings.TrimSpace(req.FirstName)
+	req.LastName = strings.TrimSpace(req.LastName)
+	if req.FirstName == "" || req.LastName == "" {
+		writeError(w, http.StatusBadRequest, "first and last name are required")
+		return
+	}
+	if len([]rune(req.FirstName)) > 80 || len([]rune(req.LastName)) > 80 {
+		writeError(w, http.StatusBadRequest, "first and last name must be 80 characters or fewer")
+		return
+	}
+	now := time.Now().UTC()
+	candidateRecord := candidate{
+		LocationNumber: number,
+		FirstName:      req.FirstName,
+		LastName:       req.LastName,
+		Status:         "active",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	id, err := s.store.createCandidate(r.Context(), candidateRecord)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to create candidate")
+		return
+	}
+	candidateRecord.ID = id
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"message":   "candidate created",
+		"candidate": candidateRecord,
+	})
+}
+
+func (s *server) getLocationCandidate(w http.ResponseWriter, r *http.Request, number string, candidateID int64) {
+	c, err := s.store.getCandidateByID(r.Context(), number, candidateID)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "candidate not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load candidate")
+		return
+	}
+	interviews, err := s.store.listCandidateInterviews(r.Context(), number, candidateID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load interviews")
+		return
+	}
+	c.Interviews = interviews
+	c.AverageGradePercent = candidateAverageGradePercent(interviews)
+	writeJSON(w, http.StatusOK, map[string]any{"candidate": c})
+}
+
+func (s *server) getLocationCandidateScorecard(w http.ResponseWriter, r *http.Request, number string, candidateID int64) {
+	s.getLocationCandidate(w, r, number, candidateID)
+}
+
+func (s *server) listEmployeeCandidateScorecards(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	scorecards, err := s.store.listHiredCandidateScorecardsByTimePunchName(r.Context(), number, timePunchName)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load scorecards")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"count":      len(scorecards),
+		"candidates": scorecards,
+	})
+}
+
+func (s *server) createLocationCandidateInterview(w http.ResponseWriter, r *http.Request, number string, candidateID int64) {
+	candidateRecord, err := s.store.getCandidateByID(r.Context(), number, candidateID)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "candidate not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load candidate")
+		return
+	}
+	if candidateRecord.Status != "active" {
+		writeError(w, http.StatusBadRequest, "interviews are allowed only for active candidates")
+		return
+	}
+	var req createCandidateInterviewRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	req.InterviewerTimePunchName = strings.TrimSpace(req.InterviewerTimePunchName)
+	req.Notes = strings.TrimSpace(req.Notes)
+	if req.InterviewerTimePunchName == "" {
+		writeError(w, http.StatusBadRequest, "interviewer is required")
+		return
+	}
+	if _, err := s.store.getLocationEmployee(r.Context(), number, req.InterviewerTimePunchName); err != nil {
+		writeError(w, http.StatusBadRequest, "interviewer must be an active employee in this location")
+		return
+	}
+	interviewName, err := s.resolveInterviewNameForLocation(r.Context(), number, req.InterviewType)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load interview names")
+		return
+	}
+	if interviewName == "" {
+		writeError(w, http.StatusBadRequest, "select a valid interview name for this location")
+		return
+	}
+	values, err := s.store.listCandidateValues(r.Context(), number)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load candidate values")
+		return
+	}
+	if len(values) == 0 {
+		writeError(w, http.StatusBadRequest, "create at least one candidate value before interviewing")
+		return
+	}
+	gradesByValueID := make(map[int64]string, len(req.Grades))
+	commentsByValueID := make(map[int64]string, len(req.GradeComments))
+	for rawValueID, rawGrade := range req.Grades {
+		valueID, parseErr := strconv.ParseInt(strings.TrimSpace(rawValueID), 10, 64)
+		if parseErr != nil || valueID <= 0 {
+			continue
+		}
+		grade := normalizeLetterGrade(rawGrade)
+		if grade != "" {
+			gradesByValueID[valueID] = grade
+		}
+	}
+	for rawValueID, rawComment := range req.GradeComments {
+		valueID, parseErr := strconv.ParseInt(strings.TrimSpace(rawValueID), 10, 64)
+		if parseErr != nil || valueID <= 0 {
+			continue
+		}
+		comment := strings.TrimSpace(rawComment)
+		if len([]rune(comment)) > 1000 {
+			writeError(w, http.StatusBadRequest, "value comments must be 1000 characters or fewer")
+			return
+		}
+		commentsByValueID[valueID] = comment
+	}
+	interviewGrades := make([]candidateInterviewGrade, 0, len(values))
+	for _, value := range values {
+		grade := normalizeLetterGrade(gradesByValueID[value.ID])
+		if grade == "" {
+			writeError(w, http.StatusBadRequest, "every candidate value must be graded with A, B, C, D, or F")
+			return
+		}
+		interviewGrades = append(interviewGrades, candidateInterviewGrade{
+			ValueID:     value.ID,
+			ValueName:   value.Name,
+			LetterGrade: grade,
+			Comment:     commentsByValueID[value.ID],
+			Score:       letterGradeScore(grade),
+		})
+	}
+	now := time.Now().UTC()
+	interview := candidateInterview{
+		CandidateID:              candidateID,
+		LocationNumber:           number,
+		InterviewerTimePunchName: req.InterviewerTimePunchName,
+		InterviewType:            interviewName,
+		Notes:                    req.Notes,
+		CreatedAt:                now,
+		Grades:                   interviewGrades,
+	}
+	id, err := s.store.createCandidateInterview(r.Context(), interview)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to create interview")
+		return
+	}
+	interview.ID = id
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"message":   "interview submitted",
+		"interview": interview,
+	})
+}
+
+func (s *server) createLocationCandidateInterviewLink(w http.ResponseWriter, r *http.Request, number string, candidateID int64) {
+	candidateRecord, err := s.store.getCandidateByID(r.Context(), number, candidateID)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "candidate not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load candidate")
+		return
+	}
+	if candidateRecord.Status != "active" {
+		writeError(w, http.StatusBadRequest, "interviews are allowed only for active candidates")
+		return
+	}
+	values, err := s.store.listCandidateValues(r.Context(), number)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load candidate values")
+		return
+	}
+	if len(values) == 0 {
+		writeError(w, http.StatusBadRequest, "create at least one candidate value before interviewing")
+		return
+	}
+	var req createCandidateInterviewLinkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	req.InterviewerTimePunchName = strings.TrimSpace(req.InterviewerTimePunchName)
+	if req.InterviewerTimePunchName == "" {
+		writeError(w, http.StatusBadRequest, "interviewer is required")
+		return
+	}
+	if _, err := s.store.getLocationEmployee(r.Context(), number, req.InterviewerTimePunchName); err != nil {
+		writeError(w, http.StatusBadRequest, "interviewer must be an active employee in this location")
+		return
+	}
+	interviewName, err := s.resolveInterviewNameForLocation(r.Context(), number, req.InterviewType)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load interview names")
+		return
+	}
+	if interviewName == "" {
+		writeError(w, http.StatusBadRequest, "select a valid interview name for this location")
+		return
+	}
+	expiresAt := time.Now().UTC().Add(72 * time.Hour)
+	token, err := randomToken(32)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to generate interview link")
+		return
+	}
+	if err := s.store.createCandidateInterviewToken(r.Context(), candidateInterviewToken{
+		Token:                    token,
+		LocationNumber:           number,
+		CandidateID:              candidateID,
+		InterviewerTimePunchName: req.InterviewerTimePunchName,
+		InterviewType:            interviewName,
+		ExpiresAt:                expiresAt,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to create interview link")
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"token":     token,
+		"expiresAt": expiresAt.Format(time.RFC3339),
+	})
+}
+
+func (s *server) updateLocationCandidateDecision(w http.ResponseWriter, r *http.Request, number string, candidateID int64) {
+	candidateRecord, err := s.store.getCandidateByID(r.Context(), number, candidateID)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "candidate not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load candidate")
+		return
+	}
+	if candidateRecord.Status != "active" {
+		writeError(w, http.StatusBadRequest, "candidate has already been decided")
+		return
+	}
+	var req updateCandidateDecisionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	decision := strings.ToLower(strings.TrimSpace(req.Decision))
+	switch decision {
+	case "pass":
+		if err := s.store.updateCandidateStatus(r.Context(), number, candidateID, "passed", ""); err != nil {
+			writeError(w, http.StatusInternalServerError, "unable to update candidate decision")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"message": "candidate passed and archived"})
+		return
+	case "hire":
+		timePunchName := canonicalTimePunchName(candidateRecord.FirstName, candidateRecord.LastName)
+		if timePunchName == "" {
+			writeError(w, http.StatusBadRequest, "unable to build employee time punch name")
+			return
+		}
+		if _, err := s.store.getLocationEmployee(r.Context(), number, timePunchName); err == nil {
+			writeError(w, http.StatusConflict, "an employee with this time punch name already exists")
+			return
+		}
+		employeeRecord := employee{
+			TimePunchName: timePunchName,
+			FirstName:     candidateRecord.FirstName,
+			LastName:      candidateRecord.LastName,
+			Department:    "INIT",
+		}
+		if err := s.store.upsertLocationEmployee(r.Context(), number, employeeRecord); err != nil {
+			writeError(w, http.StatusInternalServerError, "unable to create employee from candidate")
+			return
+		}
+		if err := s.store.updateCandidateStatus(r.Context(), number, candidateID, "hired", timePunchName); err != nil {
+			writeError(w, http.StatusInternalServerError, "employee created but unable to finalize candidate hire status")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"message":       "candidate hired",
+			"timePunchName": timePunchName,
+		})
+		return
+	default:
+		writeError(w, http.StatusBadRequest, "decision must be hire or pass")
+		return
+	}
 }
 
 func (s *server) listLocationTimePunchEntries(w http.ResponseWriter, r *http.Request, number string) {
@@ -3241,6 +4606,7 @@ func (s *server) applyPaperworkDefaults(ctx context.Context, locationNumber stri
 	}
 	today := time.Now().Format("01/02/2006")
 	values.Set("employee_signature_date", today)
+	values.Set("first_day_employed", today)
 	values.Set("employer_signature_date", today)
 	values.Set("date", today)
 
@@ -3264,6 +4630,10 @@ func (s *server) applyPaperworkDefaults(ctx context.Context, locationNumber stri
 	if businessState == "" {
 		businessState = strings.TrimSpace(settings.W4EmployerState)
 	}
+	businessEIN := strings.TrimSpace(settings.BusinessEIN)
+	if businessEIN == "" {
+		businessEIN = strings.TrimSpace(settings.W4EmployerEIN)
+	}
 	businessAddress := composeBusinessAddress(businessStreet, businessCity, businessState)
 	if businessAddress == "" {
 		businessAddress = strings.TrimSpace(settings.W4EmployerAddress)
@@ -3285,6 +4655,10 @@ func (s *server) applyPaperworkDefaults(ctx context.Context, locationNumber stri
 	}
 	w4EmployerNameAddr := composeW4EmployerNameAddress(businessName, businessAddress)
 	values.Set("employer_name_addr", w4EmployerNameAddr)
+	if businessEIN != "" {
+		values.Set("employer_ein", businessEIN)
+	}
+	values.Set("employer_date", today)
 }
 
 func composeW4EmployerNameAddress(name, address string) string {
@@ -3640,25 +5014,29 @@ func (s *server) createLocation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := withSQLiteRetry(func() error {
+		employerRepSignature := strings.TrimSpace(req.EmployerRepSignature)
 		businessStreet := strings.TrimSpace(req.BusinessStreet)
 		businessCity := strings.TrimSpace(req.BusinessCity)
 		businessState := strings.TrimSpace(req.BusinessState)
+		businessEIN := strings.TrimSpace(req.BusinessEIN)
 		if businessStreet == "" && businessCity == "" && businessState == "" {
 			businessStreet, businessCity, businessState = splitBusinessAddressParts(req.BusinessAddress)
 		}
 		businessAddress := composeBusinessAddress(businessStreet, businessCity, businessState)
 		return s.store.upsertLocationSettings(r.Context(), locationSettings{
 			LocationNumber:       entry.Number,
-			EmployerRepSignature: "",
+			EmployerRepSignature: employerRepSignature,
 			BusinessName:         strings.TrimSpace(req.BusinessName),
 			BusinessStreet:       businessStreet,
 			BusinessCity:         businessCity,
 			BusinessState:        businessState,
+			BusinessEIN:          businessEIN,
 			BusinessAddress:      businessAddress,
 			W4EmployerName:       strings.TrimSpace(req.BusinessName),
 			W4EmployerStreet:     businessStreet,
 			W4EmployerCity:       businessCity,
 			W4EmployerState:      businessState,
+			W4EmployerEIN:        businessEIN,
 			W4EmployerAddress:    businessAddress,
 			Departments:          []string{"INIT"},
 		})
@@ -3976,6 +5354,10 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			location_number TEXT NOT NULL,
 			time_punch_name TEXT NOT NULL,
 			list_type TEXT NOT NULL DEFAULT '',
+			document_title TEXT NOT NULL DEFAULT '',
+			issuing_authority TEXT NOT NULL DEFAULT '',
+			document_number TEXT NOT NULL DEFAULT '',
+			expiration_date TEXT NOT NULL DEFAULT '',
 			file_data TEXT NOT NULL DEFAULT '',
 			file_mime TEXT NOT NULL DEFAULT '',
 			file_name TEXT NOT NULL DEFAULT '',
@@ -3996,6 +5378,10 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			archived_employee_id INTEGER NOT NULL,
 			list_type TEXT NOT NULL DEFAULT '',
+			document_title TEXT NOT NULL DEFAULT '',
+			issuing_authority TEXT NOT NULL DEFAULT '',
+			document_number TEXT NOT NULL DEFAULT '',
+			expiration_date TEXT NOT NULL DEFAULT '',
 			file_data TEXT NOT NULL DEFAULT '',
 			file_mime TEXT NOT NULL DEFAULT '',
 			file_name TEXT NOT NULL DEFAULT '',
@@ -4097,12 +5483,84 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			w4_employer_street TEXT NOT NULL DEFAULT '',
 			w4_employer_city TEXT NOT NULL DEFAULT '',
 			w4_employer_state TEXT NOT NULL DEFAULT '',
+			w4_employer_ein TEXT NOT NULL DEFAULT '',
 			w4_employer_address TEXT NOT NULL DEFAULT '',
 			departments_csv TEXT NOT NULL DEFAULT 'INIT',
 			updated_at INTEGER NOT NULL,
 			created_at INTEGER NOT NULL,
 			FOREIGN KEY(location_number) REFERENCES locations(number) ON DELETE CASCADE
 		);`,
+		`CREATE TABLE IF NOT EXISTS location_candidate_values (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			location_number TEXT NOT NULL,
+			name TEXT NOT NULL,
+			description TEXT NOT NULL DEFAULT '',
+			created_at INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL,
+			UNIQUE(location_number, name),
+			FOREIGN KEY(location_number) REFERENCES locations(number) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_candidate_values_location ON location_candidate_values(location_number, id ASC);`,
+		`CREATE TABLE IF NOT EXISTS location_candidate_interview_names (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			location_number TEXT NOT NULL,
+			name TEXT NOT NULL,
+			created_at INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL,
+			UNIQUE(location_number, name),
+			FOREIGN KEY(location_number) REFERENCES locations(number) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_candidate_interview_names_location ON location_candidate_interview_names(location_number, id ASC);`,
+		`CREATE TABLE IF NOT EXISTS location_candidates (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			location_number TEXT NOT NULL,
+			first_name TEXT NOT NULL,
+			last_name TEXT NOT NULL,
+			status TEXT NOT NULL DEFAULT 'active',
+			hired_time_punch_name TEXT NOT NULL DEFAULT '',
+			archived_at INTEGER NOT NULL DEFAULT 0,
+			created_at INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL,
+			FOREIGN KEY(location_number) REFERENCES locations(number) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_candidates_location_status ON location_candidates(location_number, status, created_at DESC);`,
+		`CREATE TABLE IF NOT EXISTS location_candidate_interviews (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			candidate_id INTEGER NOT NULL,
+			location_number TEXT NOT NULL,
+			interviewer_time_punch_name TEXT NOT NULL,
+			interview_type TEXT NOT NULL,
+			notes TEXT NOT NULL DEFAULT '',
+			created_at INTEGER NOT NULL,
+			FOREIGN KEY(candidate_id) REFERENCES location_candidates(id) ON DELETE CASCADE,
+			FOREIGN KEY(location_number) REFERENCES locations(number) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_candidate_interviews_candidate ON location_candidate_interviews(candidate_id, created_at DESC);`,
+		`CREATE TABLE IF NOT EXISTS location_candidate_interview_grades (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			interview_id INTEGER NOT NULL,
+			value_id INTEGER NOT NULL,
+			letter_grade TEXT NOT NULL,
+			grade_comment TEXT NOT NULL DEFAULT '',
+			created_at INTEGER NOT NULL,
+			UNIQUE(interview_id, value_id),
+			FOREIGN KEY(interview_id) REFERENCES location_candidate_interviews(id) ON DELETE CASCADE,
+			FOREIGN KEY(value_id) REFERENCES location_candidate_values(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_candidate_interview_grades_interview ON location_candidate_interview_grades(interview_id, id ASC);`,
+		`CREATE TABLE IF NOT EXISTS location_candidate_interview_tokens (
+			token TEXT PRIMARY KEY,
+			location_number TEXT NOT NULL,
+			candidate_id INTEGER NOT NULL,
+			interviewer_time_punch_name TEXT NOT NULL,
+			interview_type TEXT NOT NULL,
+			expires_at INTEGER NOT NULL,
+			used_at INTEGER NOT NULL DEFAULT 0,
+			created_at INTEGER NOT NULL,
+			FOREIGN KEY(candidate_id) REFERENCES location_candidates(id) ON DELETE CASCADE,
+			FOREIGN KEY(location_number) REFERENCES locations(number) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_candidate_interview_tokens_expires ON location_candidate_interview_tokens(expires_at);`,
 		`CREATE TABLE IF NOT EXISTS location_uniform_order_tokens (
 			token TEXT PRIMARY KEY,
 			location_number TEXT NOT NULL UNIQUE,
@@ -4359,6 +5817,12 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 		return err
 	}
 	if _, err := s.exec(ctx, `
+		ALTER TABLE location_settings
+		ADD COLUMN w4_employer_ein TEXT NOT NULL DEFAULT '';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
 		ALTER TABLE employee_i9_documents
 		ADD COLUMN list_type TEXT NOT NULL DEFAULT '';
 	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
@@ -4367,6 +5831,60 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 	if _, err := s.exec(ctx, `
 		ALTER TABLE archived_employee_i9_documents
 		ADD COLUMN list_type TEXT NOT NULL DEFAULT '';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE employee_i9_documents
+		ADD COLUMN document_title TEXT NOT NULL DEFAULT '';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE employee_i9_documents
+		ADD COLUMN issuing_authority TEXT NOT NULL DEFAULT '';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE employee_i9_documents
+		ADD COLUMN document_number TEXT NOT NULL DEFAULT '';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE employee_i9_documents
+		ADD COLUMN expiration_date TEXT NOT NULL DEFAULT '';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE archived_employee_i9_documents
+		ADD COLUMN document_title TEXT NOT NULL DEFAULT '';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE archived_employee_i9_documents
+		ADD COLUMN issuing_authority TEXT NOT NULL DEFAULT '';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE archived_employee_i9_documents
+		ADD COLUMN document_number TEXT NOT NULL DEFAULT '';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE archived_employee_i9_documents
+		ADD COLUMN expiration_date TEXT NOT NULL DEFAULT '';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE location_candidate_interview_grades
+		ADD COLUMN grade_comment TEXT NOT NULL DEFAULT '';
 	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
 		return err
 	}
@@ -4444,6 +5962,22 @@ func (s *sqliteStore) deleteLocation(ctx context.Context, number string) error {
 		DELETE FROM location_time_off_tokens
 		WHERE location_number = @number;
 		DELETE FROM location_business_days
+		WHERE location_number = @number;
+		DELETE FROM location_candidate_interview_grades
+		WHERE interview_id IN (
+			SELECT id
+			FROM location_candidate_interviews
+			WHERE location_number = @number
+		);
+		DELETE FROM location_candidate_interviews
+		WHERE location_number = @number;
+		DELETE FROM location_candidates
+		WHERE location_number = @number;
+		DELETE FROM location_candidate_values
+		WHERE location_number = @number;
+		DELETE FROM location_candidate_interview_names
+		WHERE location_number = @number;
+		DELETE FROM location_candidate_interview_tokens
 		WHERE location_number = @number;
 		DELETE FROM location_uniform_order_tokens
 		WHERE location_number = @number;
@@ -4566,7 +6100,7 @@ func (s *sqliteStore) getLocationByNumber(ctx context.Context, number string) (*
 
 func (s *sqliteStore) getLocationSettings(ctx context.Context, number string) (*locationSettings, error) {
 	rows, err := s.query(ctx, `
-		SELECT location_number, employer_rep_signature, w4_employer_name, w4_employer_street, w4_employer_city, w4_employer_state, w4_employer_address, departments_csv
+		SELECT location_number, employer_rep_signature, w4_employer_name, w4_employer_street, w4_employer_city, w4_employer_state, w4_employer_ein, w4_employer_address, departments_csv
 		FROM location_settings
 		WHERE location_number = @location_number
 		LIMIT 1;
@@ -4582,11 +6116,13 @@ func (s *sqliteStore) getLocationSettings(ctx context.Context, number string) (*
 			BusinessStreet:       "",
 			BusinessCity:         "",
 			BusinessState:        "",
+			BusinessEIN:          "",
 			BusinessAddress:      "",
 			W4EmployerName:       "",
 			W4EmployerStreet:     "",
 			W4EmployerCity:       "",
 			W4EmployerState:      "",
+			W4EmployerEIN:        "",
 			W4EmployerAddress:    "",
 			Departments:          []string{"INIT"},
 		}, nil
@@ -4615,6 +6151,10 @@ func (s *sqliteStore) getLocationSettings(ctx context.Context, number string) (*
 	if err != nil {
 		return nil, err
 	}
+	w4EmployerEIN, err := valueAsString(rows[0]["w4_employer_ein"])
+	if err != nil {
+		return nil, err
+	}
 	w4EmployerAddress, err := valueAsString(rows[0]["w4_employer_address"])
 	if err != nil {
 		return nil, err
@@ -4637,11 +6177,13 @@ func (s *sqliteStore) getLocationSettings(ctx context.Context, number string) (*
 		BusinessStreet:       w4EmployerStreet,
 		BusinessCity:         w4EmployerCity,
 		BusinessState:        w4EmployerState,
+		BusinessEIN:          w4EmployerEIN,
 		BusinessAddress:      businessAddress,
 		W4EmployerName:       w4EmployerName,
 		W4EmployerStreet:     w4EmployerStreet,
 		W4EmployerCity:       w4EmployerCity,
 		W4EmployerState:      w4EmployerState,
+		W4EmployerEIN:        w4EmployerEIN,
 		W4EmployerAddress:    w4EmployerAddress,
 		Departments:          parseDepartmentsCSV(departmentsCSV),
 	}, nil
@@ -4666,6 +6208,10 @@ func (s *sqliteStore) upsertLocationSettings(ctx context.Context, settings locat
 	if businessState == "" {
 		businessState = strings.TrimSpace(settings.W4EmployerState)
 	}
+	businessEIN := strings.TrimSpace(settings.BusinessEIN)
+	if businessEIN == "" {
+		businessEIN = strings.TrimSpace(settings.W4EmployerEIN)
+	}
 	if businessStreet == "" && businessCity == "" && businessState == "" {
 		businessStreet, businessCity, businessState = splitBusinessAddressParts(settings.BusinessAddress)
 	}
@@ -4678,8 +6224,8 @@ func (s *sqliteStore) upsertLocationSettings(ctx context.Context, settings locat
 		businessAddress = strings.TrimSpace(settings.W4EmployerAddress)
 	}
 	_, err := s.exec(ctx, `
-		INSERT INTO location_settings (location_number, employer_rep_signature, w4_employer_name, w4_employer_street, w4_employer_city, w4_employer_state, w4_employer_address, departments_csv, updated_at, created_at)
-		VALUES (@location_number, @employer_rep_signature, @w4_employer_name, @w4_employer_street, @w4_employer_city, @w4_employer_state, @w4_employer_address, @departments_csv, @updated_at, @created_at)
+		INSERT INTO location_settings (location_number, employer_rep_signature, w4_employer_name, w4_employer_street, w4_employer_city, w4_employer_state, w4_employer_ein, w4_employer_address, departments_csv, updated_at, created_at)
+		VALUES (@location_number, @employer_rep_signature, @w4_employer_name, @w4_employer_street, @w4_employer_city, @w4_employer_state, @w4_employer_ein, @w4_employer_address, @departments_csv, @updated_at, @created_at)
 		ON CONFLICT(location_number)
 		DO UPDATE SET
 			employer_rep_signature = excluded.employer_rep_signature,
@@ -4687,6 +6233,7 @@ func (s *sqliteStore) upsertLocationSettings(ctx context.Context, settings locat
 			w4_employer_street = excluded.w4_employer_street,
 			w4_employer_city = excluded.w4_employer_city,
 			w4_employer_state = excluded.w4_employer_state,
+			w4_employer_ein = excluded.w4_employer_ein,
 			w4_employer_address = excluded.w4_employer_address,
 			departments_csv = excluded.departments_csv,
 			updated_at = excluded.updated_at;
@@ -4697,12 +6244,682 @@ func (s *sqliteStore) upsertLocationSettings(ctx context.Context, settings locat
 		"w4_employer_street":     businessStreet,
 		"w4_employer_city":       businessCity,
 		"w4_employer_state":      businessState,
+		"w4_employer_ein":        businessEIN,
 		"w4_employer_address":    businessAddress,
 		"departments_csv":        strings.Join(departments, ","),
 		"updated_at":             strconv.FormatInt(now, 10),
 		"created_at":             strconv.FormatInt(now, 10),
 	})
 	return err
+}
+
+func (s *sqliteStore) listCandidateValues(ctx context.Context, locationNumber string) ([]candidateValue, error) {
+	rows, err := s.query(ctx, `
+		SELECT id, location_number, name, description, created_at, updated_at
+		FROM location_candidate_values
+		WHERE location_number = @location_number
+		ORDER BY id ASC;
+	`, map[string]string{"location_number": locationNumber})
+	if err != nil {
+		return nil, err
+	}
+	values := make([]candidateValue, 0, len(rows))
+	for _, row := range rows {
+		id, err := valueAsInt64(row["id"])
+		if err != nil {
+			return nil, err
+		}
+		loc, err := valueAsString(row["location_number"])
+		if err != nil {
+			return nil, err
+		}
+		name, err := valueAsString(row["name"])
+		if err != nil {
+			return nil, err
+		}
+		description, err := valueAsString(row["description"])
+		if err != nil {
+			return nil, err
+		}
+		createdAtUnix, err := valueAsInt64(row["created_at"])
+		if err != nil {
+			return nil, err
+		}
+		updatedAtUnix, err := valueAsInt64(row["updated_at"])
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, candidateValue{
+			ID:             id,
+			LocationNumber: loc,
+			Name:           name,
+			Description:    description,
+			CreatedAt:      time.Unix(createdAtUnix, 0).UTC(),
+			UpdatedAt:      time.Unix(updatedAtUnix, 0).UTC(),
+		})
+	}
+	return values, nil
+}
+
+func (s *sqliteStore) createCandidateValue(ctx context.Context, value candidateValue) (int64, error) {
+	now := time.Now().UTC().Unix()
+	_, err := s.exec(ctx, `
+		INSERT INTO location_candidate_values (location_number, name, description, created_at, updated_at)
+		VALUES (@location_number, @name, @description, @created_at, @updated_at);
+	`, map[string]string{
+		"location_number": value.LocationNumber,
+		"name":            value.Name,
+		"description":     value.Description,
+		"created_at":      strconv.FormatInt(now, 10),
+		"updated_at":      strconv.FormatInt(now, 10),
+	})
+	if err != nil {
+		return 0, err
+	}
+	rows, err := s.query(ctx, `
+		SELECT id
+		FROM location_candidate_values
+		WHERE location_number = @location_number AND name = @name
+		ORDER BY id DESC
+		LIMIT 1;
+	`, map[string]string{
+		"location_number": value.LocationNumber,
+		"name":            value.Name,
+	})
+	if err != nil {
+		return 0, err
+	}
+	if len(rows) == 0 {
+		return 0, errNotFound
+	}
+	return valueAsInt64(rows[0]["id"])
+}
+
+func (s *sqliteStore) updateCandidateValue(ctx context.Context, locationNumber string, valueID int64, name, description string) error {
+	now := time.Now().UTC().Unix()
+	_, err := s.exec(ctx, `
+		UPDATE location_candidate_values
+		SET name = @name, description = @description, updated_at = @updated_at
+		WHERE id = @id AND location_number = @location_number;
+	`, map[string]string{
+		"id":              strconv.FormatInt(valueID, 10),
+		"location_number": locationNumber,
+		"name":            name,
+		"description":     description,
+		"updated_at":      strconv.FormatInt(now, 10),
+	})
+	if err != nil {
+		return err
+	}
+	rows, err := s.query(ctx, `
+		SELECT COUNT(*) AS count
+		FROM location_candidate_values
+		WHERE id = @id AND location_number = @location_number;
+	`, map[string]string{
+		"id":              strconv.FormatInt(valueID, 10),
+		"location_number": locationNumber,
+	})
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return errNotFound
+	}
+	count, err := valueAsInt64(rows[0]["count"])
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return errNotFound
+	}
+	return nil
+}
+
+func (s *sqliteStore) deleteCandidateValue(ctx context.Context, locationNumber string, valueID int64) error {
+	rows, err := s.query(ctx, `
+		SELECT COUNT(*) AS count
+		FROM location_candidate_values
+		WHERE id = @id AND location_number = @location_number;
+	`, map[string]string{
+		"id":              strconv.FormatInt(valueID, 10),
+		"location_number": locationNumber,
+	})
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return errNotFound
+	}
+	count, err := valueAsInt64(rows[0]["count"])
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return errNotFound
+	}
+	_, err = s.exec(ctx, `
+		DELETE FROM location_candidate_values
+		WHERE id = @id AND location_number = @location_number;
+	`, map[string]string{
+		"id":              strconv.FormatInt(valueID, 10),
+		"location_number": locationNumber,
+	})
+	return err
+}
+
+func (s *sqliteStore) listCandidateInterviewNames(ctx context.Context, locationNumber string) ([]candidateInterviewName, error) {
+	rows, err := s.query(ctx, `
+		SELECT id, location_number, name, created_at, updated_at
+		FROM location_candidate_interview_names
+		WHERE location_number = @location_number
+		ORDER BY id ASC;
+	`, map[string]string{"location_number": locationNumber})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]candidateInterviewName, 0, len(rows))
+	for _, row := range rows {
+		id, err := valueAsInt64(row["id"])
+		if err != nil {
+			return nil, err
+		}
+		loc, err := valueAsString(row["location_number"])
+		if err != nil {
+			return nil, err
+		}
+		name, err := valueAsString(row["name"])
+		if err != nil {
+			return nil, err
+		}
+		createdAtUnix, err := valueAsInt64(row["created_at"])
+		if err != nil {
+			return nil, err
+		}
+		updatedAtUnix, err := valueAsInt64(row["updated_at"])
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, candidateInterviewName{
+			ID:             id,
+			LocationNumber: loc,
+			Name:           name,
+			CreatedAt:      time.Unix(createdAtUnix, 0).UTC(),
+			UpdatedAt:      time.Unix(updatedAtUnix, 0).UTC(),
+		})
+	}
+	return out, nil
+}
+
+func (s *sqliteStore) createCandidateInterviewName(ctx context.Context, name candidateInterviewName) (int64, error) {
+	now := time.Now().UTC().Unix()
+	_, err := s.exec(ctx, `
+		INSERT INTO location_candidate_interview_names (location_number, name, created_at, updated_at)
+		VALUES (@location_number, @name, @created_at, @updated_at);
+	`, map[string]string{
+		"location_number": name.LocationNumber,
+		"name":            strings.TrimSpace(name.Name),
+		"created_at":      strconv.FormatInt(now, 10),
+		"updated_at":      strconv.FormatInt(now, 10),
+	})
+	if err != nil {
+		return 0, err
+	}
+	rows, err := s.query(ctx, `
+		SELECT id
+		FROM location_candidate_interview_names
+		WHERE location_number = @location_number
+		ORDER BY id DESC
+		LIMIT 1;
+	`, map[string]string{"location_number": name.LocationNumber})
+	if err != nil {
+		return 0, err
+	}
+	if len(rows) == 0 {
+		return 0, errNotFound
+	}
+	return valueAsInt64(rows[0]["id"])
+}
+
+func (s *sqliteStore) deleteCandidateInterviewName(ctx context.Context, locationNumber string, nameID int64) error {
+	rows, err := s.query(ctx, `
+		SELECT COUNT(*) AS count
+		FROM location_candidate_interview_names
+		WHERE id = @id AND location_number = @location_number;
+	`, map[string]string{
+		"id":              strconv.FormatInt(nameID, 10),
+		"location_number": locationNumber,
+	})
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return errNotFound
+	}
+	count, err := valueAsInt64(rows[0]["count"])
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return errNotFound
+	}
+	_, err = s.exec(ctx, `
+		DELETE FROM location_candidate_interview_names
+		WHERE id = @id AND location_number = @location_number;
+	`, map[string]string{
+		"id":              strconv.FormatInt(nameID, 10),
+		"location_number": locationNumber,
+	})
+	return err
+}
+
+func (s *sqliteStore) createCandidate(ctx context.Context, candidateRecord candidate) (int64, error) {
+	now := time.Now().UTC().Unix()
+	_, err := s.exec(ctx, `
+		INSERT INTO location_candidates (location_number, first_name, last_name, status, hired_time_punch_name, archived_at, created_at, updated_at)
+		VALUES (@location_number, @first_name, @last_name, @status, @hired_time_punch_name, 0, @created_at, @updated_at);
+	`, map[string]string{
+		"location_number":       candidateRecord.LocationNumber,
+		"first_name":            candidateRecord.FirstName,
+		"last_name":             candidateRecord.LastName,
+		"status":                strings.TrimSpace(candidateRecord.Status),
+		"hired_time_punch_name": strings.TrimSpace(candidateRecord.HiredTimePunchName),
+		"created_at":            strconv.FormatInt(now, 10),
+		"updated_at":            strconv.FormatInt(now, 10),
+	})
+	if err != nil {
+		return 0, err
+	}
+	rows, err := s.query(ctx, `
+		SELECT id
+		FROM location_candidates
+		WHERE location_number = @location_number
+		ORDER BY id DESC
+		LIMIT 1;
+	`, map[string]string{"location_number": candidateRecord.LocationNumber})
+	if err != nil {
+		return 0, err
+	}
+	if len(rows) == 0 {
+		return 0, errNotFound
+	}
+	return valueAsInt64(rows[0]["id"])
+}
+
+func (s *sqliteStore) getCandidateByID(ctx context.Context, locationNumber string, candidateID int64) (*candidate, error) {
+	rows, err := s.query(ctx, `
+		SELECT id, location_number, first_name, last_name, status, hired_time_punch_name, archived_at, created_at, updated_at
+		FROM location_candidates
+		WHERE id = @id AND location_number = @location_number
+		LIMIT 1;
+	`, map[string]string{
+		"id":              strconv.FormatInt(candidateID, 10),
+		"location_number": locationNumber,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, errNotFound
+	}
+	id, err := valueAsInt64(rows[0]["id"])
+	if err != nil {
+		return nil, err
+	}
+	loc, err := valueAsString(rows[0]["location_number"])
+	if err != nil {
+		return nil, err
+	}
+	firstName, err := valueAsString(rows[0]["first_name"])
+	if err != nil {
+		return nil, err
+	}
+	lastName, err := valueAsString(rows[0]["last_name"])
+	if err != nil {
+		return nil, err
+	}
+	status, err := valueAsString(rows[0]["status"])
+	if err != nil {
+		return nil, err
+	}
+	hiredTPN, err := valueAsString(rows[0]["hired_time_punch_name"])
+	if err != nil {
+		return nil, err
+	}
+	archivedAtUnix, err := valueAsInt64(rows[0]["archived_at"])
+	if err != nil {
+		return nil, err
+	}
+	createdAtUnix, err := valueAsInt64(rows[0]["created_at"])
+	if err != nil {
+		return nil, err
+	}
+	updatedAtUnix, err := valueAsInt64(rows[0]["updated_at"])
+	if err != nil {
+		return nil, err
+	}
+	out := &candidate{
+		ID:                 id,
+		LocationNumber:     loc,
+		FirstName:          firstName,
+		LastName:           lastName,
+		Status:             status,
+		HiredTimePunchName: hiredTPN,
+		CreatedAt:          time.Unix(createdAtUnix, 0).UTC(),
+		UpdatedAt:          time.Unix(updatedAtUnix, 0).UTC(),
+	}
+	if archivedAtUnix > 0 {
+		out.ArchivedAt = time.Unix(archivedAtUnix, 0).UTC()
+	}
+	return out, nil
+}
+
+func (s *sqliteStore) listCandidates(ctx context.Context, locationNumber string, archived bool, search string) ([]candidate, error) {
+	search = strings.TrimSpace(search)
+	statusFilter := "c.status = 'active'"
+	if archived {
+		statusFilter = "c.status IN ('passed', 'hired')"
+	}
+	query := `
+		SELECT c.id, c.location_number, c.first_name, c.last_name, c.status, c.hired_time_punch_name, c.archived_at, c.created_at, c.updated_at
+		FROM location_candidates c
+		WHERE c.location_number = @location_number
+			AND ` + statusFilter
+	params := map[string]string{"location_number": locationNumber}
+	if search != "" {
+		query += ` AND (LOWER(c.first_name) LIKE LOWER(@search) OR LOWER(c.last_name) LIKE LOWER(@search) OR LOWER(c.first_name || ' ' || c.last_name) LIKE LOWER(@search))`
+		params["search"] = "%" + search + "%"
+	}
+	query += ` ORDER BY c.created_at DESC;`
+	rows, err := s.query(ctx, query, params)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]candidate, 0, len(rows))
+	for _, row := range rows {
+		id, err := valueAsInt64(row["id"])
+		if err != nil {
+			return nil, err
+		}
+		loc, err := valueAsString(row["location_number"])
+		if err != nil {
+			return nil, err
+		}
+		firstName, err := valueAsString(row["first_name"])
+		if err != nil {
+			return nil, err
+		}
+		lastName, err := valueAsString(row["last_name"])
+		if err != nil {
+			return nil, err
+		}
+		status, err := valueAsString(row["status"])
+		if err != nil {
+			return nil, err
+		}
+		hiredTPN, err := valueAsString(row["hired_time_punch_name"])
+		if err != nil {
+			return nil, err
+		}
+		archivedAtUnix, err := valueAsInt64(row["archived_at"])
+		if err != nil {
+			return nil, err
+		}
+		createdAtUnix, err := valueAsInt64(row["created_at"])
+		if err != nil {
+			return nil, err
+		}
+		updatedAtUnix, err := valueAsInt64(row["updated_at"])
+		if err != nil {
+			return nil, err
+		}
+		record := candidate{
+			ID:                 id,
+			LocationNumber:     loc,
+			FirstName:          firstName,
+			LastName:           lastName,
+			Status:             status,
+			HiredTimePunchName: hiredTPN,
+			CreatedAt:          time.Unix(createdAtUnix, 0).UTC(),
+			UpdatedAt:          time.Unix(updatedAtUnix, 0).UTC(),
+		}
+		if archivedAtUnix > 0 {
+			record.ArchivedAt = time.Unix(archivedAtUnix, 0).UTC()
+		}
+		out = append(out, record)
+	}
+	return out, nil
+}
+
+func (s *sqliteStore) listHiredCandidateScorecardsByTimePunchName(ctx context.Context, locationNumber, timePunchName string) ([]candidate, error) {
+	rows, err := s.query(ctx, `
+		SELECT id, location_number, first_name, last_name, status, hired_time_punch_name, archived_at, created_at, updated_at
+		FROM location_candidates
+		WHERE location_number = @location_number
+			AND status = 'hired'
+			AND hired_time_punch_name = @hired_time_punch_name
+		ORDER BY archived_at DESC, id DESC;
+	`, map[string]string{
+		"location_number":       locationNumber,
+		"hired_time_punch_name": strings.TrimSpace(timePunchName),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]candidate, 0, len(rows))
+	for _, row := range rows {
+		id, err := valueAsInt64(row["id"])
+		if err != nil {
+			return nil, err
+		}
+		record, err := s.getCandidateByID(ctx, locationNumber, id)
+		if err != nil {
+			return nil, err
+		}
+		interviews, err := s.listCandidateInterviews(ctx, locationNumber, id)
+		if err != nil {
+			return nil, err
+		}
+		record.Interviews = interviews
+		record.AverageGradePercent = candidateAverageGradePercent(interviews)
+		out = append(out, *record)
+	}
+	return out, nil
+}
+
+func (s *sqliteStore) createCandidateInterview(ctx context.Context, interview candidateInterview) (int64, error) {
+	now := time.Now().UTC().Unix()
+	statement := `
+		BEGIN;
+		INSERT INTO location_candidate_interviews (candidate_id, location_number, interviewer_time_punch_name, interview_type, notes, created_at)
+		VALUES (@candidate_id, @location_number, @interviewer_time_punch_name, @interview_type, @notes, @created_at);
+	`
+	for idx := range interview.Grades {
+		statement += `
+		INSERT INTO location_candidate_interview_grades (interview_id, value_id, letter_grade, grade_comment, created_at)
+		VALUES (
+			last_insert_rowid(),
+			@value_id_` + strconv.Itoa(idx) + `,
+			@letter_grade_` + strconv.Itoa(idx) + `,
+			@grade_comment_` + strconv.Itoa(idx) + `,
+			@created_at
+		);`
+	}
+	statement += `
+		UPDATE location_candidates
+		SET updated_at = @updated_at
+		WHERE id = @candidate_id AND location_number = @location_number;
+		COMMIT;
+	`
+	params := map[string]string{
+		"candidate_id":                strconv.FormatInt(interview.CandidateID, 10),
+		"location_number":             interview.LocationNumber,
+		"interviewer_time_punch_name": interview.InterviewerTimePunchName,
+		"interview_type":              interview.InterviewType,
+		"notes":                       interview.Notes,
+		"created_at":                  strconv.FormatInt(now, 10),
+		"updated_at":                  strconv.FormatInt(now, 10),
+	}
+	for idx, grade := range interview.Grades {
+		params["value_id_"+strconv.Itoa(idx)] = strconv.FormatInt(grade.ValueID, 10)
+		params["letter_grade_"+strconv.Itoa(idx)] = grade.LetterGrade
+		params["grade_comment_"+strconv.Itoa(idx)] = strings.TrimSpace(grade.Comment)
+	}
+	if _, err := s.exec(ctx, statement, params); err != nil {
+		return 0, err
+	}
+	rows, err := s.query(ctx, `
+		SELECT id
+		FROM location_candidate_interviews
+		WHERE candidate_id = @candidate_id
+		ORDER BY id DESC
+		LIMIT 1;
+	`, map[string]string{
+		"candidate_id": strconv.FormatInt(interview.CandidateID, 10),
+	})
+	if err != nil {
+		return 0, err
+	}
+	if len(rows) == 0 {
+		return 0, errNotFound
+	}
+	return valueAsInt64(rows[0]["id"])
+}
+
+func (s *sqliteStore) listCandidateInterviews(ctx context.Context, locationNumber string, candidateID int64) ([]candidateInterview, error) {
+	rows, err := s.query(ctx, `
+		SELECT id, candidate_id, location_number, interviewer_time_punch_name, interview_type, notes, created_at
+		FROM location_candidate_interviews
+		WHERE location_number = @location_number AND candidate_id = @candidate_id
+		ORDER BY created_at DESC;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"candidate_id":    strconv.FormatInt(candidateID, 10),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]candidateInterview, 0, len(rows))
+	for _, row := range rows {
+		id, err := valueAsInt64(row["id"])
+		if err != nil {
+			return nil, err
+		}
+		cid, err := valueAsInt64(row["candidate_id"])
+		if err != nil {
+			return nil, err
+		}
+		loc, err := valueAsString(row["location_number"])
+		if err != nil {
+			return nil, err
+		}
+		interviewerTPN, err := valueAsString(row["interviewer_time_punch_name"])
+		if err != nil {
+			return nil, err
+		}
+		interviewType, err := valueAsString(row["interview_type"])
+		if err != nil {
+			return nil, err
+		}
+		notes, err := valueAsString(row["notes"])
+		if err != nil {
+			return nil, err
+		}
+		createdAtUnix, err := valueAsInt64(row["created_at"])
+		if err != nil {
+			return nil, err
+		}
+		grades, err := s.listCandidateInterviewGrades(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, candidateInterview{
+			ID:                       id,
+			CandidateID:              cid,
+			LocationNumber:           loc,
+			InterviewerTimePunchName: interviewerTPN,
+			InterviewType:            interviewType,
+			Notes:                    notes,
+			CreatedAt:                time.Unix(createdAtUnix, 0).UTC(),
+			Grades:                   grades,
+		})
+	}
+	return out, nil
+}
+
+func (s *sqliteStore) listCandidateInterviewGrades(ctx context.Context, interviewID int64) ([]candidateInterviewGrade, error) {
+	rows, err := s.query(ctx, `
+		SELECT g.id, g.interview_id, g.value_id, g.letter_grade, g.grade_comment, v.name AS value_name
+		FROM location_candidate_interview_grades g
+		INNER JOIN location_candidate_values v ON v.id = g.value_id
+		WHERE g.interview_id = @interview_id
+		ORDER BY g.id ASC;
+	`, map[string]string{
+		"interview_id": strconv.FormatInt(interviewID, 10),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]candidateInterviewGrade, 0, len(rows))
+	for _, row := range rows {
+		id, err := valueAsInt64(row["id"])
+		if err != nil {
+			return nil, err
+		}
+		iid, err := valueAsInt64(row["interview_id"])
+		if err != nil {
+			return nil, err
+		}
+		valueID, err := valueAsInt64(row["value_id"])
+		if err != nil {
+			return nil, err
+		}
+		letterGrade, err := valueAsString(row["letter_grade"])
+		if err != nil {
+			return nil, err
+		}
+		gradeComment, err := valueAsString(row["grade_comment"])
+		if err != nil {
+			return nil, err
+		}
+		valueName, err := valueAsString(row["value_name"])
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, candidateInterviewGrade{
+			ID:          id,
+			InterviewID: iid,
+			ValueID:     valueID,
+			ValueName:   valueName,
+			LetterGrade: letterGrade,
+			Comment:     gradeComment,
+			Score:       letterGradeScore(letterGrade),
+		})
+	}
+	return out, nil
+}
+
+func (s *sqliteStore) updateCandidateStatus(ctx context.Context, locationNumber string, candidateID int64, status string, hiredTimePunchName string) error {
+	now := time.Now().UTC().Unix()
+	archivedAt := int64(0)
+	if status == "passed" || status == "hired" {
+		archivedAt = now
+	}
+	_, err := s.exec(ctx, `
+		UPDATE location_candidates
+		SET status = @status, hired_time_punch_name = @hired_time_punch_name, archived_at = @archived_at, updated_at = @updated_at
+		WHERE id = @id AND location_number = @location_number;
+	`, map[string]string{
+		"id":                    strconv.FormatInt(candidateID, 10),
+		"location_number":       locationNumber,
+		"status":                status,
+		"hired_time_punch_name": strings.TrimSpace(hiredTimePunchName),
+		"archived_at":           strconv.FormatInt(archivedAt, 10),
+		"updated_at":            strconv.FormatInt(now, 10),
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *sqliteStore) countEmployeesForLocation(ctx context.Context, number string) (int, error) {
@@ -5327,9 +7544,9 @@ func (s *sqliteStore) archiveAndDeleteLocationEmployee(ctx context.Context, loca
 		);
 
 		INSERT INTO archived_employee_i9_documents (
-			archived_employee_id, list_type, file_data, file_mime, file_name, created_at
+			archived_employee_id, list_type, document_title, issuing_authority, document_number, expiration_date, file_data, file_mime, file_name, created_at
 		)
-		SELECT a.id, d.list_type, d.file_data, d.file_mime, d.file_name, d.created_at
+		SELECT a.id, d.list_type, d.document_title, d.issuing_authority, d.document_number, d.expiration_date, d.file_data, d.file_mime, d.file_name, d.created_at
 		FROM employee_i9_documents d
 		INNER JOIN archived_location_employees a
 			ON a.location_number = d.location_number
@@ -5468,26 +7685,30 @@ func (s *sqliteStore) getEmployeeI9File(ctx context.Context, locationNumber, tim
 	return fileBytes, fileMime, fileName, nil
 }
 
-func (s *sqliteStore) addEmployeeI9Document(ctx context.Context, locationNumber, timePunchName, listType string, data []byte, mime, fileName string) error {
+func (s *sqliteStore) addEmployeeI9Document(ctx context.Context, locationNumber, timePunchName, listType, documentTitle, issuingAuthority, documentNumber, expirationDate string, data []byte, mime, fileName string) error {
 	encoded := base64.StdEncoding.EncodeToString(data)
 	_, err := s.exec(ctx, `
-		INSERT INTO employee_i9_documents (location_number, time_punch_name, list_type, file_data, file_mime, file_name, created_at)
-		VALUES (@location_number, @time_punch_name, @list_type, @file_data, @file_mime, @file_name, @created_at);
+		INSERT INTO employee_i9_documents (location_number, time_punch_name, list_type, document_title, issuing_authority, document_number, expiration_date, file_data, file_mime, file_name, created_at)
+		VALUES (@location_number, @time_punch_name, @list_type, @document_title, @issuing_authority, @document_number, @expiration_date, @file_data, @file_mime, @file_name, @created_at);
 	`, map[string]string{
-		"location_number": locationNumber,
-		"time_punch_name": timePunchName,
-		"list_type":       strings.TrimSpace(strings.ToLower(listType)),
-		"file_data":       encoded,
-		"file_mime":       mime,
-		"file_name":       fileName,
-		"created_at":      strconv.FormatInt(time.Now().UTC().Unix(), 10),
+		"location_number":   locationNumber,
+		"time_punch_name":   timePunchName,
+		"list_type":         strings.TrimSpace(strings.ToLower(listType)),
+		"document_title":    strings.TrimSpace(documentTitle),
+		"issuing_authority": strings.TrimSpace(issuingAuthority),
+		"document_number":   strings.TrimSpace(documentNumber),
+		"expiration_date":   strings.TrimSpace(expirationDate),
+		"file_data":         encoded,
+		"file_mime":         mime,
+		"file_name":         fileName,
+		"created_at":        strconv.FormatInt(time.Now().UTC().Unix(), 10),
 	})
 	return err
 }
 
 func (s *sqliteStore) listEmployeeI9Documents(ctx context.Context, locationNumber, timePunchName string) ([]employeeI9Document, error) {
 	rows, err := s.query(ctx, `
-		SELECT id, list_type, file_name, file_mime, created_at
+		SELECT id, list_type, document_title, issuing_authority, document_number, expiration_date, file_name, file_mime, created_at
 		FROM employee_i9_documents
 		WHERE location_number = @location_number AND time_punch_name = @time_punch_name
 		ORDER BY created_at DESC, id DESC;
@@ -5508,6 +7729,22 @@ func (s *sqliteStore) listEmployeeI9Documents(ctx context.Context, locationNumbe
 		if err != nil {
 			return nil, err
 		}
+		documentTitle, err := valueAsString(row["document_title"])
+		if err != nil {
+			return nil, err
+		}
+		issuingAuth, err := valueAsString(row["issuing_authority"])
+		if err != nil {
+			return nil, err
+		}
+		documentNumber, err := valueAsString(row["document_number"])
+		if err != nil {
+			return nil, err
+		}
+		expirationDate, err := valueAsString(row["expiration_date"])
+		if err != nil {
+			return nil, err
+		}
 		fileName, err := valueAsString(row["file_name"])
 		if err != nil {
 			return nil, err
@@ -5525,6 +7762,10 @@ func (s *sqliteStore) listEmployeeI9Documents(ctx context.Context, locationNumbe
 			LocationNumber: locationNumber,
 			TimePunchName:  timePunchName,
 			ListType:       listType,
+			DocumentTitle:  documentTitle,
+			IssuingAuth:    issuingAuth,
+			DocumentNumber: documentNumber,
+			ExpirationDate: expirationDate,
 			FileName:       fileName,
 			FileMime:       fileMime,
 			CreatedAt:      time.Unix(createdUnix, 0).UTC(),
@@ -5688,7 +7929,7 @@ func (s *sqliteStore) getArchivedEmployeeI9File(ctx context.Context, archivedEmp
 
 func (s *sqliteStore) listArchivedEmployeeI9Documents(ctx context.Context, archivedEmployeeID int64) ([]employeeI9Document, error) {
 	rows, err := s.query(ctx, `
-		SELECT id, list_type, file_name, file_mime, created_at
+		SELECT id, list_type, document_title, issuing_authority, document_number, expiration_date, file_name, file_mime, created_at
 		FROM archived_employee_i9_documents
 		WHERE archived_employee_id = @archived_employee_id
 		ORDER BY created_at DESC, id DESC;
@@ -5708,6 +7949,22 @@ func (s *sqliteStore) listArchivedEmployeeI9Documents(ctx context.Context, archi
 		if err != nil {
 			return nil, err
 		}
+		documentTitle, err := valueAsString(row["document_title"])
+		if err != nil {
+			return nil, err
+		}
+		issuingAuth, err := valueAsString(row["issuing_authority"])
+		if err != nil {
+			return nil, err
+		}
+		documentNumber, err := valueAsString(row["document_number"])
+		if err != nil {
+			return nil, err
+		}
+		expirationDate, err := valueAsString(row["expiration_date"])
+		if err != nil {
+			return nil, err
+		}
 		fileName, err := valueAsString(row["file_name"])
 		if err != nil {
 			return nil, err
@@ -5721,11 +7978,15 @@ func (s *sqliteStore) listArchivedEmployeeI9Documents(ctx context.Context, archi
 			return nil, err
 		}
 		docs = append(docs, employeeI9Document{
-			ID:        id,
-			ListType:  listType,
-			FileName:  fileName,
-			FileMime:  fileMime,
-			CreatedAt: time.Unix(createdUnix, 0).UTC(),
+			ID:             id,
+			ListType:       listType,
+			DocumentTitle:  documentTitle,
+			IssuingAuth:    issuingAuth,
+			DocumentNumber: documentNumber,
+			ExpirationDate: expirationDate,
+			FileName:       fileName,
+			FileMime:       fileMime,
+			CreatedAt:      time.Unix(createdUnix, 0).UTC(),
 		})
 	}
 	return docs, nil
@@ -6219,6 +8480,89 @@ func (s *sqliteStore) getOrCreateEmployeePaperworkToken(ctx context.Context, loc
 		return "", err
 	}
 	return token, nil
+}
+
+func (s *sqliteStore) createCandidateInterviewToken(ctx context.Context, token candidateInterviewToken) error {
+	now := time.Now().UTC().Unix()
+	_, err := s.exec(ctx, `
+		INSERT INTO location_candidate_interview_tokens (token, location_number, candidate_id, interviewer_time_punch_name, interview_type, expires_at, used_at, created_at)
+		VALUES (@token, @location_number, @candidate_id, @interviewer_time_punch_name, @interview_type, @expires_at, 0, @created_at);
+	`, map[string]string{
+		"token":                       token.Token,
+		"location_number":             token.LocationNumber,
+		"candidate_id":                strconv.FormatInt(token.CandidateID, 10),
+		"interviewer_time_punch_name": strings.TrimSpace(token.InterviewerTimePunchName),
+		"interview_type":              strings.TrimSpace(token.InterviewType),
+		"expires_at":                  strconv.FormatInt(token.ExpiresAt.UTC().Unix(), 10),
+		"created_at":                  strconv.FormatInt(now, 10),
+	})
+	return err
+}
+
+func (s *sqliteStore) getCandidateInterviewToken(ctx context.Context, token string) (*candidateInterviewToken, error) {
+	rows, err := s.query(ctx, `
+		SELECT token, location_number, candidate_id, interviewer_time_punch_name, interview_type, expires_at, used_at
+		FROM location_candidate_interview_tokens
+		WHERE token = @token
+		LIMIT 1;
+	`, map[string]string{"token": token})
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, errNotFound
+	}
+	locationNumber, err := valueAsString(rows[0]["location_number"])
+	if err != nil {
+		return nil, err
+	}
+	candidateID, err := valueAsInt64(rows[0]["candidate_id"])
+	if err != nil {
+		return nil, err
+	}
+	interviewerTPN, err := valueAsString(rows[0]["interviewer_time_punch_name"])
+	if err != nil {
+		return nil, err
+	}
+	interviewType, err := valueAsString(rows[0]["interview_type"])
+	if err != nil {
+		return nil, err
+	}
+	expiresUnix, err := valueAsInt64(rows[0]["expires_at"])
+	if err != nil {
+		return nil, err
+	}
+	expiresAt := time.Unix(expiresUnix, 0).UTC()
+	if time.Now().UTC().After(expiresAt) {
+		return nil, errNotFound
+	}
+	usedUnix, err := valueAsInt64(rows[0]["used_at"])
+	if err != nil {
+		return nil, err
+	}
+	if usedUnix > 0 {
+		return nil, errNotFound
+	}
+	return &candidateInterviewToken{
+		Token:                    token,
+		LocationNumber:           locationNumber,
+		CandidateID:              candidateID,
+		InterviewerTimePunchName: interviewerTPN,
+		InterviewType:            interviewType,
+		ExpiresAt:                expiresAt,
+	}, nil
+}
+
+func (s *sqliteStore) markCandidateInterviewTokenUsed(ctx context.Context, token string) error {
+	_, err := s.exec(ctx, `
+		UPDATE location_candidate_interview_tokens
+		SET used_at = @used_at
+		WHERE token = @token;
+	`, map[string]string{
+		"token":   token,
+		"used_at": strconv.FormatInt(time.Now().UTC().Unix(), 10),
+	})
+	return err
 }
 
 func (s *sqliteStore) getLocationTimePunchToken(ctx context.Context, token string) (*locationTimePunchToken, error) {
@@ -8012,14 +10356,20 @@ func (s *sqliteStore) run(ctx context.Context, statement string, params map[stri
 	runCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
 
-	args := []string{s.dbPath, ".timeout 5000"}
+	boundSQL := bindSQLParams(statement, params)
+	var script strings.Builder
+	script.WriteString(".timeout 5000\n")
 	if jsonMode {
-		args = append(args, ".mode json")
+		script.WriteString(".mode json\n")
 	}
-	args = append(args, "PRAGMA foreign_keys = ON;")
-	args = append(args, bindSQLParams(statement, params))
+	script.WriteString("PRAGMA foreign_keys = ON;\n")
+	script.WriteString(boundSQL)
+	if !strings.HasSuffix(boundSQL, "\n") {
+		script.WriteString("\n")
+	}
 
-	cmd := exec.CommandContext(runCtx, "sqlite3", args...)
+	cmd := exec.CommandContext(runCtx, "sqlite3", s.dbPath)
+	cmd.Stdin = strings.NewReader(script.String())
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("sqlite3 command failed: %w (%s)", err, strings.TrimSpace(string(output)))
@@ -8094,10 +10444,12 @@ func randomToken(bytesLen int) (string, error) {
 func validateCreateLocation(req createLocationRequest) error {
 	name := strings.TrimSpace(req.Name)
 	number := strings.TrimSpace(req.Number)
+	employerRepSignature := strings.TrimSpace(req.EmployerRepSignature)
 	businessName := strings.TrimSpace(req.BusinessName)
 	businessStreet := strings.TrimSpace(req.BusinessStreet)
 	businessCity := strings.TrimSpace(req.BusinessCity)
 	businessState := strings.TrimSpace(req.BusinessState)
+	businessEIN := strings.TrimSpace(req.BusinessEIN)
 	if businessStreet == "" && businessCity == "" && businessState == "" {
 		businessStreet, businessCity, businessState = splitBusinessAddressParts(req.BusinessAddress)
 	}
@@ -8106,6 +10458,9 @@ func validateCreateLocation(req createLocationRequest) error {
 	}
 	if number == "" {
 		return errors.New("number is required")
+	}
+	if employerRepSignature == "" {
+		return errors.New("employer representative signature is required")
 	}
 	if businessName == "" {
 		return errors.New("business or organization name is required")
@@ -8119,6 +10474,9 @@ func validateCreateLocation(req createLocationRequest) error {
 	if businessState == "" {
 		return errors.New("business state is required")
 	}
+	if businessEIN == "" {
+		return errors.New("business EIN is required")
+	}
 	if len([]rune(businessName)) > 160 {
 		return errors.New("business or organization name must be 160 characters or fewer")
 	}
@@ -8130,6 +10488,12 @@ func validateCreateLocation(req createLocationRequest) error {
 	}
 	if len([]rune(businessState)) > 60 {
 		return errors.New("business state must be 60 characters or fewer")
+	}
+	if len([]rune(businessEIN)) > 32 {
+		return errors.New("business EIN must be 32 characters or fewer")
+	}
+	if len([]rune(employerRepSignature)) > 120 {
+		return errors.New("employer representative signature must be 120 characters or fewer")
 	}
 	validNumber := regexp.MustCompile(`^[A-Za-z0-9-]+$`)
 	if !validNumber.MatchString(number) {
@@ -8373,6 +10737,63 @@ func normalizeDepartment(value string) string {
 		return "INIT"
 	}
 	return dept
+}
+
+func normalizeLetterGrade(value string) string {
+	normalized := strings.ToUpper(strings.TrimSpace(value))
+	switch normalized {
+	case "A", "B", "C", "D", "F":
+		return normalized
+	default:
+		return ""
+	}
+}
+
+func letterGradeScore(letter string) float64 {
+	switch normalizeLetterGrade(letter) {
+	case "A":
+		return 4
+	case "B":
+		return 3
+	case "C":
+		return 2
+	case "D":
+		return 1
+	default:
+		return 0
+	}
+}
+
+func (s *server) resolveInterviewNameForLocation(ctx context.Context, locationNumber, raw string) (string, error) {
+	target := strings.TrimSpace(raw)
+	if target == "" {
+		return "", nil
+	}
+	names, err := s.store.listCandidateInterviewNames(ctx, locationNumber)
+	if err != nil {
+		return "", err
+	}
+	for _, name := range names {
+		if strings.EqualFold(strings.TrimSpace(name.Name), target) {
+			return name.Name, nil
+		}
+	}
+	return "", nil
+}
+
+func candidateAverageGradePercent(interviews []candidateInterview) float64 {
+	var total float64
+	var count int
+	for _, interview := range interviews {
+		for _, grade := range interview.Grades {
+			total += grade.Score
+			count++
+		}
+	}
+	if count == 0 {
+		return 0
+	}
+	return (total / float64(count)) * 100
 }
 
 func parseBioEmployeesFromSpreadsheet(reader io.Reader, filename string) ([]bioEmployeeRow, error) {
@@ -8702,6 +11123,7 @@ type pdfFormExportTextField struct {
 }
 
 type pdfFormExportCheckBox struct {
+	ID    string `json:"id"`
 	Name  string `json:"name"`
 	Value bool   `json:"value"`
 }
@@ -8728,6 +11150,10 @@ func generateFilledI9PDF(values url.Values) ([]byte, error) {
 		"alien_passport_country":    "Foreign Passport Number and Country of IssuanceRow1",
 		"employee_signature":        "Signature of Employee",
 		"employee_signature_date":   "Today's Date mmddyyy",
+		"list_a_title":              "Document Title 1",
+		"list_a_issuing_authority":  "Issuing Authority 1",
+		"list_a_number":             "Document Number 0 (if any)",
+		"list_a_expiration":         "Expiration Date if any",
 		"list_b_title":              "List B Document 1 Title",
 		"list_b_issuing_authority":  "List B Issuing Authority 1",
 		"list_b_number":             "List B Document Number 1",
@@ -8752,29 +11178,63 @@ func generateFilledI9PDF(values url.Values) ([]byte, error) {
 		}
 		pdfTextValues[pdfFieldName] = raw
 	}
+	if stateRaw := strings.TrimSpace(values.Get("state")); stateRaw != "" {
+		pdfTextValues["State_Real"] = stateRaw
+	}
 
-	citizenshipStatus := strings.ToLower(strings.TrimSpace(values.Get("citizenship_status")))
+	citizenshipStatus := normalizeI9CitizenshipStatus(values.Get("citizenship_status"))
+	if citizenshipStatus == "" {
+		return nil, errors.New("citizenship/immigration status is required")
+	}
+	statusTextFieldMap := map[string]string{
+		"citizen":             "CHECK_1",
+		"noncitizen_national": "CHECK_2",
+		"lpr":                 "CHECK_3",
+		"alien_authorized":    "CHECK_4",
+	}
+	statusCheckboxFieldMap := map[string]string{
+		"citizen":             "CB_1",
+		"noncitizen_national": "CB_2",
+		"lpr":                 "CB_3",
+		"alien_authorized":    "CB_4",
+	}
+	textFieldName, ok := statusTextFieldMap[citizenshipStatus]
+	if !ok {
+		return nil, errors.New("invalid citizenship/immigration status")
+	}
+	// Current I-9 template uses text fields CHECK_1..CHECK_4 for status marks.
+	pdfTextValues[textFieldName] = "X"
+
 	pdfCheckboxValues := map[string]bool{
 		"CB_1": false,
 		"CB_2": false,
 		"CB_3": false,
 		"CB_4": false,
 	}
-	switch citizenshipStatus {
-	case "citizen":
-		pdfCheckboxValues["CB_1"] = true
-	case "noncitizen_national":
-		pdfCheckboxValues["CB_2"] = true
-	case "lpr":
-		pdfCheckboxValues["CB_3"] = true
-	case "alien_authorized":
-		pdfCheckboxValues["CB_4"] = true
+	if checkboxFieldName, ok := statusCheckboxFieldMap[citizenshipStatus]; ok {
+		// Backward compatibility for templates that still use checkbox widgets.
+		pdfCheckboxValues[checkboxFieldName] = true
 	}
 
-	if len(pdfTextValues) == 0 && !pdfCheckboxValues["CB_1"] && !pdfCheckboxValues["CB_2"] && !pdfCheckboxValues["CB_3"] && !pdfCheckboxValues["CB_4"] {
+	if len(pdfTextValues) == 0 {
 		return nil, errors.New("enter at least one i-9 field before saving")
 	}
 	return fillPDFTemplate("docs/i9.pdf", pdfTextValues, pdfCheckboxValues)
+}
+
+func normalizeI9CitizenshipStatus(raw string) string {
+	status := strings.ToLower(strings.TrimSpace(raw))
+	switch status {
+	case "citizen", "u.s. citizen", "us citizen", "a citizen of the united states", "1", "1.", "1. a citizen of the united states":
+		return "citizen"
+	case "noncitizen_national", "noncitizen national", "a noncitizen national of the united states", "2", "2.", "2. a noncitizen national of the united states", "a noncitizen national of the united states (see instructions.)":
+		return "noncitizen_national"
+	case "lpr", "lawful permanent resident", "lawful_permanent_resident", "3", "3.", "3. a lawful permanent resident", "a lawful permanent resident (enter uscis or a-number.)":
+		return "lpr"
+	case "alien_authorized", "alien authorized to work", "authorized_alien", "authorized alien", "4", "4.", "4. an alien authorized to work until":
+		return "alien_authorized"
+	}
+	return ""
 }
 
 func generateFilledW4PDF(values url.Values) ([]byte, error) {
@@ -8785,11 +11245,14 @@ func generateFilledW4PDF(values url.Values) ([]byte, error) {
 		"city_state_zip":     "topmostSubform[0].Page1[0].Step1a[0].f1_04[0]",
 		"ssn":                "topmostSubform[0].Page1[0].f1_05[0]",
 		"dependents_under17": "topmostSubform[0].Page1[0].Step3_ReadOrder[0].f1_06[0]",
-		"other_dependents":   "topmostSubform[0].Page1[0].Step3_ReadOrder[0].f1_07[0]",
+		"other_dependents":   "topmostSubform[0].Page1[0].f1_11[0]",
+		"dependents_total":   "topmostSubform[0].Page1[0].Step3_ReadOrder[0].f1_07[0]",
 		"other_income":       "topmostSubform[0].Page1[0].f1_08[0]",
 		"deductions":         "topmostSubform[0].Page1[0].f1_09[0]",
 		"extra_withholding":  "topmostSubform[0].Page1[0].f1_10[0]",
-		"employer_name_addr": "topmostSubform[0].Page1[0].f1_14[0]",
+		"employer_name_addr": "topmostSubform[0].Page1[0].f1_12[0]",
+		"employer_date":      "topmostSubform[0].Page1[0].f1_13[0]",
+		"employer_ein":       "topmostSubform[0].Page1[0].f1_14[0]",
 	}
 	pdfTextValues := map[string]string{}
 	for formKey, pdfFieldName := range textFieldMap {
@@ -8799,13 +11262,20 @@ func generateFilledW4PDF(values url.Values) ([]byte, error) {
 		}
 		pdfTextValues[pdfFieldName] = raw
 	}
+	under17Amount, hasUnder17Amount := parseWholeDollarAmount(values.Get("dependents_under17"))
+	otherDependentsAmount, hasOtherDependentsAmount := parseWholeDollarAmount(values.Get("other_dependents"))
+	if hasUnder17Amount || hasOtherDependentsAmount {
+		dependentsSum := under17Amount + otherDependentsAmount
+		dependentsSumText := strconv.FormatInt(dependentsSum, 10)
+		pdfTextValues["SUM"] = dependentsSumText
+		// Keep current mapped total field in sync with the computed value.
+		pdfTextValues["topmostSubform[0].Page1[0].Step3_ReadOrder[0].f1_07[0]"] = dependentsSumText
+	}
 	employeeSignature := strings.TrimSpace(values.Get("employee_signature"))
 	if employeeSignature == "" {
 		employeeSignature = strings.TrimSpace(values.Get("signature"))
 	}
 	if employeeSignature != "" {
-		// Support both legacy field ids and newer human-readable field names.
-		pdfTextValues["topmostSubform[0].Page1[0].f1_12[0]"] = employeeSignature
 		pdfTextValues["Employee Signature"] = employeeSignature
 	}
 	employeeDate := strings.TrimSpace(values.Get("employee_signature_date"))
@@ -8813,8 +11283,6 @@ func generateFilledW4PDF(values url.Values) ([]byte, error) {
 		employeeDate = strings.TrimSpace(values.Get("date"))
 	}
 	if employeeDate != "" {
-		// Support both legacy field ids and newer human-readable field names.
-		pdfTextValues["topmostSubform[0].Page1[0].f1_13[0]"] = employeeDate
 		pdfTextValues["Today's Date"] = employeeDate
 	}
 
@@ -8853,6 +11321,25 @@ func generateFilledW4PDF(values url.Values) ([]byte, error) {
 	return fillPDFTemplate("docs/w4.pdf", pdfTextValues, pdfCheckboxValues)
 }
 
+func parseWholeDollarAmount(raw string) (int64, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return 0, false
+	}
+	sanitized := strings.NewReplacer("$", "", ",", "", " ", "").Replace(trimmed)
+	if dot := strings.IndexByte(sanitized, '.'); dot >= 0 {
+		sanitized = sanitized[:dot]
+	}
+	if sanitized == "" {
+		return 0, false
+	}
+	amount, err := strconv.ParseInt(sanitized, 10, 64)
+	if err != nil || amount < 0 {
+		return 0, false
+	}
+	return amount, true
+}
+
 func fillPDFTemplate(templatePath string, textValues map[string]string, checkValues map[string]bool) ([]byte, error) {
 	if _, err := os.Stat(templatePath); err != nil {
 		return nil, errors.New("paperwork template is missing")
@@ -8872,6 +11359,7 @@ func fillPDFTemplate(templatePath string, textValues map[string]string, checkVal
 	exportPath := filepath.Join(tmpDir, "export.json")
 	fillPath := filepath.Join(tmpDir, "fill.json")
 	outPath := filepath.Join(tmpDir, "filled.pdf")
+	lockedOutPath := filepath.Join(tmpDir, "filled-locked.pdf")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -8907,8 +11395,15 @@ func fillPDFTemplate(templatePath string, textValues map[string]string, checkVal
 		}
 		for fieldIdx := range payload.Forms[formIdx].Checkbox {
 			name := payload.Forms[formIdx].Checkbox[fieldIdx].Name
+			id := strings.TrimSpace(payload.Forms[formIdx].Checkbox[fieldIdx].ID)
 			if value, ok := checkValues[name]; ok {
 				payload.Forms[formIdx].Checkbox[fieldIdx].Value = value
+				continue
+			}
+			if id != "" {
+				if value, ok := checkValues[id]; ok {
+					payload.Forms[formIdx].Checkbox[fieldIdx].Value = value
+				}
 			}
 		}
 	}
@@ -8923,8 +11418,15 @@ func fillPDFTemplate(templatePath string, textValues map[string]string, checkVal
 	if output, err := exec.CommandContext(ctx, "pdfcpu", "form", "fill", templatePath, fillPath, outPath).CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("unable to fill template: %s", strings.TrimSpace(string(output)))
 	}
+	// Lock form fields so checkbox/radio appearances render consistently across PDF viewers.
+	finalPath := outPath
+	if output, err := exec.CommandContext(ctx, "pdfcpu", "form", "lock", outPath, lockedOutPath).CombinedOutput(); err == nil {
+		finalPath = lockedOutPath
+	} else {
+		log.Printf("warning: unable to lock filled pdf %s: %s", templatePath, strings.TrimSpace(string(output)))
+	}
 
-	pdfData, err := os.ReadFile(outPath)
+	pdfData, err := os.ReadFile(finalPath)
 	if err != nil {
 		return nil, errors.New("unable to read generated pdf")
 	}

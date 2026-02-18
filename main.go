@@ -14,6 +14,7 @@ func main() {
 		if errors.Is(err, cfasuitecli.ErrUsage) {
 			fmt.Fprintln(os.Stderr, err)
 			fmt.Fprintln(os.Stderr, "usage: cfasuite setup --admin-password <password> [--admin-username admin] [--force]")
+			fmt.Fprintln(os.Stderr, "       cfasuite assets build")
 			fmt.Fprintln(os.Stderr, "       cfasuite run api|client|all")
 			os.Exit(2)
 		}
