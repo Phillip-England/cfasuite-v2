@@ -20,14 +20,14 @@
     :root {
       --bg: #ffffff; --fg: #09090b; --card: #ffffff;
       --muted: #f4f4f5; --muted-fg: #71717a; --border: #e4e4e7;
-      --primary: #ea580c; --primary-fg: #ffffff;
+      --primary: #004f71; --primary-fg: #ffffff;
       --danger: #dc2626; --success: #16a34a;
       --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
     }
     html.dark {
       --bg: #09090b; --fg: #fafafa; --card: #09090b;
       --muted: #27272a; --muted-fg: #a1a1aa; --border: #3f3f46;
-      --primary: #fb923c; --primary-fg: #431407;
+      --primary: #004f71; --primary-fg: #ffffff;
       --danger: #f87171; --success: #4ade80;
       --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
     }
@@ -79,6 +79,19 @@
       font-weight: 600;
       color: var(--danger);
     }
+
+    .login-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(0,79,113,.2);
+    }
+
+    .login-submit {
+      background: var(--primary);
+    }
+
+    .login-submit:hover {
+      background: #003a55;
+    }
   </style>
 </head>
 <body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
@@ -119,7 +132,7 @@
               name="username"
               autocomplete="username"
               required
-              class="mt-1 block w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-orange-500 dark:focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 dark:focus:ring-orange-400/20 focus:outline-none transition"
+              class="login-input mt-1 block w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none transition"
             >
           </label>
           <label>
@@ -129,13 +142,13 @@
               name="password"
               autocomplete="current-password"
               required
-              class="mt-1 block w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-orange-500 dark:focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 dark:focus:ring-orange-400/20 focus:outline-none transition"
+              class="login-input mt-1 block w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none transition"
             >
           </label>
           <button
             id="login-btn"
             type="submit"
-            class="w-full h-10 px-4 rounded-md bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold transition-colors"
+            class="login-submit w-full h-10 px-4 rounded-md text-white text-sm font-semibold transition-colors"
           >Continue</button>
           <p class="error-msg" aria-live="polite">{{ .Error }}</p>
         </form>

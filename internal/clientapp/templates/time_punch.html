@@ -21,14 +21,14 @@
     :root {
       --bg: #ffffff; --fg: #09090b; --card: #ffffff;
       --muted: #f4f4f5; --muted-fg: #71717a; --border: #e4e4e7;
-      --primary: #ea580c; --primary-fg: #ffffff;
+      --primary: #004f71; --primary-fg: #ffffff;
       --danger: #dc2626; --success: #16a34a;
       --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
     }
     html.dark {
       --bg: #09090b; --fg: #fafafa; --card: #09090b;
       --muted: #27272a; --muted-fg: #a1a1aa; --border: #3f3f46;
-      --primary: #fb923c; --primary-fg: #431407;
+      --primary: #004f71; --primary-fg: #ffffff;
       --danger: #f87171; --success: #4ade80;
       --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
     }
@@ -43,8 +43,8 @@
     .card, .panel { background-color: var(--card); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.5rem; box-shadow: var(--shadow); }
     @media (max-width: 639px) { .card, .panel { padding: 1rem; } }
     input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]), select, textarea { display: block; width: 100%; min-height: 2.375rem; padding: 0.5rem 0.75rem; font: 0.875rem/1.5 inherit; color: var(--fg); background-color: var(--bg); border: 1px solid var(--border); border-radius: 0.375rem; transition: border-color 150ms, box-shadow 150ms; }
-    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]):focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(234,88,12,.15); }
-    html.dark input:focus, html.dark select:focus, html.dark textarea:focus { box-shadow: 0 0 0 3px rgba(251,146,60,.15); }
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]):focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,79,113,.15); }
+    html.dark input:focus, html.dark select:focus, html.dark textarea:focus { box-shadow: 0 0 0 3px rgba(0,79,113,.15); }
     label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.375rem; }
     .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 0.5rem; }
     table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
@@ -81,6 +81,11 @@
     /* Table delete button */
     td form button { background-color: transparent; color: var(--danger); border: 1px solid var(--border); border-radius: 0.3125rem; padding: 0.25rem 0.5rem; font: 500 0.8125rem/1.25 inherit; cursor: pointer; transition: 150ms; }
     td form button:hover { background-color: rgba(220,38,38,.08); border-color: var(--danger); }
+    .submenu { display:flex; gap:.5rem; margin:0 0 1rem; flex-wrap:wrap; }
+    .submenu-btn { padding:.375rem .75rem; font-size:.8125rem; font-weight:600; background:transparent; border:1px solid var(--border); border-radius:.375rem; cursor:pointer; color:var(--muted-fg); transition:150ms; }
+    .submenu-btn:hover { background:var(--muted); color:var(--fg); }
+    .submenu-btn.active { background:var(--fg); color:var(--bg); border-color:var(--fg); }
+    .tab-panel[hidden] { display:none; }
   </style>
 </head>
 <body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
@@ -123,62 +128,171 @@
         {{ if .SuccessMessage }}<p class="notice ok">{{ .SuccessMessage }}</p>{{ end }}
         {{ if .Error }}<p class="notice error">{{ .Error }}</p>{{ end }}
 
-        <section class="link-box">
-          <label>Secret Employee Submission Link</label>
-          <div class="link-row">
-            <input id="punch-link" type="text" readonly value="{{ .TimePunchLink }}">
-            <button id="copy-btn" type="button" class="btn btn-secondary btn-sm">Copy Link</button>
-            <button id="open-btn" type="button" class="btn btn-secondary btn-sm">Open Form</button>
+        <div class="submenu" role="tablist" aria-label="Time punch sections">
+          <button type="button" class="submenu-btn active" data-panel-target="create-punch" role="tab" aria-selected="true">Create Time Punch</button>
+          <button type="button" class="submenu-btn" data-panel-target="view-punches" role="tab" aria-selected="false">View Time Punches</button>
+          <button type="button" class="submenu-btn" data-panel-target="archived-punches" role="tab" aria-selected="false">Archived Punches</button>
+        </div>
+
+        <section class="tab-panel" data-panel-name="create-punch">
+          <section class="link-box">
+            <label>Secret Employee Submission Link</label>
+            <div class="link-row">
+              <input id="punch-link" type="text" readonly value="{{ .TimePunchLink }}">
+              <button id="copy-btn" type="button" class="btn btn-secondary btn-sm">Copy Link</button>
+              <button id="open-btn" type="button" class="btn btn-secondary btn-sm">Open Form</button>
+            </div>
+          </section>
+          <section class="panel" style="padding:1rem;">
+            <h2 style="margin-bottom:.25rem;">Submit Time Punch (Admin Test)</h2>
+            <p class="text-muted" style="margin-bottom:.75rem;">Use this to submit a time punch directly from this page.</p>
+            <form method="post" action="/admin/locations/{{ .Location.Number }}/time-punch/create" style="display:grid;gap:.75rem;">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+              <div style="display:grid;gap:.75rem;grid-template-columns:repeat(2,minmax(0,1fr));">
+                <div>
+                  <label for="time_punch_name">Employee</label>
+                  <select id="time_punch_name" name="time_punch_name" required>
+                    <option value="">Select employee</option>
+                    {{ range .Employees }}
+                      <option value="{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }} ({{ .TimePunchName }})</option>
+                    {{ end }}
+                  </select>
+                </div>
+                <div>
+                  <label for="punch_date">Date</label>
+                  <input id="punch_date" name="punch_date" type="date" required>
+                </div>
+                <div>
+                  <label for="time_in">Time In</label>
+                  <input id="time_in" name="time_in" type="time" required>
+                </div>
+                <div>
+                  <label for="time_out">Time Out</label>
+                  <input id="time_out" name="time_out" type="time" required>
+                </div>
+              </div>
+              <div>
+                <label for="note">Note</label>
+                <input id="note" name="note" type="text" maxlength="255" placeholder="Optional note">
+              </div>
+              <div class="row" style="margin-top:.25rem;">
+                <button type="submit" class="btn btn-primary">Submit Time Punch</button>
+              </div>
+            </form>
+          </section>
+        </section>
+
+        <section class="tab-panel" data-panel-name="view-punches" hidden>
+          <p class="text-muted" style="margin-bottom:.75rem;">Showing up to the 50 most recent active punches.</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Submitted At</th>
+                  <th>Employee</th>
+                  <th>Date</th>
+                  <th>Time In</th>
+                  <th>Time Out</th>
+                  <th>Note</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{ if .TimePunchEntries }}
+                  {{ range .TimePunchEntries }}
+                    <tr>
+                      <td>{{ .CreatedAt }}</td>
+                      <td>{{ .TimePunchName }}</td>
+                      <td>{{ .PunchDate }}</td>
+                      <td>{{ .TimeIn }}</td>
+                      <td>{{ .TimeOut }}</td>
+                      <td>{{ .Note }}</td>
+                      <td>
+                        <form method="post" action="/admin/locations/{{ $.Location.Number }}/time-punch/{{ .ID }}/archive" onsubmit="return confirm('Archive this time punch entry?');">
+                          <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                          <button type="submit">Archive</button>
+                        </form>
+                      </td>
+                    </tr>
+                  {{ end }}
+                {{ else }}
+                  <tr><td colspan="7">No active time punches submitted yet.</td></tr>
+                {{ end }}
+              </tbody>
+            </table>
           </div>
         </section>
 
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Submitted At (UTC)</th>
-                <th>Employee</th>
-                <th>Date</th>
-                <th>Time In</th>
-                <th>Time Out</th>
-                <th>Note</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {{ if .TimePunchEntries }}
-                {{ range .TimePunchEntries }}
-                  <tr>
-                    <td>{{ .CreatedAt }}</td>
-                    <td>{{ .TimePunchName }}</td>
-                    <td>{{ .PunchDate }}</td>
-                    <td>{{ .TimeIn }}</td>
-                    <td>{{ .TimeOut }}</td>
-                    <td>{{ .Note }}</td>
-                    <td>
-                      <form method="post" action="/admin/locations/{{ $.Location.Number }}/time-punch/{{ .ID }}/delete" onsubmit="return confirm('Delete this time punch entry?');">
-                        <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                        <button type="submit">Delete</button>
-                      </form>
-                    </td>
-                  </tr>
+        <section class="tab-panel" data-panel-name="archived-punches" hidden>
+          <p class="text-muted" style="margin-bottom:.75rem;">Showing up to the 50 most recent archived punches.</p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Submitted At</th>
+                  <th>Archived At</th>
+                  <th>Employee</th>
+                  <th>Date</th>
+                  <th>Time In</th>
+                  <th>Time Out</th>
+                  <th>Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                {{ if .ArchivedTimePunchEntries }}
+                  {{ range .ArchivedTimePunchEntries }}
+                    <tr>
+                      <td>{{ .CreatedAt }}</td>
+                      <td>{{ .ArchivedAt }}</td>
+                      <td>{{ .TimePunchName }}</td>
+                      <td>{{ .PunchDate }}</td>
+                      <td>{{ .TimeIn }}</td>
+                      <td>{{ .TimeOut }}</td>
+                      <td>{{ .Note }}</td>
+                    </tr>
+                  {{ end }}
+                {{ else }}
+                  <tr><td colspan="7">No archived punches yet.</td></tr>
                 {{ end }}
-              {{ else }}
-                <tr><td colspan="7">No time punch corrections submitted yet.</td></tr>
-              {{ end }}
-            </tbody>
-          </table>
-        </div>
+              </tbody>
+            </table>
+          </div>
+        </section>
 
       </div>
     </div>
   </div>
 
   <script>
+    const submenuButtons = Array.from(document.querySelectorAll(".submenu-btn"));
+    const tabPanels = Array.from(document.querySelectorAll(".tab-panel"));
+    function setActivePanel(panelName, pushHash = true) {
+      tabPanels.forEach((panel) => {
+        panel.hidden = panel.dataset.panelName !== panelName;
+      });
+      submenuButtons.forEach((btn) => {
+        const active = btn.dataset.panelTarget === panelName;
+        btn.classList.toggle("active", active);
+        btn.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      if (pushHash && window.location.hash !== "#" + panelName) {
+        window.location.hash = panelName;
+      }
+    }
+    submenuButtons.forEach((btn) => {
+      btn.addEventListener("click", () => setActivePanel(btn.dataset.panelTarget || "create-punch"));
+    });
+    const initialPanel = (window.location.hash || "").replace("#", "");
+    if (initialPanel === "view-punches" || initialPanel === "archived-punches" || initialPanel === "create-punch") {
+      setActivePanel(initialPanel, false);
+    } else {
+      setActivePanel("create-punch", false);
+    }
+
     const copyBtn = document.getElementById("copy-btn");
     const openBtn = document.getElementById("open-btn");
     const linkInput = document.getElementById("punch-link");
-    copyBtn.addEventListener("click", async () => {
+    if (copyBtn && linkInput) copyBtn.addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(linkInput.value);
         copyBtn.textContent = "Copied";
@@ -188,7 +302,7 @@
         document.execCommand("copy");
       }
     });
-    openBtn.addEventListener("click", () => {
+    if (openBtn && linkInput) openBtn.addEventListener("click", () => {
       const target = (linkInput.value || "").trim();
       if (!target) return;
       window.location.href = target;

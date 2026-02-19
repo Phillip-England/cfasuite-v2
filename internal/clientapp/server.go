@@ -49,46 +49,51 @@ type pageData struct {
 	NextPage   int
 	TotalCount int
 
-	Location                *locationView
-	Employee                *employeeView
-	BusinessDay             *businessDayView
-	Employees               []employeeView
-	BusinessDays            []businessDayView
-	ArchivedEmployees       []employeeView
-	TimePunchEntries        []timePunchEntryView
-	TimeOffRequests         []timeOffRequestView
-	ArchivedTimeOffRequests []timeOffRequestView
-	UniformItems            []uniformItemView
-	UniformOrders           []uniformOrderView
-	ArchivedOrders          []uniformOrderView
-	UniformItem             *uniformItemView
-	Candidates              []candidateView
-	ArchivedCandidates      []candidateView
-	EmployeeScorecards      []candidateView
-	CandidateValues         []candidateValueView
-	InterviewNames          []candidateInterviewNameView
-	InterviewQuestions      []candidateInterviewQuestionView
-	Candidate               *candidateView
-	Interview               *candidateInterviewView
-	EmployeeNames           []string
-	Departments             []string
-	SuccessMessage          string
-	UploadLink              string
-	EmployeePaperworkLink   string
-	LocationSettings        *locationSettingsView
-	TimePunchLink           string
-	TimeOffLink             string
-	UniformLink             string
-	EmployeeI9              *employeeI9View
-	EmployeeI9Documents     []employeeI9DocumentView
-	EmployeeW4              *employeeI9View
-	PaperworkSections       []paperworkSectionView
-	IsArchivedEmployee      bool
+	Location                 *locationView
+	Employee                 *employeeView
+	BusinessDay              *businessDayView
+	Employees                []employeeView
+	BusinessDays             []businessDayView
+	ArchivedEmployees        []employeeView
+	TimePunchEntries         []timePunchEntryView
+	ArchivedTimePunchEntries []timePunchEntryView
+	TimeOffRequests          []timeOffRequestView
+	ArchivedTimeOffRequests  []timeOffRequestView
+	UniformItems             []uniformItemView
+	UniformOrders            []uniformOrderView
+	ArchivedOrders           []uniformOrderView
+	UniformItem              *uniformItemView
+	Candidates               []candidateView
+	ArchivedCandidates       []candidateView
+	EmployeeScorecards       []candidateView
+	CandidateValues          []candidateValueView
+	InterviewNames           []candidateInterviewNameView
+	InterviewQuestions       []candidateInterviewQuestionView
+	InterviewLinks           []candidateInterviewLinkView
+	Candidate                *candidateView
+	Interview                *candidateInterviewView
+	InterviewLink            *candidateInterviewLinkView
+	EmployeeNames            []string
+	Departments              []string
+	SuccessMessage           string
+	UploadLink               string
+	EmployeePaperworkLink    string
+	LocationSettings         *locationSettingsView
+	TimePunchLink            string
+	TimeOffLink              string
+	UniformLink              string
+	EmployeeI9               *employeeI9View
+	EmployeeI9Documents      []employeeI9DocumentView
+	EmployeeW4               *employeeI9View
+	PaperworkSections        []paperworkSectionView
+	IsArchivedEmployee       bool
 }
 
 type locationView struct {
 	Name      string `json:"name"`
 	Number    string `json:"number"`
+	Email     string `json:"email"`
+	Phone     string `json:"phone"`
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -218,6 +223,7 @@ type timePunchEntryView struct {
 	TimeIn        string `json:"timeIn"`
 	TimeOut       string `json:"timeOut"`
 	Note          string `json:"note"`
+	ArchivedAt    string `json:"archivedAt"`
 	CreatedAt     string `json:"createdAt"`
 }
 
@@ -392,18 +398,33 @@ type candidateInterviewNameView struct {
 	ID             int64  `json:"id"`
 	LocationNumber string `json:"locationNumber"`
 	Name           string `json:"name"`
+	Priority       int64  `json:"priority"`
 	CreatedAt      string `json:"createdAt"`
 	UpdatedAt      string `json:"updatedAt"`
 }
 
 type candidateInterviewQuestionView struct {
-	ID              int64  `json:"id"`
-	LocationNumber  string `json:"locationNumber"`
-	InterviewNameID int64  `json:"interviewNameId"`
-	InterviewName   string `json:"interviewName"`
-	Question        string `json:"question"`
-	CreatedAt       string `json:"createdAt"`
-	UpdatedAt       string `json:"updatedAt"`
+	ID               int64    `json:"id"`
+	LocationNumber   string   `json:"locationNumber"`
+	InterviewNameID  int64    `json:"interviewNameId"`
+	InterviewName    string   `json:"interviewName"`
+	InterviewNameIDs []int64  `json:"interviewNameIds"`
+	InterviewNames   []string `json:"interviewNames"`
+	Question         string   `json:"question"`
+	CreatedAt        string   `json:"createdAt"`
+	UpdatedAt        string   `json:"updatedAt"`
+}
+
+type candidateInterviewLinkView struct {
+	Token                    string `json:"token"`
+	LocationNumber           string `json:"locationNumber"`
+	CandidateID              int64  `json:"candidateId"`
+	InterviewerTimePunchName string `json:"interviewerTimePunchName"`
+	InterviewType            string `json:"interviewType"`
+	Link                     string `json:"link"`
+	ExpiresAt                string `json:"expiresAt"`
+	UsedAt                   string `json:"usedAt"`
+	CreatedAt                string `json:"createdAt"`
 }
 
 type candidateInterviewQuestionAnswerView struct {
@@ -442,6 +463,15 @@ type candidateInterviewQuestionsResponse struct {
 	Questions []candidateInterviewQuestionView `json:"questions"`
 }
 
+type candidateInterviewLinksResponse struct {
+	Count int                          `json:"count"`
+	Links []candidateInterviewLinkView `json:"links"`
+}
+
+type candidateInterviewLinkResponse struct {
+	Link candidateInterviewLinkView `json:"link"`
+}
+
 type candidatesResponse struct {
 	Count      int             `json:"count"`
 	Candidates []candidateView `json:"candidates"`
@@ -463,37 +493,39 @@ type updateBusinessDayRequest struct {
 	LaborHours string `json:"laborHours"`
 }
 
-//go:embed templates/admin.html templates/login.html templates/location_apps.html templates/location.html templates/location_settings.html templates/archived_employees.html templates/time_punch.html templates/time_off.html templates/business_days.html templates/business_day.html templates/employee.html templates/uniforms.html templates/uniform_orders_archived.html templates/uniform_item.html templates/candidates.html templates/candidate_detail.html templates/candidate_interview.html templates/candidate_scorecard.html templates/public_photo_upload.html templates/public_employee_paperwork.html templates/public_candidate_interview.html templates/public_time_punch.html templates/public_time_off.html templates/public_uniform_order.html templates/public_uniform_order_item.html assets/app.css
+//go:embed templates/admin.html templates/login.html templates/location_apps.html templates/location.html templates/location_settings.html templates/archived_employees.html templates/time_punch.html templates/time_off.html templates/business_days.html templates/business_day.html templates/employee.html templates/uniforms.html templates/uniform_orders_archived.html templates/uniform_item.html templates/candidates.html templates/interview_process.html templates/candidate_detail.html templates/candidate_interview.html templates/candidate_interview_link.html templates/candidate_scorecard.html templates/public_photo_upload.html templates/public_employee_paperwork.html templates/public_candidate_interview.html templates/public_time_punch.html templates/public_time_off.html templates/public_uniform_order.html templates/public_uniform_order_item.html assets/app.css
 var templatesFS embed.FS
 
 type server struct {
-	apiBaseURL             string
-	apiClient              *http.Client
-	adminTmpl              *template.Template
-	loginTmpl              *template.Template
-	locationAppsTmpl       *template.Template
-	locationTmpl           *template.Template
-	locationSettingsTmpl   *template.Template
-	archivedEmployeesTmpl  *template.Template
-	timePunchTmpl          *template.Template
-	timeOffTmpl            *template.Template
-	businessDaysTmpl       *template.Template
-	businessDayTmpl        *template.Template
-	employeeTmpl           *template.Template
-	uniformsTmpl           *template.Template
-	uniformArchivedTmpl    *template.Template
-	uniformItemTmpl        *template.Template
-	candidatesTmpl         *template.Template
-	candidateDetailTmpl    *template.Template
-	candidateInterviewTmpl *template.Template
-	candidateScorecardTmpl *template.Template
-	publicUploadTmpl       *template.Template
-	publicPaperworkTmpl    *template.Template
-	publicInterviewTmpl    *template.Template
-	publicTimePunchTmpl    *template.Template
-	publicTimeOffTmpl      *template.Template
-	publicUniformTmpl      *template.Template
-	publicUniformItemTmpl  *template.Template
+	apiBaseURL                 string
+	apiClient                  *http.Client
+	adminTmpl                  *template.Template
+	loginTmpl                  *template.Template
+	locationAppsTmpl           *template.Template
+	locationTmpl               *template.Template
+	locationSettingsTmpl       *template.Template
+	archivedEmployeesTmpl      *template.Template
+	timePunchTmpl              *template.Template
+	timeOffTmpl                *template.Template
+	businessDaysTmpl           *template.Template
+	businessDayTmpl            *template.Template
+	employeeTmpl               *template.Template
+	uniformsTmpl               *template.Template
+	uniformArchivedTmpl        *template.Template
+	uniformItemTmpl            *template.Template
+	candidatesTmpl             *template.Template
+	interviewProcessTmpl       *template.Template
+	candidateDetailTmpl        *template.Template
+	candidateInterviewTmpl     *template.Template
+	candidateInterviewLinkTmpl *template.Template
+	candidateScorecardTmpl     *template.Template
+	publicUploadTmpl           *template.Template
+	publicPaperworkTmpl        *template.Template
+	publicInterviewTmpl        *template.Template
+	publicTimePunchTmpl        *template.Template
+	publicTimeOffTmpl          *template.Template
+	publicUniformTmpl          *template.Template
+	publicUniformItemTmpl      *template.Template
 }
 
 func DefaultConfigFromEnv() Config {
@@ -509,38 +541,40 @@ func Run(ctx context.Context, cfg Config) error {
 	apiClient := &http.Client{Timeout: 8 * time.Second}
 
 	s := &server{
-		apiBaseURL:             strings.TrimRight(cfg.APIBaseURL, "/"),
-		apiClient:              apiClient,
-		adminTmpl:              template.Must(template.ParseFS(templatesFS, "templates/admin.html")),
-		loginTmpl:              template.Must(template.ParseFS(templatesFS, "templates/login.html")),
-		locationAppsTmpl:       template.Must(template.ParseFS(templatesFS, "templates/location_apps.html")),
-		locationTmpl:           template.Must(template.ParseFS(templatesFS, "templates/location.html")),
-		locationSettingsTmpl:   template.Must(template.ParseFS(templatesFS, "templates/location_settings.html")),
-		archivedEmployeesTmpl:  template.Must(template.ParseFS(templatesFS, "templates/archived_employees.html")),
-		timePunchTmpl:          template.Must(template.ParseFS(templatesFS, "templates/time_punch.html")),
-		timeOffTmpl:            template.Must(template.ParseFS(templatesFS, "templates/time_off.html")),
-		businessDaysTmpl:       template.Must(template.ParseFS(templatesFS, "templates/business_days.html")),
-		businessDayTmpl:        template.Must(template.ParseFS(templatesFS, "templates/business_day.html")),
-		employeeTmpl:           template.Must(template.ParseFS(templatesFS, "templates/employee.html")),
-		uniformsTmpl:           template.Must(template.ParseFS(templatesFS, "templates/uniforms.html")),
-		uniformArchivedTmpl:    template.Must(template.ParseFS(templatesFS, "templates/uniform_orders_archived.html")),
-		uniformItemTmpl:        template.Must(template.ParseFS(templatesFS, "templates/uniform_item.html")),
-		candidatesTmpl:         template.Must(template.ParseFS(templatesFS, "templates/candidates.html")),
-		candidateDetailTmpl:    template.Must(template.ParseFS(templatesFS, "templates/candidate_detail.html")),
-		candidateInterviewTmpl: template.Must(template.ParseFS(templatesFS, "templates/candidate_interview.html")),
-		candidateScorecardTmpl: template.Must(template.ParseFS(templatesFS, "templates/candidate_scorecard.html")),
-		publicUploadTmpl:       template.Must(template.ParseFS(templatesFS, "templates/public_photo_upload.html")),
-		publicPaperworkTmpl:    template.Must(template.ParseFS(templatesFS, "templates/public_employee_paperwork.html")),
-		publicInterviewTmpl:    template.Must(template.ParseFS(templatesFS, "templates/public_candidate_interview.html")),
-		publicTimePunchTmpl:    template.Must(template.ParseFS(templatesFS, "templates/public_time_punch.html")),
-		publicTimeOffTmpl:      template.Must(template.ParseFS(templatesFS, "templates/public_time_off.html")),
-		publicUniformTmpl:      template.Must(template.ParseFS(templatesFS, "templates/public_uniform_order.html")),
-		publicUniformItemTmpl:  template.Must(template.ParseFS(templatesFS, "templates/public_uniform_order_item.html")),
+		apiBaseURL:                 strings.TrimRight(cfg.APIBaseURL, "/"),
+		apiClient:                  apiClient,
+		adminTmpl:                  template.Must(template.ParseFS(templatesFS, "templates/admin.html")),
+		loginTmpl:                  template.Must(template.ParseFS(templatesFS, "templates/login.html")),
+		locationAppsTmpl:           template.Must(template.ParseFS(templatesFS, "templates/location_apps.html")),
+		locationTmpl:               template.Must(template.ParseFS(templatesFS, "templates/location.html")),
+		locationSettingsTmpl:       template.Must(template.ParseFS(templatesFS, "templates/location_settings.html")),
+		archivedEmployeesTmpl:      template.Must(template.ParseFS(templatesFS, "templates/archived_employees.html")),
+		timePunchTmpl:              template.Must(template.ParseFS(templatesFS, "templates/time_punch.html")),
+		timeOffTmpl:                template.Must(template.ParseFS(templatesFS, "templates/time_off.html")),
+		businessDaysTmpl:           template.Must(template.ParseFS(templatesFS, "templates/business_days.html")),
+		businessDayTmpl:            template.Must(template.ParseFS(templatesFS, "templates/business_day.html")),
+		employeeTmpl:               template.Must(template.ParseFS(templatesFS, "templates/employee.html")),
+		uniformsTmpl:               template.Must(template.ParseFS(templatesFS, "templates/uniforms.html")),
+		uniformArchivedTmpl:        template.Must(template.ParseFS(templatesFS, "templates/uniform_orders_archived.html")),
+		uniformItemTmpl:            template.Must(template.ParseFS(templatesFS, "templates/uniform_item.html")),
+		candidatesTmpl:             template.Must(template.ParseFS(templatesFS, "templates/candidates.html")),
+		interviewProcessTmpl:       template.Must(template.ParseFS(templatesFS, "templates/interview_process.html")),
+		candidateDetailTmpl:        template.Must(template.ParseFS(templatesFS, "templates/candidate_detail.html")),
+		candidateInterviewTmpl:     template.Must(template.ParseFS(templatesFS, "templates/candidate_interview.html")),
+		candidateInterviewLinkTmpl: template.Must(template.ParseFS(templatesFS, "templates/candidate_interview_link.html")),
+		candidateScorecardTmpl:     template.Must(template.ParseFS(templatesFS, "templates/candidate_scorecard.html")),
+		publicUploadTmpl:           template.Must(template.ParseFS(templatesFS, "templates/public_photo_upload.html")),
+		publicPaperworkTmpl:        template.Must(template.ParseFS(templatesFS, "templates/public_employee_paperwork.html")),
+		publicInterviewTmpl:        template.Must(template.ParseFS(templatesFS, "templates/public_candidate_interview.html")),
+		publicTimePunchTmpl:        template.Must(template.ParseFS(templatesFS, "templates/public_time_punch.html")),
+		publicTimeOffTmpl:          template.Must(template.ParseFS(templatesFS, "templates/public_time_off.html")),
+		publicUniformTmpl:          template.Must(template.ParseFS(templatesFS, "templates/public_uniform_order.html")),
+		publicUniformItemTmpl:      template.Must(template.ParseFS(templatesFS, "templates/public_uniform_order_item.html")),
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/", http.HandlerFunc(s.loginPage))
-	mux.Handle("/login", http.HandlerFunc(s.login))
+	mux.Handle("/", http.HandlerFunc(s.loginRoute))
+	mux.Handle("/login", http.HandlerFunc(s.loginRoute))
 	mux.Handle("/amin", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin", http.StatusFound)
 	}))
@@ -600,12 +634,12 @@ func Run(ctx context.Context, cfg Config) error {
 }
 
 func (s *server) loginPage(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.sessionIsValid(r) {
+		http.Redirect(w, r, "/admin", http.StatusFound)
 		return
 	}
 
@@ -613,6 +647,17 @@ func (s *server) loginPage(w http.ResponseWriter, r *http.Request) {
 	if err := renderHTMLTemplate(w, s.loginTmpl, data); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("login template render failed: %v", err)
+	}
+}
+
+func (s *server) loginRoute(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		s.loginPage(w, r)
+	case http.MethodPost:
+		s.login(w, r)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
@@ -830,12 +875,24 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 			s.archiveTimeOffRequestProxy(w, r, locationNumber, requestID)
 			return
 		}
+		if locationNumber, ok := parseLocationTimeOffCreatePath(r.URL.Path); ok {
+			s.createLocationTimeOffRequestProxy(w, r, locationNumber)
+			return
+		}
 		if locationNumber, ok := parseLocationBusinessDayOpenPath(r.URL.Path); ok {
 			s.openBusinessDayInlineProxy(w, r, locationNumber)
 			return
 		}
 		if locationNumber, entryID, ok := parseLocationTimePunchDeletePath(r.URL.Path); ok {
 			s.deleteLocationTimePunchEntryProxy(w, r, locationNumber, entryID)
+			return
+		}
+		if locationNumber, entryID, ok := parseLocationTimePunchArchivePostPath(r.URL.Path); ok {
+			s.archiveLocationTimePunchEntryProxy(w, r, locationNumber, entryID)
+			return
+		}
+		if locationNumber, ok := parseLocationTimePunchCreatePath(r.URL.Path); ok {
+			s.createLocationTimePunchEntryProxy(w, r, locationNumber)
 			return
 		}
 		if locationNumber, ok := parseLocationBusinessDaysPath(r.URL.Path); ok {
@@ -866,6 +923,14 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 			s.createCandidateInterviewLinkProxy(w, r, locationNumber, candidateID)
 			return
 		}
+		if locationNumber, candidateID, ok := parseLocationCandidateInterviewLinksCreatePath(r.URL.Path); ok {
+			s.createCandidateInterviewSessionProxy(w, r, locationNumber, candidateID)
+			return
+		}
+		if locationNumber, candidateID, token, ok := parseLocationCandidateInterviewLinkDeletePath(r.URL.Path); ok {
+			s.deleteCandidateInterviewLinkProxy(w, r, locationNumber, candidateID, token)
+			return
+		}
 		if locationNumber, candidateID, ok := parseLocationCandidateDecisionPath(r.URL.Path); ok {
 			s.updateCandidateDecisionProxy(w, r, locationNumber, candidateID)
 			return
@@ -878,8 +943,16 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 			s.deleteCandidateInterviewNameProxy(w, r, locationNumber, nameID)
 			return
 		}
+		if locationNumber, nameID, ok := parseLocationCandidateInterviewNamePriorityPath(r.URL.Path); ok {
+			s.updateCandidateInterviewNamePriorityProxy(w, r, locationNumber, nameID)
+			return
+		}
 		if locationNumber, questionID, ok := parseLocationCandidateInterviewQuestionDeletePath(r.URL.Path); ok {
 			s.deleteCandidateInterviewQuestionProxy(w, r, locationNumber, questionID)
+			return
+		}
+		if locationNumber, questionID, ok := parseLocationCandidateInterviewQuestionAssignPath(r.URL.Path); ok {
+			s.assignCandidateInterviewQuestionProxy(w, r, locationNumber, questionID)
 			return
 		}
 	}
@@ -996,8 +1069,16 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 			s.candidateInterviewDetailPage(w, r, locationNumber, candidateID, interviewID)
 			return
 		}
+		if locationNumber, candidateID, token, ok := parseLocationCandidateInterviewLinkDetailPath(r.URL.Path); ok {
+			s.candidateInterviewLinkPage(w, r, locationNumber, candidateID, token)
+			return
+		}
 		if locationNumber, candidateID, ok := parseLocationCandidateDetailPath(r.URL.Path); ok {
 			s.candidateDetailPage(w, r, locationNumber, candidateID)
+			return
+		}
+		if locationNumber, ok := parseLocationInterviewProcessPath(r.URL.Path); ok {
+			s.locationInterviewProcessPage(w, r, locationNumber)
 			return
 		}
 		if locationNumber, ok := parseLocationCandidatesPath(r.URL.Path); ok {
@@ -1090,21 +1171,6 @@ func (s *server) locationCandidatesPage(w http.ResponseWriter, r *http.Request, 
 		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
 		return
 	}
-	values, err := s.fetchLocationCandidateValues(r, locationNumber)
-	if err != nil {
-		http.Error(w, "unable to load candidate values", http.StatusBadGateway)
-		return
-	}
-	interviewNames, err := s.fetchLocationCandidateInterviewNames(r, locationNumber)
-	if err != nil {
-		http.Error(w, "unable to load interview names", http.StatusBadGateway)
-		return
-	}
-	interviewQuestions, err := s.fetchLocationCandidateInterviewQuestions(r, locationNumber)
-	if err != nil {
-		http.Error(w, "unable to load interview questions", http.StatusBadGateway)
-		return
-	}
 	candidates, err := s.fetchLocationCandidates(r, locationNumber, false, "")
 	if err != nil {
 		http.Error(w, "unable to load candidates", http.StatusBadGateway)
@@ -1119,9 +1185,6 @@ func (s *server) locationCandidatesPage(w http.ResponseWriter, r *http.Request, 
 	if err := renderHTMLTemplate(w, s.candidatesTmpl, pageData{
 		Location:           location,
 		CSRF:               csrfToken,
-		CandidateValues:    values,
-		InterviewNames:     interviewNames,
-		InterviewQuestions: interviewQuestions,
 		Candidates:         candidates,
 		ArchivedCandidates: archived,
 		Search:             archiveSearch,
@@ -1130,6 +1193,46 @@ func (s *server) locationCandidatesPage(w http.ResponseWriter, r *http.Request, 
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("candidates template render failed: %v", err)
+	}
+}
+
+func (s *server) locationInterviewProcessPage(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	location, err := s.fetchLocation(r, locationNumber)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil {
+		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
+		return
+	}
+	values, err := s.fetchLocationCandidateValues(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load candidate values", http.StatusBadGateway)
+		return
+	}
+	interviewNames, err := s.fetchLocationCandidateInterviewNames(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load interview types", http.StatusBadGateway)
+		return
+	}
+	interviewQuestions, err := s.fetchLocationCandidateInterviewQuestions(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load interview questions", http.StatusBadGateway)
+		return
+	}
+	if err := renderHTMLTemplate(w, s.interviewProcessTmpl, pageData{
+		Location:           location,
+		CSRF:               csrfToken,
+		CandidateValues:    values,
+		InterviewNames:     interviewNames,
+		InterviewQuestions: interviewQuestions,
+		SuccessMessage:     r.URL.Query().Get("message"),
+		Error:              r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("interview process template render failed: %v", err)
 	}
 }
 
@@ -1177,12 +1280,17 @@ func (s *server) candidateDetailPage(w http.ResponseWriter, r *http.Request, loc
 	}
 	interviewNames, err := s.fetchLocationCandidateInterviewNames(r, locationNumber)
 	if err != nil {
-		http.Error(w, "unable to load interview names", http.StatusBadGateway)
+		http.Error(w, "unable to load interview types", http.StatusBadGateway)
 		return
 	}
 	interviewers, err := s.fetchLocationEmployees(r, locationNumber)
 	if err != nil {
 		http.Error(w, "unable to load interviewers", http.StatusBadGateway)
+		return
+	}
+	interviewLinks, err := s.fetchCandidateInterviewLinks(r, locationNumber, candidateID)
+	if err != nil {
+		http.Error(w, "unable to load interview links", http.StatusBadGateway)
 		return
 	}
 	if err := renderHTMLTemplate(w, s.candidateDetailTmpl, pageData{
@@ -1191,12 +1299,47 @@ func (s *server) candidateDetailPage(w http.ResponseWriter, r *http.Request, loc
 		Candidate:       candidate,
 		CandidateValues: values,
 		InterviewNames:  interviewNames,
+		InterviewLinks:  interviewLinks,
 		Employees:       interviewers,
 		SuccessMessage:  r.URL.Query().Get("message"),
 		Error:           r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("candidate detail template render failed: %v", err)
+	}
+}
+
+func (s *server) candidateInterviewLinkPage(w http.ResponseWriter, r *http.Request, locationNumber string, candidateID int64, token string) {
+	location, err := s.fetchLocation(r, locationNumber)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	candidate, err := s.fetchLocationCandidate(r, locationNumber, candidateID)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	linkRecord, err := s.fetchCandidateInterviewLink(r, locationNumber, candidateID, token)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if strings.HasPrefix(linkRecord.Link, "/") {
+		scheme := "http"
+		if r.TLS != nil {
+			scheme = "https"
+		}
+		linkRecord.Link = scheme + "://" + r.Host + linkRecord.Link
+	}
+	if err := renderHTMLTemplate(w, s.candidateInterviewLinkTmpl, pageData{
+		Location:      location,
+		Candidate:     candidate,
+		InterviewLink: linkRecord,
+		Error:         r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("candidate interview link template render failed: %v", err)
 	}
 }
 
@@ -1276,13 +1419,14 @@ func (s *server) createCandidateProxy(w http.ResponseWriter, r *http.Request, lo
 }
 
 func (s *server) createCandidateValueProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	basePath := "/admin/locations/" + url.PathEscape(locationNumber) + "/interview-process"
 	if err := r.ParseForm(); err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Invalid+form+submission", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Invalid+form+submission&process=values", http.StatusFound)
 		return
 	}
 	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
 	if csrfToken == "" {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Missing+csrf+token", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Missing+csrf+token&process=values", http.StatusFound)
 		return
 	}
 	payload := map[string]string{
@@ -1292,7 +1436,7 @@ func (s *server) createCandidateValueProxy(w http.ResponseWriter, r *http.Reques
 	body, _ := json.Marshal(payload)
 	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidate-values", bytes.NewReader(body))
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Unable+to+create+value", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Unable+to+create+value&process=values", http.StatusFound)
 		return
 	}
 	copySessionCookieHeader(r, apiReq)
@@ -1300,7 +1444,7 @@ func (s *server) createCandidateValueProxy(w http.ResponseWriter, r *http.Reques
 	apiReq.Header.Set(csrfHeaderName, csrfToken)
 	apiResp, err := s.apiClient.Do(apiReq)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Service+unavailable", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Service+unavailable&process=values", http.StatusFound)
 		return
 	}
 	defer apiResp.Body.Close()
@@ -1311,20 +1455,21 @@ func (s *server) createCandidateValueProxy(w http.ResponseWriter, r *http.Reques
 		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
 			msg = errPayload["error"]
 		}
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error="+url.QueryEscape(msg), http.StatusFound)
+		http.Redirect(w, r, basePath+"?error="+url.QueryEscape(msg)+"&process=values", http.StatusFound)
 		return
 	}
-	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?message="+url.QueryEscape("Candidate value created"), http.StatusFound)
+	http.Redirect(w, r, basePath+"?message="+url.QueryEscape("Candidate value created")+"&process=values", http.StatusFound)
 }
 
 func (s *server) createCandidateInterviewNameProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	basePath := "/admin/locations/" + url.PathEscape(locationNumber) + "/interview-process"
 	if err := r.ParseForm(); err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Invalid+form+submission", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Invalid+form+submission&process=names", http.StatusFound)
 		return
 	}
 	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
 	if csrfToken == "" {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Missing+csrf+token", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Missing+csrf+token&process=names", http.StatusFound)
 		return
 	}
 	payload := map[string]string{
@@ -1333,7 +1478,7 @@ func (s *server) createCandidateInterviewNameProxy(w http.ResponseWriter, r *htt
 	body, _ := json.Marshal(payload)
 	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidate-interview-names", bytes.NewReader(body))
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Unable+to+create+interview+name", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Unable+to+create+interview+name&process=names", http.StatusFound)
 		return
 	}
 	copySessionCookieHeader(r, apiReq)
@@ -1341,42 +1486,45 @@ func (s *server) createCandidateInterviewNameProxy(w http.ResponseWriter, r *htt
 	apiReq.Header.Set(csrfHeaderName, csrfToken)
 	apiResp, err := s.apiClient.Do(apiReq)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Service+unavailable", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Service+unavailable&process=names", http.StatusFound)
 		return
 	}
 	defer apiResp.Body.Close()
 	respBody, _ := io.ReadAll(apiResp.Body)
 	if apiResp.StatusCode != http.StatusCreated && apiResp.StatusCode != http.StatusOK {
-		msg := "unable to create interview name"
+		msg := "unable to create interview type"
 		var errPayload map[string]string
 		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
 			msg = errPayload["error"]
 		}
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error="+url.QueryEscape(msg), http.StatusFound)
+		http.Redirect(w, r, basePath+"?error="+url.QueryEscape(msg)+"&process=names", http.StatusFound)
 		return
 	}
-	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?message="+url.QueryEscape("Interview name created"), http.StatusFound)
+	http.Redirect(w, r, basePath+"?message="+url.QueryEscape("Interview type created")+"&process=names", http.StatusFound)
 }
 
 func (s *server) createCandidateInterviewQuestionProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	basePath := "/admin/locations/" + url.PathEscape(locationNumber) + "/interview-process"
 	if err := r.ParseForm(); err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Invalid+form+submission", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Invalid+form+submission&process=questions", http.StatusFound)
 		return
 	}
 	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
 	if csrfToken == "" {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Missing+csrf+token", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Missing+csrf+token&process=questions", http.StatusFound)
 		return
 	}
+	interviewNameIDs := parseInterviewTypeIDs(r.Form["interview_name_ids"])
 	interviewNameID, _ := strconv.ParseInt(strings.TrimSpace(r.FormValue("interview_name_id")), 10, 64)
 	payload := map[string]any{
-		"interviewNameId": interviewNameID,
-		"question":        strings.TrimSpace(r.FormValue("question")),
+		"interviewNameId":  interviewNameID,
+		"interviewNameIds": interviewNameIDs,
+		"question":         strings.TrimSpace(r.FormValue("question")),
 	}
 	body, _ := json.Marshal(payload)
 	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidate-interview-questions", bytes.NewReader(body))
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Unable+to+create+interview+question", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Unable+to+create+interview+question&process=questions", http.StatusFound)
 		return
 	}
 	copySessionCookieHeader(r, apiReq)
@@ -1384,7 +1532,7 @@ func (s *server) createCandidateInterviewQuestionProxy(w http.ResponseWriter, r 
 	apiReq.Header.Set(csrfHeaderName, csrfToken)
 	apiResp, err := s.apiClient.Do(apiReq)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Service+unavailable", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Service+unavailable&process=questions", http.StatusFound)
 		return
 	}
 	defer apiResp.Body.Close()
@@ -1395,10 +1543,10 @@ func (s *server) createCandidateInterviewQuestionProxy(w http.ResponseWriter, r 
 		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
 			msg = errPayload["error"]
 		}
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error="+url.QueryEscape(msg), http.StatusFound)
+		http.Redirect(w, r, basePath+"?error="+url.QueryEscape(msg)+"&process=questions", http.StatusFound)
 		return
 	}
-	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?message="+url.QueryEscape("Interview question created"), http.StatusFound)
+	http.Redirect(w, r, basePath+"?message="+url.QueryEscape("Interview question created")+"&process=questions", http.StatusFound)
 }
 
 func (s *server) updateCandidateValueProxy(w http.ResponseWriter, r *http.Request, locationNumber string, valueID int64) {
@@ -1433,25 +1581,26 @@ func (s *server) updateCandidateValueProxy(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *server) deleteCandidateValueProxy(w http.ResponseWriter, r *http.Request, locationNumber string, valueID int64) {
+	basePath := "/admin/locations/" + url.PathEscape(locationNumber) + "/interview-process"
 	if err := r.ParseForm(); err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Invalid+form+submission", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Invalid+form+submission&process=values", http.StatusFound)
 		return
 	}
 	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
 	if csrfToken == "" {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Missing+csrf+token", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Missing+csrf+token&process=values", http.StatusFound)
 		return
 	}
 	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodDelete, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidate-values/"+strconv.FormatInt(valueID, 10), nil)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Unable+to+delete+value", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Unable+to+delete+value&process=values", http.StatusFound)
 		return
 	}
 	copySessionCookieHeader(r, apiReq)
 	apiReq.Header.Set(csrfHeaderName, csrfToken)
 	apiResp, err := s.apiClient.Do(apiReq)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Service+unavailable", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Service+unavailable&process=values", http.StatusFound)
 		return
 	}
 	defer apiResp.Body.Close()
@@ -1462,68 +1611,114 @@ func (s *server) deleteCandidateValueProxy(w http.ResponseWriter, r *http.Reques
 		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
 			msg = errPayload["error"]
 		}
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error="+url.QueryEscape(msg), http.StatusFound)
+		http.Redirect(w, r, basePath+"?error="+url.QueryEscape(msg)+"&process=values", http.StatusFound)
 		return
 	}
-	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?message="+url.QueryEscape("Candidate value deleted"), http.StatusFound)
+	http.Redirect(w, r, basePath+"?message="+url.QueryEscape("Candidate value deleted")+"&process=values", http.StatusFound)
 }
 
 func (s *server) deleteCandidateInterviewNameProxy(w http.ResponseWriter, r *http.Request, locationNumber string, nameID int64) {
+	basePath := "/admin/locations/" + url.PathEscape(locationNumber) + "/interview-process"
 	if err := r.ParseForm(); err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Invalid+form+submission", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Invalid+form+submission&process=names", http.StatusFound)
 		return
 	}
 	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
 	if csrfToken == "" {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Missing+csrf+token", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Missing+csrf+token&process=names", http.StatusFound)
 		return
 	}
 	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodDelete, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidate-interview-names/"+strconv.FormatInt(nameID, 10), nil)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Unable+to+delete+interview+name", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Unable+to+delete+interview+name&process=names", http.StatusFound)
 		return
 	}
 	copySessionCookieHeader(r, apiReq)
 	apiReq.Header.Set(csrfHeaderName, csrfToken)
 	apiResp, err := s.apiClient.Do(apiReq)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Service+unavailable", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Service+unavailable&process=names", http.StatusFound)
 		return
 	}
 	defer apiResp.Body.Close()
 	respBody, _ := io.ReadAll(apiResp.Body)
 	if apiResp.StatusCode != http.StatusOK {
-		msg := "unable to delete interview name"
+		msg := "unable to delete interview type"
 		var errPayload map[string]string
 		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
 			msg = errPayload["error"]
 		}
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error="+url.QueryEscape(msg), http.StatusFound)
+		http.Redirect(w, r, basePath+"?error="+url.QueryEscape(msg)+"&process=names", http.StatusFound)
 		return
 	}
-	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?message="+url.QueryEscape("Interview name deleted"), http.StatusFound)
+	http.Redirect(w, r, basePath+"?message="+url.QueryEscape("Interview type deleted")+"&process=names", http.StatusFound)
 }
 
-func (s *server) deleteCandidateInterviewQuestionProxy(w http.ResponseWriter, r *http.Request, locationNumber string, questionID int64) {
+func (s *server) updateCandidateInterviewNamePriorityProxy(w http.ResponseWriter, r *http.Request, locationNumber string, nameID int64) {
+	basePath := "/admin/locations/" + url.PathEscape(locationNumber) + "/interview-process"
 	if err := r.ParseForm(); err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Invalid+form+submission", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Invalid+form+submission&process=names", http.StatusFound)
 		return
 	}
 	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
 	if csrfToken == "" {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Missing+csrf+token", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Missing+csrf+token&process=names", http.StatusFound)
+		return
+	}
+	priority, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("priority")), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, basePath+"?error=Priority+must+be+a+number&process=names", http.StatusFound)
+		return
+	}
+	body, _ := json.Marshal(map[string]any{"priority": priority})
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidate-interview-names/"+strconv.FormatInt(nameID, 10), bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, basePath+"?error=Unable+to+update+interview+type&process=names", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, basePath+"?error=Service+unavailable&process=names", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to update interview type"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, basePath+"?error="+url.QueryEscape(msg)+"&process=names", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, basePath+"?message="+url.QueryEscape("Interview type priority updated")+"&process=names", http.StatusFound)
+}
+
+func (s *server) deleteCandidateInterviewQuestionProxy(w http.ResponseWriter, r *http.Request, locationNumber string, questionID int64) {
+	basePath := "/admin/locations/" + url.PathEscape(locationNumber) + "/interview-process"
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, basePath+"?error=Invalid+form+submission&process=questions", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, basePath+"?error=Missing+csrf+token&process=questions", http.StatusFound)
 		return
 	}
 	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodDelete, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidate-interview-questions/"+strconv.FormatInt(questionID, 10), nil)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Unable+to+delete+interview+question", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Unable+to+delete+interview+question&process=questions", http.StatusFound)
 		return
 	}
 	copySessionCookieHeader(r, apiReq)
 	apiReq.Header.Set(csrfHeaderName, csrfToken)
 	apiResp, err := s.apiClient.Do(apiReq)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Service+unavailable", http.StatusFound)
+		http.Redirect(w, r, basePath+"?error=Service+unavailable&process=questions", http.StatusFound)
 		return
 	}
 	defer apiResp.Body.Close()
@@ -1534,10 +1729,59 @@ func (s *server) deleteCandidateInterviewQuestionProxy(w http.ResponseWriter, r 
 		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
 			msg = errPayload["error"]
 		}
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error="+url.QueryEscape(msg), http.StatusFound)
+		http.Redirect(w, r, basePath+"?error="+url.QueryEscape(msg)+"&process=questions", http.StatusFound)
 		return
 	}
-	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?message="+url.QueryEscape("Interview question deleted"), http.StatusFound)
+	http.Redirect(w, r, basePath+"?message="+url.QueryEscape("Interview question deleted")+"&process=questions", http.StatusFound)
+}
+
+func (s *server) assignCandidateInterviewQuestionProxy(w http.ResponseWriter, r *http.Request, locationNumber string, questionID int64) {
+	basePath := "/admin/locations/" + url.PathEscape(locationNumber) + "/interview-process"
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, basePath+"?error=Invalid+form+submission&process=questions", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, basePath+"?error=Missing+csrf+token&process=questions", http.StatusFound)
+		return
+	}
+	interviewNameIDs := parseInterviewTypeIDs(r.Form["interview_name_ids"])
+	interviewNameID, _ := strconv.ParseInt(strings.TrimSpace(r.FormValue("interview_name_id")), 10, 64)
+	payload := map[string]any{
+		"interviewNameId":  interviewNameID,
+		"interviewNameIds": interviewNameIDs,
+	}
+	question := strings.TrimSpace(r.FormValue("question"))
+	if question != "" {
+		payload["question"] = question
+	}
+	body, _ := json.Marshal(payload)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidate-interview-questions/"+strconv.FormatInt(questionID, 10), bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, basePath+"?error=Unable+to+assign+interview+type&process=questions", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, basePath+"?error=Service+unavailable&process=questions", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to update interview question"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, basePath+"?error="+url.QueryEscape(msg)+"&process=questions", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, basePath+"?message="+url.QueryEscape("Interview question updated")+"&process=questions", http.StatusFound)
 }
 
 func (s *server) createCandidateInterviewProxy(w http.ResponseWriter, r *http.Request, locationNumber string, candidateID int64) {
@@ -1600,6 +1844,103 @@ func (s *server) createCandidateInterviewLinkProxy(w http.ResponseWriter, r *htt
 		"link":      link,
 		"expiresAt": payload.ExpiresAt,
 	})
+}
+
+func (s *server) createCandidateInterviewSessionProxy(w http.ResponseWriter, r *http.Request, locationNumber string, candidateID int64) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Invalid+form+submission#create-interviews", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Missing+csrf+token#create-interviews", http.StatusFound)
+		return
+	}
+	body, _ := json.Marshal(map[string]string{
+		"interviewerTimePunchName": strings.TrimSpace(r.FormValue("interviewer_time_punch_name")),
+		"interviewType":            strings.TrimSpace(r.FormValue("interview_type")),
+	})
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodPost,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"/interview-link",
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Unable+to+create+interview#create-interviews", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Service+unavailable#create-interviews", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusCreated && apiResp.StatusCode != http.StatusOK {
+		msg := "unable to create interview"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error="+url.QueryEscape(msg)+"#create-interviews", http.StatusFound)
+		return
+	}
+	var payload interviewLinkResponse
+	if err := json.Unmarshal(respBody, &payload); err != nil || strings.TrimSpace(payload.Token) == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Unable+to+read+interview+link#create-interviews", http.StatusFound)
+		return
+	}
+	http.Redirect(
+		w,
+		r,
+		"/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?open_session="+url.QueryEscape(payload.Token)+"#view-interviews",
+		http.StatusFound,
+	)
+}
+
+func (s *server) deleteCandidateInterviewLinkProxy(w http.ResponseWriter, r *http.Request, locationNumber string, candidateID int64, token string) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Invalid+form+submission#view-interviews", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Missing+csrf+token#view-interviews", http.StatusFound)
+		return
+	}
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodDelete,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"/interview-links/"+url.PathEscape(token),
+		nil,
+	)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Unable+to+delete+interview#view-interviews", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Service+unavailable#view-interviews", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to delete interview"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error="+url.QueryEscape(msg)+"#view-interviews", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?message="+url.QueryEscape("Interview deleted")+"#view-interviews", http.StatusFound)
 }
 
 func (s *server) updateCandidateDecisionProxy(w http.ResponseWriter, r *http.Request, locationNumber string, candidateID int64) {
@@ -2086,7 +2427,7 @@ p{margin:0 0 .5rem;color:var(--muted);line-height:1.45}
   <div class="wrap">
     <section class="card">
       <h1>Link Closed</h1>
-      <p>This interview link has already been used or expired.</p>
+      <p>This interview link has already been used or deleted.</p>
       <p>Please contact your admin for a new link.</p>
     </section>
   </div>
@@ -2105,11 +2446,23 @@ func (s *server) locationTimePunchPage(w http.ResponseWriter, r *http.Request, l
 		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
 		return
 	}
-	entries, err := s.fetchLocationTimePunchEntries(r, locationNumber)
+	entries, err := s.fetchLocationTimePunchEntries(r, locationNumber, false)
 	if err != nil {
 		http.Error(w, "unable to load time punch entries", http.StatusBadGateway)
 		return
 	}
+	archivedEntries, err := s.fetchLocationTimePunchEntries(r, locationNumber, true)
+	if err != nil {
+		http.Error(w, "unable to load archived time punch entries", http.StatusBadGateway)
+		return
+	}
+	employees, err := s.fetchLocationEmployees(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load location employees", http.StatusBadGateway)
+		return
+	}
+	entries = limitTimePunchEntries(entries, 50)
+	archivedEntries = limitTimePunchEntries(archivedEntries, 50)
 	token, err := s.fetchLocationTimePunchToken(r, locationNumber)
 	if err != nil {
 		http.Error(w, "unable to load time punch link", http.StatusBadGateway)
@@ -2121,12 +2474,14 @@ func (s *server) locationTimePunchPage(w http.ResponseWriter, r *http.Request, l
 	}
 	publicLink := scheme + "://" + r.Host + "/time-punch/" + url.PathEscape(token)
 	if err := renderHTMLTemplate(w, s.timePunchTmpl, pageData{
-		Location:         location,
-		CSRF:             csrfToken,
-		TimePunchEntries: entries,
-		TimePunchLink:    publicLink,
-		SuccessMessage:   r.URL.Query().Get("message"),
-		Error:            r.URL.Query().Get("error"),
+		Location:                 location,
+		CSRF:                     csrfToken,
+		Employees:                employees,
+		TimePunchEntries:         entries,
+		ArchivedTimePunchEntries: archivedEntries,
+		TimePunchLink:            publicLink,
+		SuccessMessage:           r.URL.Query().Get("message"),
+		Error:                    r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("time punch template render failed: %v", err)
@@ -2149,6 +2504,11 @@ func (s *server) locationTimeOffPage(w http.ResponseWriter, r *http.Request, loc
 		http.Error(w, "unable to load time off requests", http.StatusBadGateway)
 		return
 	}
+	employees, err := s.fetchLocationEmployees(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load location employees", http.StatusBadGateway)
+		return
+	}
 	archivedRequests, err := s.fetchLocationTimeOffRequests(r, locationNumber, true)
 	if err != nil {
 		http.Error(w, "unable to load archived time off requests", http.StatusBadGateway)
@@ -2167,6 +2527,7 @@ func (s *server) locationTimeOffPage(w http.ResponseWriter, r *http.Request, loc
 	if err := renderHTMLTemplate(w, s.timeOffTmpl, pageData{
 		Location:                location,
 		CSRF:                    csrfToken,
+		Employees:               employees,
 		TimeOffRequests:         requests,
 		ArchivedTimeOffRequests: archivedRequests,
 		TimeOffLink:             publicLink,
@@ -2979,27 +3340,110 @@ func (s *server) deleteLocationTimePunchEntryProxy(w http.ResponseWriter, r *htt
 	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?message="+url.QueryEscape("Time punch entry deleted"), http.StatusFound)
 }
 
-func (s *server) archiveTimeOffRequestProxy(w http.ResponseWriter, r *http.Request, locationNumber string, requestID int64) {
+func (s *server) archiveLocationTimePunchEntryProxy(w http.ResponseWriter, r *http.Request, locationNumber string, entryID int64) {
 	if err := r.ParseForm(); err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Invalid+form+submission", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error=Invalid+form+submission#view-punches", http.StatusFound)
 		return
 	}
 	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
 	if csrfToken == "" {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Missing+csrf+token", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error=Missing+csrf+token#view-punches", http.StatusFound)
 		return
 	}
-	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/time-off/" + strconv.FormatInt(requestID, 10)
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/time-punch/" + strconv.FormatInt(entryID, 10) + "/archive"
 	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, apiURL, nil)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Unable+to+archive+request", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error=Unable+to+archive+entry#view-punches", http.StatusFound)
 		return
 	}
 	copySessionCookieHeader(r, apiReq)
 	apiReq.Header.Set(csrfHeaderName, csrfToken)
 	apiResp, err := s.apiClient.Do(apiReq)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Service+unavailable", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error=Service+unavailable#view-punches", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to archive time punch entry"
+		var payload map[string]string
+		if err := json.Unmarshal(respBody, &payload); err == nil && strings.TrimSpace(payload["error"]) != "" {
+			msg = payload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error="+url.QueryEscape(msg)+"#view-punches", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?message="+url.QueryEscape("Time punch entry archived")+"#view-punches", http.StatusFound)
+}
+
+func (s *server) createLocationTimePunchEntryProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error=Invalid+form+submission#create-punch", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error=Missing+csrf+token#create-punch", http.StatusFound)
+		return
+	}
+	payload := map[string]string{
+		"timePunchName": strings.TrimSpace(r.FormValue("time_punch_name")),
+		"punchDate":     strings.TrimSpace(r.FormValue("punch_date")),
+		"timeIn":        strings.TrimSpace(r.FormValue("time_in")),
+		"timeOut":       strings.TrimSpace(r.FormValue("time_out")),
+		"note":          strings.TrimSpace(r.FormValue("note")),
+	}
+	body, _ := json.Marshal(payload)
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/time-punch"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error=Unable+to+create+entry#create-punch", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error=Service+unavailable#create-punch", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusCreated && apiResp.StatusCode != http.StatusOK {
+		msg := "unable to create time punch entry"
+		var payload map[string]string
+		if err := json.Unmarshal(respBody, &payload); err == nil && strings.TrimSpace(payload["error"]) != "" {
+			msg = payload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error="+url.QueryEscape(msg)+"#create-punch", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?message="+url.QueryEscape("Time punch submitted")+"#view-punches", http.StatusFound)
+}
+
+func (s *server) archiveTimeOffRequestProxy(w http.ResponseWriter, r *http.Request, locationNumber string, requestID int64) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Invalid+form+submission#view-requests", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Missing+csrf+token#view-requests", http.StatusFound)
+		return
+	}
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/time-off/" + strconv.FormatInt(requestID, 10)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, apiURL, nil)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Unable+to+archive+request#view-requests", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Service+unavailable#view-requests", http.StatusFound)
 		return
 	}
 	defer apiResp.Body.Close()
@@ -3010,10 +3454,54 @@ func (s *server) archiveTimeOffRequestProxy(w http.ResponseWriter, r *http.Reque
 		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
 			msg = errPayload["error"]
 		}
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error="+url.QueryEscape(msg), http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error="+url.QueryEscape(msg)+"#view-requests", http.StatusFound)
 		return
 	}
-	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?message="+url.QueryEscape("Time off request archived"), http.StatusFound)
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?message="+url.QueryEscape("Time off request archived")+"#view-requests", http.StatusFound)
+}
+
+func (s *server) createLocationTimeOffRequestProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Invalid+form+submission#create-request", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Missing+csrf+token#create-request", http.StatusFound)
+		return
+	}
+	payload := map[string]string{
+		"timePunchName": strings.TrimSpace(r.FormValue("time_punch_name")),
+		"startDate":     strings.TrimSpace(r.FormValue("start_date")),
+		"endDate":       strings.TrimSpace(r.FormValue("end_date")),
+	}
+	body, _ := json.Marshal(payload)
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/time-off"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Unable+to+create+request#create-request", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Service+unavailable#create-request", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusCreated && apiResp.StatusCode != http.StatusOK {
+		msg := "unable to create time off request"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error="+url.QueryEscape(msg)+"#create-request", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?message="+url.QueryEscape("Time off request submitted")+"#view-requests", http.StatusFound)
 }
 
 func (s *server) importLocationEmployeesProxy(w http.ResponseWriter, r *http.Request) {
@@ -3400,13 +3888,19 @@ func (s *server) deleteLocationProxy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"csrf token is required"}`, http.StatusForbidden)
 		return
 	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
 
-	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodDelete, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber), nil)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodDelete, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber), bytes.NewReader(body))
 	if err != nil {
 		http.Error(w, `{"error":"upstream request failed"}`, http.StatusInternalServerError)
 		return
 	}
 	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
 	apiReq.Header.Set(csrfHeaderName, csrfToken)
 
 	apiResp, err := s.apiClient.Do(apiReq)
@@ -4633,7 +5127,7 @@ func shouldRenderPhotoUploadSubmittedFromQuery(r *http.Request) bool {
 func (s *server) requireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !s.sessionIsValid(r) {
-			http.Redirect(w, r, "/", http.StatusFound)
+			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -4706,6 +5200,9 @@ func (s *server) fetchLocationsPage(r *http.Request, page, perPage int) (*locati
 	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
 		return nil, err
 	}
+	for i := range payload.Locations {
+		normalizeLocationView(&payload.Locations[i])
+	}
 	return &payload, nil
 }
 
@@ -4732,6 +5229,7 @@ func (s *server) fetchLocation(r *http.Request, number string) (*locationView, e
 	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
 		return nil, err
 	}
+	normalizeLocationView(&payload.Location)
 	return &payload.Location, nil
 }
 
@@ -4818,7 +5316,7 @@ func (s *server) fetchLocationEmployees(r *http.Request, number string) ([]emplo
 		return nil, err
 	}
 	for i := range payload.Employees {
-		payload.Employees[i].Birthday = formatBirthdayDisplay(payload.Employees[i].Birthday)
+		normalizeEmployeeView(&payload.Employees[i])
 	}
 	return payload.Employees, nil
 }
@@ -4846,6 +5344,9 @@ func (s *server) fetchLocationCandidateValues(r *http.Request, number string) ([
 	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
 		return nil, err
 	}
+	for i := range payload.Values {
+		normalizeCandidateValueView(&payload.Values[i])
+	}
 	return payload.Values, nil
 }
 
@@ -4866,11 +5367,14 @@ func (s *server) fetchLocationCandidateInterviewNames(r *http.Request, number st
 	}
 	defer apiResp.Body.Close()
 	if apiResp.StatusCode != http.StatusOK {
-		return nil, errors.New("failed to fetch candidate interview names")
+		return nil, errors.New("failed to fetch candidate interview types")
 	}
 	var payload candidateInterviewNamesResponse
 	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
 		return nil, err
+	}
+	for i := range payload.Names {
+		normalizeCandidateInterviewNameView(&payload.Names[i])
 	}
 	return payload.Names, nil
 }
@@ -4898,7 +5402,66 @@ func (s *server) fetchLocationCandidateInterviewQuestions(r *http.Request, numbe
 	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
 		return nil, err
 	}
+	for i := range payload.Questions {
+		normalizeCandidateInterviewQuestionView(&payload.Questions[i])
+	}
 	return payload.Questions, nil
+}
+
+func (s *server) fetchCandidateInterviewLinks(r *http.Request, number string, candidateID int64) ([]candidateInterviewLinkView, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"/interview-links",
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to fetch candidate interview links")
+	}
+	var payload candidateInterviewLinksResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	for i := range payload.Links {
+		normalizeCandidateInterviewLinkView(&payload.Links[i])
+	}
+	return payload.Links, nil
+}
+
+func (s *server) fetchCandidateInterviewLink(r *http.Request, number string, candidateID int64, token string) (*candidateInterviewLinkView, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"/interview-links/"+url.PathEscape(token),
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to fetch candidate interview link")
+	}
+	var payload candidateInterviewLinkResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	normalizeCandidateInterviewLinkView(&payload.Link)
+	return &payload.Link, nil
 }
 
 func (s *server) fetchLocationCandidates(r *http.Request, number string, archived bool, search string) ([]candidateView, error) {
@@ -4928,6 +5491,9 @@ func (s *server) fetchLocationCandidates(r *http.Request, number string, archive
 	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
 		return nil, err
 	}
+	for i := range payload.Candidates {
+		normalizeCandidateView(&payload.Candidates[i])
+	}
 	return payload.Candidates, nil
 }
 
@@ -4954,6 +5520,7 @@ func (s *server) fetchLocationCandidate(r *http.Request, number string, candidat
 	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
 		return nil, err
 	}
+	normalizeCandidateView(&payload.Candidate)
 	return &payload.Candidate, nil
 }
 
@@ -4979,6 +5546,9 @@ func (s *server) fetchEmployeeCandidateScorecards(r *http.Request, locationNumbe
 	var payload candidatesResponse
 	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
 		return nil, err
+	}
+	for i := range payload.Candidates {
+		normalizeCandidateView(&payload.Candidates[i])
 	}
 	return payload.Candidates, nil
 }
@@ -5007,16 +5577,20 @@ func (s *server) fetchArchivedLocationEmployees(r *http.Request, number string) 
 		return nil, err
 	}
 	for i := range payload.Employees {
-		payload.Employees[i].Birthday = formatBirthdayDisplay(payload.Employees[i].Birthday)
+		normalizeEmployeeView(&payload.Employees[i])
 	}
 	return payload.Employees, nil
 }
 
-func (s *server) fetchLocationTimePunchEntries(r *http.Request, number string) ([]timePunchEntryView, error) {
+func (s *server) fetchLocationTimePunchEntries(r *http.Request, number string, archived bool) ([]timePunchEntryView, error) {
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(number) + "/time-punch"
+	if archived {
+		apiURL += "?archived=1"
+	}
 	apiReq, err := http.NewRequestWithContext(
 		r.Context(),
 		http.MethodGet,
-		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number)+"/time-punch",
+		apiURL,
 		nil,
 	)
 	if err != nil {
@@ -5038,8 +5612,17 @@ func (s *server) fetchLocationTimePunchEntries(r *http.Request, number string) (
 	for i := range payload.Entries {
 		payload.Entries[i].TimeIn = formatPunchClockDisplay(payload.Entries[i].TimeIn)
 		payload.Entries[i].TimeOut = formatPunchClockDisplay(payload.Entries[i].TimeOut)
+		payload.Entries[i].CreatedAt = formatDateTimeDisplay(payload.Entries[i].CreatedAt)
+		payload.Entries[i].ArchivedAt = formatDateTimeDisplay(payload.Entries[i].ArchivedAt)
 	}
 	return payload.Entries, nil
+}
+
+func limitTimePunchEntries(entries []timePunchEntryView, limit int) []timePunchEntryView {
+	if limit <= 0 || len(entries) <= limit {
+		return entries
+	}
+	return entries[:limit]
 }
 
 func (s *server) fetchLocationTimePunchToken(r *http.Request, number string) (string, error) {
@@ -5097,6 +5680,10 @@ func (s *server) fetchLocationTimeOffRequests(r *http.Request, number string, ar
 	var payload timeOffRequestsResponse
 	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
 		return nil, err
+	}
+	for i := range payload.Requests {
+		payload.Requests[i].CreatedAt = formatDateTimeDisplay(payload.Requests[i].CreatedAt)
+		payload.Requests[i].ArchivedAt = formatDateTimeDisplay(payload.Requests[i].ArchivedAt)
 	}
 	return payload.Requests, nil
 }
@@ -5212,6 +5799,13 @@ func (s *server) fetchLocationUniformOrders(r *http.Request, number string, arch
 	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
 		return nil, err
 	}
+	for i := range payload.Orders {
+		payload.Orders[i].CreatedAt = formatDateTimeDisplay(payload.Orders[i].CreatedAt)
+		payload.Orders[i].ArchivedAt = formatDateTimeDisplay(payload.Orders[i].ArchivedAt)
+		for j := range payload.Orders[i].Lines {
+			payload.Orders[i].Lines[j].PurchasedAt = formatDateTimeDisplay(payload.Orders[i].Lines[j].PurchasedAt)
+		}
+	}
 	return payload.Orders, nil
 }
 
@@ -5264,6 +5858,9 @@ func (s *server) fetchLocationBusinessDays(r *http.Request, number string) ([]bu
 	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
 		return nil, err
 	}
+	for i := range payload.BusinessDays {
+		payload.BusinessDays[i].CreatedAt = formatDateTimeDisplay(payload.BusinessDays[i].CreatedAt)
+	}
 	return payload.BusinessDays, nil
 }
 
@@ -5290,6 +5887,7 @@ func (s *server) fetchOrCreateBusinessDay(r *http.Request, locationNumber, busin
 	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
 		return nil, err
 	}
+	payload.BusinessDay.CreatedAt = formatDateTimeDisplay(payload.BusinessDay.CreatedAt)
 	return &payload.BusinessDay, nil
 }
 
@@ -5316,7 +5914,7 @@ func (s *server) fetchEmployee(r *http.Request, locationNumber, timePunchName st
 	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
 		return nil, err
 	}
-	payload.Employee.Birthday = formatBirthdayDisplay(payload.Employee.Birthday)
+	normalizeEmployeeView(&payload.Employee)
 	return &payload.Employee, nil
 }
 
@@ -5343,7 +5941,7 @@ func (s *server) fetchArchivedEmployee(r *http.Request, locationNumber, timePunc
 	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
 		return nil, err
 	}
-	payload.Employee.Birthday = formatBirthdayDisplay(payload.Employee.Birthday)
+	normalizeEmployeeView(&payload.Employee)
 	return &payload.Employee, nil
 }
 
@@ -5371,7 +5969,59 @@ func (s *server) fetchEmployeePaperwork(r *http.Request, locationNumber, timePun
 	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
 		return nil, nil, err
 	}
+	normalizeEmployeePaperworkView(&payload.Paperwork)
+	for i := range payload.Documents {
+		payload.Documents[i].CreatedAt = formatDateTimeDisplay(payload.Documents[i].CreatedAt)
+	}
 	return &payload.Paperwork, payload.Documents, nil
+}
+
+func normalizeLocationView(location *locationView) {
+	location.CreatedAt = formatDateTimeDisplay(location.CreatedAt)
+}
+
+func normalizeEmployeeView(employee *employeeView) {
+	employee.Birthday = formatBirthdayDisplay(employee.Birthday)
+	employee.ArchivedAt = formatDateTimeDisplay(employee.ArchivedAt)
+}
+
+func normalizeEmployeePaperworkView(paperwork *employeeI9View) {
+	paperwork.CreatedAt = formatDateTimeDisplay(paperwork.CreatedAt)
+	paperwork.UpdatedAt = formatDateTimeDisplay(paperwork.UpdatedAt)
+}
+
+func normalizeCandidateValueView(value *candidateValueView) {
+	value.CreatedAt = formatDateTimeDisplay(value.CreatedAt)
+	value.UpdatedAt = formatDateTimeDisplay(value.UpdatedAt)
+}
+
+func normalizeCandidateInterviewNameView(name *candidateInterviewNameView) {
+	name.CreatedAt = formatDateTimeDisplay(name.CreatedAt)
+	name.UpdatedAt = formatDateTimeDisplay(name.UpdatedAt)
+}
+
+func normalizeCandidateInterviewQuestionView(question *candidateInterviewQuestionView) {
+	question.CreatedAt = formatDateTimeDisplay(question.CreatedAt)
+	question.UpdatedAt = formatDateTimeDisplay(question.UpdatedAt)
+}
+
+func normalizeCandidateInterviewLinkView(link *candidateInterviewLinkView) {
+	link.CreatedAt = formatDateTimeDisplay(link.CreatedAt)
+	link.ExpiresAt = formatDateTimeDisplay(link.ExpiresAt)
+	link.UsedAt = formatDateTimeDisplay(link.UsedAt)
+}
+
+func normalizeCandidateInterviewView(interview *candidateInterviewView) {
+	interview.CreatedAt = formatDateTimeDisplay(interview.CreatedAt)
+}
+
+func normalizeCandidateView(candidate *candidateView) {
+	candidate.CreatedAt = formatDateTimeDisplay(candidate.CreatedAt)
+	candidate.UpdatedAt = formatDateTimeDisplay(candidate.UpdatedAt)
+	candidate.ArchivedAt = formatDateTimeDisplay(candidate.ArchivedAt)
+	for i := range candidate.Interviews {
+		normalizeCandidateInterviewView(&candidate.Interviews[i])
+	}
 }
 
 func formatBirthdayDisplay(value string) string {
@@ -5407,6 +6057,44 @@ func formatBirthdayDisplay(value string) string {
 	for _, layout := range formats {
 		if parsed, err := time.Parse(layout, trimmed); err == nil {
 			return parsed.Format("01/02/2006")
+		}
+	}
+	return trimmed
+}
+
+func formatDateTimeDisplay(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+	dateOnlyLayouts := []string{
+		"2006-01-02",
+		"1/2/2006",
+		"01/02/2006",
+		"1-2-2006",
+		"01-02-2006",
+		"2006/01/02",
+		"Jan 2, 2006",
+		"January 2, 2006",
+		"2 Jan 2006",
+		"2 January 2006",
+	}
+	for _, layout := range dateOnlyLayouts {
+		if parsed, err := time.Parse(layout, trimmed); err == nil {
+			return parsed.Format("Jan 2, 2006")
+		}
+	}
+	dateTimeLayouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05",
+		"2006-01-02 15:04",
+		"2006-01-02T15:04:05",
+		"2006-01-02T15:04",
+	}
+	for _, layout := range dateTimeLayouts {
+		if parsed, err := time.Parse(layout, trimmed); err == nil {
+			return parsed.Local().Format("Jan 2, 2006 3:04 PM")
 		}
 	}
 	return trimmed
@@ -5586,6 +6274,20 @@ func parseLocationCandidatesPath(path string) (string, bool) {
 	return locationNumber, true
 }
 
+func parseLocationInterviewProcessPath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 2 || parts[1] != "interview-process" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
 func parseLocationCandidatesCreatePath(path string) (string, bool) {
 	return parseLocationCandidatesPath(path)
 }
@@ -5686,6 +6388,24 @@ func parseLocationCandidateInterviewNameDeletePath(path string) (string, int64, 
 	return locationNumber, nameID, true
 }
 
+func parseLocationCandidateInterviewNamePriorityPath(path string) (string, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 5 || parts[1] != "candidate-interview-names" || parts[3] != "priority" {
+		return "", 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, false
+	}
+	nameID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || nameID <= 0 {
+		return "", 0, false
+	}
+	return locationNumber, nameID, true
+}
+
 func parseLocationCandidateInterviewQuestionDeletePath(path string) (string, int64, bool) {
 	trimmed := strings.TrimPrefix(path, "/admin/locations/")
 	trimmed = strings.Trim(trimmed, "/")
@@ -5702,6 +6422,42 @@ func parseLocationCandidateInterviewQuestionDeletePath(path string) (string, int
 		return "", 0, false
 	}
 	return locationNumber, questionID, true
+}
+
+func parseLocationCandidateInterviewQuestionAssignPath(path string) (string, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "candidate-interview-questions" || parts[3] != "assign" {
+		return "", 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, false
+	}
+	questionID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || questionID <= 0 {
+		return "", 0, false
+	}
+	return locationNumber, questionID, true
+}
+
+func parseInterviewTypeIDs(values []string) []int64 {
+	seen := make(map[int64]struct{}, len(values))
+	out := make([]int64, 0, len(values))
+	for _, raw := range values {
+		id, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+		if err != nil || id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
 }
 
 func parseLocationCandidateInterviewCreatePath(path string) (string, int64, bool) {
@@ -5727,6 +6483,24 @@ func parseLocationCandidateInterviewLinkCreatePath(path string) (string, int64, 
 	trimmed = strings.Trim(trimmed, "/")
 	parts := strings.Split(trimmed, "/")
 	if len(parts) != 4 || parts[1] != "candidates" || parts[3] != "interview-link" {
+		return "", 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, false
+	}
+	candidateID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || candidateID <= 0 {
+		return "", 0, false
+	}
+	return locationNumber, candidateID, true
+}
+
+func parseLocationCandidateInterviewLinksCreatePath(path string) (string, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "candidates" || parts[3] != "interview-links" {
 		return "", 0, false
 	}
 	locationNumber, err := url.PathUnescape(parts[0])
@@ -5814,6 +6588,50 @@ func parseLocationCandidateInterviewDetailPath(path string) (string, int64, int6
 		return "", 0, 0, false
 	}
 	return locationNumber, candidateID, interviewID, true
+}
+
+func parseLocationCandidateInterviewLinkDetailPath(path string) (string, int64, string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 5 || parts[1] != "candidates" || parts[3] != "interview-links" {
+		return "", 0, "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, "", false
+	}
+	candidateID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || candidateID <= 0 {
+		return "", 0, "", false
+	}
+	token, err := url.PathUnescape(parts[4])
+	if err != nil || strings.TrimSpace(token) == "" {
+		return "", 0, "", false
+	}
+	return locationNumber, candidateID, strings.TrimSpace(token), true
+}
+
+func parseLocationCandidateInterviewLinkDeletePath(path string) (string, int64, string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 6 || parts[1] != "candidates" || parts[3] != "interview-links" || parts[5] != "delete" {
+		return "", 0, "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, "", false
+	}
+	candidateID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || candidateID <= 0 {
+		return "", 0, "", false
+	}
+	token, err := url.PathUnescape(parts[4])
+	if err != nil || strings.TrimSpace(token) == "" {
+		return "", 0, "", false
+	}
+	return locationNumber, candidateID, strings.TrimSpace(token), true
 }
 
 func parseLocationEmployeeCreatePath(path string) (string, bool) {
@@ -5984,6 +6802,20 @@ func parseLocationTimeOffArchivePostPath(path string) (string, int64, bool) {
 		return "", 0, false
 	}
 	return locationNumber, requestID, true
+}
+
+func parseLocationTimeOffCreatePath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 || parts[1] != "time-off" || parts[2] != "create" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
 }
 
 func parseLocationUniformOrderLineSettlementPostPath(path string) (string, int64, int64, bool) {
@@ -6168,6 +7000,38 @@ func parseLocationTimePunchDeletePath(path string) (string, int64, bool) {
 		return "", 0, false
 	}
 	return locationNumber, entryID, true
+}
+
+func parseLocationTimePunchArchivePostPath(path string) (string, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "time-punch" || parts[3] != "archive" {
+		return "", 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, false
+	}
+	entryID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || entryID <= 0 {
+		return "", 0, false
+	}
+	return locationNumber, entryID, true
+}
+
+func parseLocationTimePunchCreatePath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 || parts[1] != "time-punch" || parts[2] != "create" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
 }
 
 func parseLocationEmployeeActionPath(path, action string) (string, string, bool) {

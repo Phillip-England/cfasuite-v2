@@ -20,12 +20,12 @@
     :root {
       --bg: #ffffff; --fg: #09090b; --card: #ffffff;
       --muted: #f4f4f5; --muted-fg: #71717a; --border: #e4e4e7;
-      --primary: #ea580c; --primary-fg: #ffffff; --danger:#dc2626;
+      --primary: #004f71; --primary-fg: #ffffff; --danger:#dc2626;
     }
     html.dark {
       --bg: #09090b; --fg: #fafafa; --card: #09090b;
       --muted: #27272a; --muted-fg: #a1a1aa; --border: #3f3f46;
-      --primary: #fb923c; --primary-fg: #431407; --danger:#f87171;
+      --primary: #004f71; --primary-fg: #ffffff; --danger:#f87171;
     }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--fg); font-family: "Manrope", sans-serif; }
@@ -43,6 +43,53 @@
     .btn { min-height:2.4rem; border:1px solid var(--primary); background:var(--primary); color:var(--primary-fg); border-radius:8px; padding:0.5rem 0.85rem; font-weight:700; cursor:pointer; }
     .msg { font-size:0.875rem; }
     .msg.error { color: var(--danger); }
+    .completion {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem;
+      background: var(--muted);
+      display: grid;
+      gap: 0.35rem;
+    }
+    .completion.ok {
+      border-color: #86efac;
+      background: #f0fdf4;
+      color: #166534;
+    }
+    html.dark .completion.ok {
+      border-color: #166534;
+      background: #052e16;
+      color: #4ade80;
+    }
+    .completion.warn {
+      border-color: #2f8fb8;
+      background: #e6f2f7;
+      color: #003b55;
+    }
+    html.dark .completion.warn {
+      border-color: #003b55;
+      background: #002a3c;
+      color: #2f8fb8;
+    }
+    .required-empty { color: var(--danger); }
+    .required-complete { color: #16a34a; }
+    .value-card.card-incomplete {
+      border-color: #2f8fb8;
+      background: #e6f2f7;
+    }
+    .value-card.card-complete {
+      border-color: #86efac;
+      background: #f0fdf4;
+    }
+    html.dark .value-card.card-incomplete {
+      border-color: #003b55;
+      background: #002a3c;
+    }
+    html.dark .value-card.card-complete {
+      border-color: #166534;
+      background: #052e16;
+    }
+    .submit-row { display: grid; gap: 0.5rem; }
   </style>
 </head>
 <body>
@@ -55,17 +102,22 @@
       {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
       {{ if .SuccessMessage }}<p class="msg">{{ .SuccessMessage }}</p>{{ end }}
 
-      <form method="post" action="/interview/{{ .Token }}" class="stack">
+      <form id="interview-form" method="post" action="/interview/{{ .Token }}" class="stack">
+        <section id="completion-summary" class="completion warn" aria-live="polite">
+          <strong>Form Incomplete</strong>
+          <span id="completion-detail">Complete all required fields before submitting.</span>
+        </section>
         {{ range .CandidateValues }}
-          <article class="value-card stack">
+          <article class="value-card stack required-group">
             <div>
               <h2 style="font-size:1rem;">{{ .Name }}</h2>
               {{ if .Description }}<p class="meta" style="margin-top:0.25rem;">{{ .Description }}</p>{{ end }}
             </div>
             <div class="grid-2">
               <div>
-                <label for="grade_{{ .ID }}">Grade</label>
+                <label class="required-label" for="grade_{{ .ID }}">Grade</label>
                 <select id="grade_{{ .ID }}" name="grade_{{ .ID }}" required>
+                  <option value="" selected>Select grade</option>
                   <option value="A">A</option>
                   <option value="B">B</option>
                   <option value="C">C</option>
@@ -74,8 +126,8 @@
                 </select>
               </div>
               <div>
-                <label for="comment_{{ .ID }}">Comment (up to 1000 chars)</label>
-                <textarea id="comment_{{ .ID }}" name="comment_{{ .ID }}" maxlength="1000" placeholder="What did you observe for this value?"></textarea>
+                <label class="required-label" for="comment_{{ .ID }}">Comment (required, up to 1000 chars)</label>
+                <textarea id="comment_{{ .ID }}" name="comment_{{ .ID }}" maxlength="1000" required placeholder="What did you observe for this value?"></textarea>
               </div>
             </div>
           </article>
@@ -84,12 +136,12 @@
           <h2 style="font-size:1rem;">Interview Questions</h2>
           {{ if .InterviewQuestions }}
             {{ range .InterviewQuestions }}
-              <article class="value-card stack">
+              <article class="value-card stack required-group">
                 <div>
                   <h2 style="font-size:1rem;">{{ .Question }}</h2>
                 </div>
                 <div>
-                  <label for="question_{{ .ID }}">Answer (required, up to 3000 chars)</label>
+                  <label class="required-label" for="question_{{ .ID }}">Answer (required, up to 3000 chars)</label>
                   <textarea id="question_{{ .ID }}" name="question_{{ .ID }}" maxlength="3000" required placeholder="Enter interview response"></textarea>
                 </div>
               </article>
@@ -102,11 +154,85 @@
           <label for="notes">Overall Interview Notes</label>
           <textarea id="notes" name="notes" maxlength="3000" placeholder="Optional overall comments."></textarea>
         </div>
-        <div>
-          <button class="btn" type="submit">Submit Interview Scorecard</button>
+        <div class="submit-row">
+          <button id="interview-submit-btn" class="btn" type="submit">Complete Interview</button>
+          <span id="submit-help" class="meta">All required fields must be complete.</span>
         </div>
       </form>
     </section>
   </div>
+  <script>
+    (function () {
+      var form = document.getElementById("interview-form");
+      var summary = document.getElementById("completion-summary");
+      var detail = document.getElementById("completion-detail");
+      var submitBtn = document.getElementById("interview-submit-btn");
+      var submitHelp = document.getElementById("submit-help");
+      if (!form || !summary || !detail || !submitBtn) return;
+
+      var requiredFields = Array.from(form.querySelectorAll("select[required], textarea[required], input[required]"));
+      var requiredLabels = Array.from(form.querySelectorAll(".required-label"));
+      var groups = Array.from(form.querySelectorAll(".required-group"));
+
+      function isComplete(el) {
+        if (!el) return false;
+        if (el.tagName === "SELECT") return (el.value || "").trim() !== "";
+        return (el.value || "").trim() !== "";
+      }
+
+      function nearestGroup(el) {
+        return el ? el.closest(".required-group") : null;
+      }
+
+      function refreshState() {
+        var completeCount = 0;
+        requiredFields.forEach(function (field) {
+          if (isComplete(field)) completeCount += 1;
+        });
+        requiredLabels.forEach(function (label) {
+          var target = form.querySelector("#" + CSS.escape(label.getAttribute("for")));
+          var complete = isComplete(target);
+          label.classList.toggle("required-empty", !complete);
+          label.classList.toggle("required-complete", complete);
+        });
+        groups.forEach(function (group) {
+          var fields = Array.from(group.querySelectorAll("select[required], textarea[required], input[required]"));
+          var complete = fields.length > 0 && fields.every(isComplete);
+          group.classList.toggle("card-incomplete", !complete);
+          group.classList.toggle("card-complete", complete);
+        });
+
+        var total = requiredFields.length;
+        var allComplete = total > 0 && completeCount === total;
+        summary.classList.toggle("ok", allComplete);
+        summary.classList.toggle("warn", !allComplete);
+        summary.querySelector("strong").textContent = allComplete ? "Form Complete" : "Form Incomplete";
+        detail.textContent = allComplete
+          ? ("All required fields complete (" + completeCount + "/" + total + ").")
+          : ("Required fields complete: " + completeCount + "/" + total + ".");
+        submitBtn.disabled = !allComplete;
+        if (submitHelp) {
+          submitHelp.textContent = allComplete
+            ? "Everything required is complete. You can submit."
+            : "Complete all required fields to enable submit.";
+        }
+      }
+
+      requiredFields.forEach(function (field) {
+        ["input", "change", "blur"].forEach(function (eventName) {
+          field.addEventListener(eventName, refreshState);
+        });
+      });
+
+      form.addEventListener("submit", function (event) {
+        refreshState();
+        if (submitBtn.disabled) {
+          event.preventDefault();
+        }
+      });
+
+      refreshState();
+    })();
+  </script>
 </body>
 </html>

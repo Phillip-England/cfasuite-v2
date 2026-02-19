@@ -3,7 +3,6 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="csrf-token" content="{{ .CSRF }}">
   <title>Candidate Details</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,8 +17,8 @@
     })();
   </script>
   <style>
-    :root { --bg:#fff; --fg:#09090b; --card:#fff; --muted:#f4f4f5; --muted-fg:#71717a; --border:#e4e4e7; --primary:#ea580c; --primary-fg:#fff; --danger:#dc2626; }
-    html.dark { --bg:#09090b; --fg:#fafafa; --card:#09090b; --muted:#27272a; --muted-fg:#a1a1aa; --border:#3f3f46; --primary:#fb923c; --primary-fg:#431407; --danger:#f87171; }
+    :root { --bg:#fff; --fg:#09090b; --card:#fff; --muted:#f4f4f5; --muted-fg:#71717a; --border:#e4e4e7; --primary:#004f71; --primary-fg:#fff; --danger:#dc2626; }
+    html.dark { --bg:#09090b; --fg:#fafafa; --card:#09090b; --muted:#27272a; --muted-fg:#a1a1aa; --border:#3f3f46; --primary:#004f71; --primary-fg:#fff; --danger:#f87171; }
     *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font-family:"Manrope",sans-serif}
     h1,h2,h3{margin:0;font-family:"Space Grotesk",sans-serif}.wrap{max-width:980px;margin:0 auto;padding:5rem 1rem 2rem;display:grid;gap:1rem}
     .card{border:1px solid var(--border);border-radius:12px;background:var(--card);padding:1rem}.stack{display:grid;gap:.875rem}
@@ -42,6 +41,16 @@
     .hub-btn span{color:var(--muted-fg);font-size:.8rem}
     .panel{display:none;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border)}
     .panel.active{display:block}
+    .table-wrap{overflow-x:auto}
+    table{width:100%;border-collapse:collapse}
+    th,td{text-align:left;padding:.55rem;border-bottom:1px solid var(--border);vertical-align:top}
+    th{color:var(--muted-fg);font-size:.75rem;text-transform:uppercase;letter-spacing:.04em}
+    .session-row{cursor:pointer}
+    .session-row:hover{background:color-mix(in srgb,var(--card) 92%,var(--muted))}
+    .session-details{display:none;background:color-mix(in srgb,var(--card) 96%,var(--muted))}
+    .session-details.open{display:table-row}
+    .session-actions{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+    .session-link{min-width:260px;flex:1}
   </style>
 </head>
 <body>
@@ -55,49 +64,44 @@
       {{ if .Error }}<div class="alert" style="color:var(--danger)">{{ .Error }}</div>{{ end }}
 
       <div class="hub">
-        <button class="hub-btn" type="button" data-target="create-interviews"><strong>Create Interviews</strong><span>Create interview links or complete one in admin.</span></button>
-        <button class="hub-btn" type="button" data-target="view-interviews"><strong>View Interviews</strong><span>See all interviews and open each one.</span></button>
+        <button class="hub-btn" type="button" data-target="create-interviews"><strong>Create Interviews</strong><span>Create interview sessions and open each dedicated link page.</span></button>
+        <button class="hub-btn" type="button" data-target="view-interviews"><strong>View Interviews</strong><span>See interview sessions and completed interviews.</span></button>
         <button class="hub-btn" type="button" data-target="decision"><strong>Decision</strong><span>Hire or pass this candidate.</span></button>
       </div>
 
       <section class="panel" data-panel="create-interviews">
         {{ if eq .Candidate.Status "active" }}
         <div class="stack">
-          <h2 style="font-size:1.05rem;">Generate Interview Link</h2>
-          <div class="grid-2">
-            <div>
-              <label for="interviewer">Interviewer</label>
-              <select id="interviewer">
-                <option value="">Select interviewer</option>
-                {{ range .Employees }}
-                  <option value="{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }} ({{ .TimePunchName }})</option>
-                {{ end }}
-              </select>
+          <h2 style="font-size:1.05rem;">Create New Interview</h2>
+          <form method="post" action="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/interview-links" class="stack">
+            <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+            <div class="grid-2">
+              <div>
+                <label for="interviewer_time_punch_name">Interviewer</label>
+                <select id="interviewer_time_punch_name" name="interviewer_time_punch_name" required>
+                  <option value="">Select interviewer</option>
+                  {{ range .Employees }}
+                    <option value="{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }} ({{ .TimePunchName }})</option>
+                  {{ end }}
+                </select>
+              </div>
+              <div>
+                <label for="interview_type">Interview Type</label>
+                <select id="interview_type" name="interview_type" required>
+                  <option value="">Select interview type</option>
+                  {{ range .InterviewNames }}
+                    <option value="{{ .Name }}">{{ .Name }}</option>
+                  {{ end }}
+                </select>
+              </div>
             </div>
-            <div>
-              <label for="interview-type">Interview Name</label>
-              <select id="interview-type">
-                <option value="">Select interview name</option>
-                {{ range .InterviewNames }}
-                  <option value="{{ .Name }}">{{ .Name }}</option>
-                {{ end }}
-              </select>
+            <div class="row">
+              <button type="submit" class="btn btn-primary" {{ if or (not .CandidateValues) (not .InterviewNames) }}disabled{{ end }}>Create Interview</button>
+              <a class="btn btn-outline" href="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/scorecard">View Scorecard</a>
             </div>
-          </div>
-          <div class="row">
-            <button id="generate-link" type="button" class="btn btn-primary" {{ if or (not .CandidateValues) (not .InterviewNames) }}disabled{{ end }}>Generate Interview Link</button>
-            <a class="btn btn-outline" href="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/scorecard">View Scorecard</a>
-          </div>
+          </form>
           {{ if not .CandidateValues }}<p class="meta">Create candidate values first.</p>{{ end }}
-          {{ if not .InterviewNames }}<p class="meta">Create interview names first.</p>{{ end }}
-          <div id="link-box" class="link-box" style="display:none;">
-            <div class="copy-row">
-              <input id="link-input" type="text" readonly>
-              <button id="copy-link" class="btn btn-outline" type="button">Copy</button>
-              <a id="text-link" class="btn btn-outline" href="#" target="_blank" rel="noreferrer">Text Link</a>
-            </div>
-            <div id="link-status" class="meta" style="margin-top:.4rem;"></div>
-          </div>
+          {{ if not .InterviewNames }}<p class="meta">Create interview types first.</p>{{ end }}
         </div>
 
         <div class="stack" style="margin-top:1rem;">
@@ -111,7 +115,52 @@
 
       <section class="panel" data-panel="view-interviews">
         <div class="stack">
-          <h2 style="font-size:1.05rem;">All Interviews</h2>
+          <h2 style="font-size:1.05rem;">Interview Sessions</h2>
+          {{ if .InterviewLinks }}
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Interview Type</th>
+                    <th>Interviewer</th>
+                    <th>Created</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {{ range .InterviewLinks }}
+                    <tr class="session-row" data-session-token="{{ .Token }}">
+                      <td>{{ .InterviewType }}</td>
+                      <td>{{ .InterviewerTimePunchName }}</td>
+                      <td>{{ .CreatedAt }}</td>
+                      <td>{{ if .UsedAt }}Completed{{ else }}Open{{ end }}</td>
+                    </tr>
+                    <tr class="session-details" data-session-details="{{ .Token }}">
+                      <td colspan="4">
+                        <div class="stack" style="gap:.625rem;">
+                          <div class="meta">{{ if .UsedAt }}Completed: {{ .UsedAt }}{{ else }}Pending completion{{ end }}</div>
+                          <div class="session-actions">
+                            <input class="session-link" type="text" readonly value="{{ .Link }}">
+                            <button class="btn btn-outline copy-session-link" type="button">Copy Link</button>
+                            <a class="btn btn-outline" href="{{ .Link }}" target="_blank" rel="noreferrer">Conduct Interview</a>
+                            <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidates/{{ $.Candidate.ID }}/interview-links/{{ .Token }}/delete">
+                              <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                              <button class="btn btn-danger" type="submit" onclick="return confirm('Delete this interview session?');">Delete Interview</button>
+                            </form>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  {{ end }}
+                </tbody>
+              </table>
+            </div>
+          {{ else }}
+            <p class="meta">No interview sessions yet.</p>
+          {{ end }}
+        </div>
+        <div class="stack" style="margin-top:1rem;">
+          <h2 style="font-size:1.05rem;">Completed Interview Scorecards</h2>
           {{ if .Candidate.Interviews }}
             {{ range .Candidate.Interviews }}
               <article class="interview">
@@ -125,7 +174,7 @@
               </article>
             {{ end }}
           {{ else }}
-            <p class="meta">No interviews yet.</p>
+            <p class="meta">No completed interviews yet.</p>
           {{ end }}
         </div>
       </section>
@@ -167,46 +216,50 @@
       var exists = panels.some(function (p) { return p.getAttribute("data-panel") === initial; });
       showPanel(exists ? initial : "create-interviews");
 
-      var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || "";
-      var generateBtn = document.getElementById("generate-link");
-      var interviewer = document.getElementById("interviewer");
-      var interviewType = document.getElementById("interview-type");
-      var linkBox = document.getElementById("link-box");
-      var linkInput = document.getElementById("link-input");
-      var copyBtn = document.getElementById("copy-link");
-      var textBtn = document.getElementById("text-link");
-      var status = document.getElementById("link-status");
-      var locationNumber = "{{ .Location.Number }}";
-      var candidateID = "{{ .Candidate.ID }}";
-      if (!generateBtn) return;
-      generateBtn.addEventListener("click", async function () {
-        if (!interviewer || !interviewer.value) { alert("Select an interviewer first."); return; }
-        if (!interviewType || !interviewType.value) { alert("Select an interview name first."); return; }
-        generateBtn.disabled = true;
-        try {
-          var res = await fetch("/admin/locations/" + encodeURIComponent(locationNumber) + "/candidates/" + encodeURIComponent(candidateID) + "/interview-link", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
-            body: JSON.stringify({ interviewerTimePunchName: interviewer.value, interviewType: interviewType.value })
-          });
-          var payload = await res.json().catch(function () { return {}; });
-          if (!res.ok) throw new Error(payload.error || "Unable to generate interview link.");
-          linkBox.style.display = "block";
-          linkInput.value = payload.link || "";
-          status.textContent = payload.expiresAt ? ("Expires: " + payload.expiresAt) : "";
-          textBtn.href = "sms:?&body=" + encodeURIComponent("Please complete this interview scorecard: " + (payload.link || ""));
-        } catch (err) {
-          alert(err && err.message ? err.message : "Unable to generate interview link.");
-        } finally {
-          generateBtn.disabled = false;
-        }
-      });
-      if (copyBtn) {
-        copyBtn.addEventListener("click", async function () {
-          try { await navigator.clipboard.writeText(linkInput.value || ""); status.textContent = "Interview link copied."; }
-          catch (e) { status.textContent = "Unable to copy link."; }
+      var sessionRows = Array.from(document.querySelectorAll(".session-row[data-session-token]"));
+      function closeAllSessionDetails(exceptToken) {
+        Array.from(document.querySelectorAll(".session-details[data-session-details]")).forEach(function (row) {
+          var token = row.getAttribute("data-session-details");
+          row.classList.toggle("open", !!exceptToken && token === exceptToken);
         });
       }
+      sessionRows.forEach(function (row) {
+        row.addEventListener("click", function () {
+          var token = row.getAttribute("data-session-token");
+          var details = document.querySelector('.session-details[data-session-details="' + token + '"]');
+          var isOpen = !!details && details.classList.contains("open");
+          closeAllSessionDetails(isOpen ? "" : token);
+        });
+      });
+
+      var params = new URLSearchParams(window.location.search || "");
+      var openSessionToken = (params.get("open_session") || "").trim();
+      if (openSessionToken) {
+        showPanel("view-interviews");
+        closeAllSessionDetails(openSessionToken);
+      }
+
+      Array.from(document.querySelectorAll(".copy-session-link")).forEach(function (btn) {
+        btn.addEventListener("click", async function (event) {
+          event.stopPropagation();
+          var wrapper = btn.closest(".session-actions");
+          if (!wrapper) return;
+          var input = wrapper.querySelector(".session-link");
+          if (!input) return;
+          var value = (input.value || "").trim();
+          var absolute = value.startsWith("http://") || value.startsWith("https://")
+            ? value
+            : (window.location.origin + value);
+          try {
+            await navigator.clipboard.writeText(absolute);
+            btn.textContent = "Copied";
+            setTimeout(function () { btn.textContent = "Copy Link"; }, 1200);
+          } catch (e) {
+            btn.textContent = "Unable";
+            setTimeout(function () { btn.textContent = "Copy Link"; }, 1200);
+          }
+        });
+      });
     })();
   </script>
 </body>

@@ -20,12 +20,12 @@
     :root {
       --bg: #ffffff; --fg: #09090b; --card: #ffffff;
       --muted: #f4f4f5; --muted-fg: #71717a; --border: #e4e4e7;
-      --primary: #ea580c; --primary-fg: #ffffff;
+      --primary: #004f71; --primary-fg: #ffffff;
     }
     html.dark {
       --bg: #09090b; --fg: #fafafa; --card: #09090b;
       --muted: #27272a; --muted-fg: #a1a1aa; --border: #3f3f46;
-      --primary: #fb923c; --primary-fg: #431407;
+      --primary: #004f71; --primary-fg: #ffffff;
     }
     body { margin: 0; background: var(--bg); color: var(--fg); font-family: "Manrope", sans-serif; }
     .wrap { max-width: 980px; margin: 0 auto; padding: 5rem 1rem 2rem; }
@@ -38,11 +38,19 @@
     th { color: var(--muted-fg); font-size: 0.75rem; text-transform: uppercase; }
     .pill { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; padding: 0.12rem 0.5rem; font-size: 0.75rem; }
     .back { color: var(--muted-fg); text-decoration: none; font-size: 0.825rem; }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff; color: #000; }
+      .card, .interview { border-color: #ccc; }
+    }
   </style>
 </head>
 <body>
   <div class="wrap stack">
-    <a class="back" href="/admin/locations/{{ .Location.Number }}/candidates">&#8592; Back to Candidates</a>
+    <div class="row no-print" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;">
+      <a class="back" href="/admin/locations/{{ .Location.Number }}/candidates">&#8592; Back to Candidates</a>
+      <button class="pill" type="button" onclick="window.print()" style="cursor:pointer;">Download PDF</button>
+    </div>
     <section class="card stack">
       <h1 style="margin:0;font-family:'Space Grotesk',sans-serif;">Candidate Scorecard</h1>
       <div class="meta">{{ .Candidate.FirstName }} {{ .Candidate.LastName }} | Status: {{ .Candidate.Status }}{{ if .Candidate.HiredTimePunchName }} | Employee: {{ .Candidate.HiredTimePunchName }}{{ end }}</div>

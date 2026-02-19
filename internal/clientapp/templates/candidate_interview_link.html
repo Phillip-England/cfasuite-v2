@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interview Session</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/app.css">
+  <style>
+    :root { --bg:#fff; --fg:#09090b; --card:#fff; --muted:#f4f4f5; --muted-fg:#71717a; --border:#e4e4e7; --primary:#004f71; --primary-fg:#fff; --danger:#dc2626; }
+    html.dark { --bg:#09090b; --fg:#fafafa; --card:#09090b; --muted:#27272a; --muted-fg:#a1a1aa; --border:#3f3f46; --primary:#004f71; --primary-fg:#fff; --danger:#f87171; }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font-family:"Manrope",sans-serif}
+    .wrap{max-width:920px;margin:0 auto;padding:5rem 1rem 2rem;display:grid;gap:1rem}
+    .card{border:1px solid var(--border);border-radius:12px;background:var(--card);padding:1rem;display:grid;gap:.9rem}
+    .meta{color:var(--muted-fg);font-size:.875rem}.row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+    .btn{display:inline-flex;align-items:center;justify-content:center;min-height:2.3rem;padding:.5rem .85rem;border-radius:8px;border:1px solid transparent;cursor:pointer;font-weight:700;text-decoration:none}
+    .btn-outline{background:transparent;color:var(--fg);border-color:var(--border)}
+    .pill{display:inline-flex;border:1px solid var(--border);border-radius:999px;padding:.1rem .5rem;font-size:.75rem;color:var(--muted-fg)}
+    .copy-row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+    .copy-row input{flex:1;min-width:240px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);padding:.55rem .65rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a href="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}#view-interviews" class="meta" style="text-decoration:none;">&#8592; Back to Candidate</a>
+
+    <section class="card">
+      <h1 style="margin:0;font-family:'Space Grotesk',sans-serif;">Interview Session</h1>
+      <div class="meta">{{ .Candidate.FirstName }} {{ .Candidate.LastName }}</div>
+      {{ if .Error }}<div class="meta" style="color:var(--danger)">{{ .Error }}</div>{{ end }}
+      <div class="row">
+        <span class="pill">{{ .InterviewLink.InterviewType }}</span>
+        <span class="meta">Interviewer: {{ .InterviewLink.InterviewerTimePunchName }}</span>
+      </div>
+      <div class="meta">Created: {{ .InterviewLink.CreatedAt }}</div>
+      {{ if .InterviewLink.UsedAt }}
+        <div class="meta">Completed: {{ .InterviewLink.UsedAt }}</div>
+      {{ end }}
+
+      <div class="copy-row">
+        <input id="interview-link" type="text" readonly value="{{ .InterviewLink.Link }}">
+        <button id="copy-link" class="btn btn-outline" type="button">Copy Link</button>
+        <a id="text-link" class="btn btn-outline" href="sms:?&body=Please%20complete%20this%20interview%20scorecard:%20{{ .InterviewLink.Link }}" target="_blank" rel="noreferrer">Text Link</a>
+      </div>
+      <div id="copy-status" class="meta"></div>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      var copyBtn = document.getElementById("copy-link");
+      var input = document.getElementById("interview-link");
+      var status = document.getElementById("copy-status");
+      if (!copyBtn || !input) return;
+      copyBtn.addEventListener("click", async function () {
+        try {
+          await navigator.clipboard.writeText(input.value || "");
+          status.textContent = "Interview link copied.";
+        } catch (e) {
+          status.textContent = "Unable to copy link.";
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -37,10 +37,11 @@ import (
 )
 
 const (
-	sessionCookieName = "cfasuite_session"
-	csrfHeaderName    = "X-CSRF-Token"
-	defaultPerPage    = 25
-	maxPerPage        = 25
+	sessionCookieName                = "cfasuite_session"
+	csrfHeaderName                   = "X-CSRF-Token"
+	defaultPerPage                   = 25
+	maxPerPage                       = 25
+	deleteLocationConfirmationPhrase = "I CHOOSE TO DELETE THIS LOCATION AND ALL OF ITS DATA"
 )
 
 var errNotFound = errors.New("not found")
@@ -68,6 +69,8 @@ type loginRequest struct {
 type createLocationRequest struct {
 	Name                 string `json:"name"`
 	Number               string `json:"number"`
+	Email                string `json:"email"`
+	Phone                string `json:"phone"`
 	EmployerRepSignature string `json:"employerRepSignature"`
 	BusinessName         string `json:"businessName"`
 	BusinessStreet       string `json:"businessStreet"`
@@ -79,6 +82,10 @@ type createLocationRequest struct {
 
 type updateLocationRequest struct {
 	Name string `json:"name"`
+}
+
+type deleteLocationRequest struct {
+	ConfirmationText string `json:"confirmationText"`
 }
 
 type updateEmployeeDepartmentRequest struct {
@@ -138,7 +145,12 @@ type updateCandidateValueRequest struct {
 }
 
 type createCandidateInterviewNameRequest struct {
-	Name string `json:"name"`
+	Name     string `json:"name"`
+	Priority *int64 `json:"priority,omitempty"`
+}
+
+type updateCandidateInterviewNameRequest struct {
+	Priority *int64 `json:"priority,omitempty"`
 }
 
 type createCandidateInterviewRequest struct {
@@ -160,8 +172,15 @@ type createCandidateInterviewLinkRequest struct {
 }
 
 type createCandidateInterviewQuestionRequest struct {
-	InterviewNameID int64  `json:"interviewNameId"`
-	Question        string `json:"question"`
+	InterviewNameID  int64   `json:"interviewNameId"`
+	InterviewNameIDs []int64 `json:"interviewNameIds"`
+	Question         string  `json:"question"`
+}
+
+type updateCandidateInterviewQuestionRequest struct {
+	InterviewNameID  int64   `json:"interviewNameId"`
+	InterviewNameIDs []int64 `json:"interviewNameIds"`
+	Question         *string `json:"question,omitempty"`
 }
 
 type createUniformOrderRequest struct {
@@ -201,6 +220,8 @@ type sessionRecord struct {
 type location struct {
 	Name      string    `json:"name"`
 	Number    string    `json:"number"`
+	Email     string    `json:"email"`
+	Phone     string    `json:"phone"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -324,6 +345,7 @@ type timePunchEntry struct {
 	TimeIn        string    `json:"timeIn"`
 	TimeOut       string    `json:"timeOut"`
 	Note          string    `json:"note"`
+	ArchivedAt    time.Time `json:"archivedAt,omitempty"`
 	CreatedAt     time.Time `json:"createdAt"`
 }
 
@@ -455,6 +477,7 @@ type candidateInterviewName struct {
 	ID             int64     `json:"id"`
 	LocationNumber string    `json:"locationNumber"`
 	Name           string    `json:"name"`
+	Priority       int64     `json:"priority"`
 	CreatedAt      time.Time `json:"createdAt"`
 	UpdatedAt      time.Time `json:"updatedAt"`
 }
@@ -472,13 +495,15 @@ type candidateInterview struct {
 }
 
 type candidateInterviewQuestion struct {
-	ID              int64     `json:"id"`
-	LocationNumber  string    `json:"locationNumber"`
-	InterviewNameID int64     `json:"interviewNameId"`
-	InterviewName   string    `json:"interviewName"`
-	Question        string    `json:"question"`
-	CreatedAt       time.Time `json:"createdAt"`
-	UpdatedAt       time.Time `json:"updatedAt"`
+	ID               int64     `json:"id"`
+	LocationNumber   string    `json:"locationNumber"`
+	InterviewNameID  int64     `json:"interviewNameId,omitempty"`
+	InterviewName    string    `json:"interviewName,omitempty"`
+	InterviewNameIDs []int64   `json:"interviewNameIds,omitempty"`
+	InterviewNames   []string  `json:"interviewNames,omitempty"`
+	Question         string    `json:"question"`
+	CreatedAt        time.Time `json:"createdAt"`
+	UpdatedAt        time.Time `json:"updatedAt"`
 }
 
 type candidateInterviewQuestionAnswer struct {
@@ -492,6 +517,18 @@ type candidateInterviewQuestionAnswer struct {
 type candidateInterviewQuestionsResponse struct {
 	Count     int                          `json:"count"`
 	Questions []candidateInterviewQuestion `json:"questions"`
+}
+
+type candidateInterviewLink struct {
+	Token                    string     `json:"token"`
+	LocationNumber           string     `json:"locationNumber"`
+	CandidateID              int64      `json:"candidateId"`
+	InterviewerTimePunchName string     `json:"interviewerTimePunchName"`
+	InterviewType            string     `json:"interviewType"`
+	Link                     string     `json:"link,omitempty"`
+	ExpiresAt                time.Time  `json:"expiresAt"`
+	UsedAt                   *time.Time `json:"usedAt,omitempty"`
+	CreatedAt                time.Time  `json:"createdAt"`
 }
 
 type candidateInterviewGrade struct {
@@ -812,15 +849,20 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 	if len(parts) == 3 && parts[1] == "candidate-interview-names" {
 		nameID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
 		if err != nil || nameID <= 0 {
-			writeError(w, http.StatusBadRequest, "invalid interview name id")
+			writeError(w, http.StatusBadRequest, "invalid interview type id")
 			return
 		}
-		if r.Method != http.MethodDelete {
+		switch r.Method {
+		case http.MethodPut:
+			s.updateLocationCandidateInterviewName(w, r, locationNumber, nameID)
+			return
+		case http.MethodDelete:
+			s.deleteLocationCandidateInterviewName(w, r, locationNumber, nameID)
+			return
+		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		s.deleteLocationCandidateInterviewName(w, r, locationNumber, nameID)
-		return
 	}
 
 	if len(parts) == 3 && parts[1] == "candidate-values" {
@@ -848,12 +890,17 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 			writeError(w, http.StatusBadRequest, "invalid candidate interview question id")
 			return
 		}
-		if r.Method != http.MethodDelete {
+		switch r.Method {
+		case http.MethodPut:
+			s.updateLocationCandidateInterviewQuestion(w, r, locationNumber, questionID)
+			return
+		case http.MethodDelete:
+			s.deleteLocationCandidateInterviewQuestion(w, r, locationNumber, questionID)
+			return
+		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		s.deleteLocationCandidateInterviewQuestion(w, r, locationNumber, questionID)
-		return
 	}
 
 	if len(parts) == 2 && parts[1] == "candidates" {
@@ -928,6 +975,44 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 		}
 		s.createLocationCandidateInterviewLink(w, r, locationNumber, candidateID)
 		return
+	}
+
+	if len(parts) == 4 && parts[1] == "candidates" && parts[3] == "interview-links" {
+		candidateID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+		if err != nil || candidateID <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid candidate id")
+			return
+		}
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		s.listLocationCandidateInterviewLinks(w, r, locationNumber, candidateID)
+		return
+	}
+
+	if len(parts) == 5 && parts[1] == "candidates" && parts[3] == "interview-links" {
+		candidateID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+		if err != nil || candidateID <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid candidate id")
+			return
+		}
+		token := strings.TrimSpace(parts[4])
+		if token == "" {
+			writeError(w, http.StatusBadRequest, "invalid interview token")
+			return
+		}
+		switch r.Method {
+		case http.MethodGet:
+			s.getLocationCandidateInterviewLink(w, r, locationNumber, candidateID, token)
+			return
+		case http.MethodDelete:
+			s.deleteLocationCandidateInterviewLink(w, r, locationNumber, candidateID, token)
+			return
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
 	}
 
 	if len(parts) == 2 && parts[1] == "employees" {
@@ -1135,20 +1220,31 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	if len(parts) == 2 && parts[1] == "time-punch" {
-		if r.Method != http.MethodGet {
+		switch r.Method {
+		case http.MethodGet:
+			s.listLocationTimePunchEntries(w, r, locationNumber)
+			return
+		case http.MethodPost:
+			s.createLocationTimePunchEntry(w, r, locationNumber)
+			return
+		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		s.listLocationTimePunchEntries(w, r, locationNumber)
-		return
 	}
 
 	if len(parts) == 2 && parts[1] == "time-off" {
-		if r.Method != http.MethodGet {
+		switch r.Method {
+		case http.MethodGet:
+			s.listLocationTimeOffRequests(w, r, locationNumber)
+			return
+		case http.MethodPost:
+			s.createLocationTimeOffRequest(w, r, locationNumber)
+			return
+		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		s.listLocationTimeOffRequests(w, r, locationNumber)
 		return
 	}
 
@@ -1167,6 +1263,20 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		s.getLocationTimeOffLink(w, r, locationNumber)
+		return
+	}
+
+	if len(parts) == 4 && parts[1] == "time-punch" && parts[3] == "archive" {
+		if r.Method != http.MethodPut {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		entryID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+		if err != nil || entryID <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid time punch entry id")
+			return
+		}
+		s.archiveLocationTimePunchEntry(w, r, locationNumber, entryID)
 		return
 	}
 
@@ -1793,7 +1903,7 @@ func (s *server) publicCandidateInterviewHandler(w http.ResponseWriter, r *http.
 	record, err := s.store.getCandidateInterviewToken(r.Context(), token)
 	if err != nil {
 		if errors.Is(err, errNotFound) {
-			writeError(w, http.StatusNotFound, "invalid or expired interview link")
+			writeError(w, http.StatusNotFound, "invalid or closed interview link")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "unable to validate interview link")
@@ -1823,16 +1933,16 @@ func (s *server) publicCandidateInterviewHandler(w http.ResponseWriter, r *http.
 	}
 	interviewName, err := s.resolveInterviewNameForLocation(r.Context(), record.LocationNumber, record.InterviewType)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "unable to load interview names")
+		writeError(w, http.StatusInternalServerError, "unable to load interview types")
 		return
 	}
 	if interviewName == "" {
-		writeError(w, http.StatusBadRequest, "this interview link references an invalid interview name")
+		writeError(w, http.StatusBadRequest, "this interview link references an invalid interview type")
 		return
 	}
 	interviewNameID, err := s.resolveInterviewNameIDForLocation(r.Context(), record.LocationNumber, interviewName)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "unable to load interview names")
+		writeError(w, http.StatusInternalServerError, "unable to load interview types")
 		return
 	}
 	questions, err := s.store.listCandidateInterviewQuestions(r.Context(), record.LocationNumber, interviewNameID)
@@ -1841,7 +1951,7 @@ func (s *server) publicCandidateInterviewHandler(w http.ResponseWriter, r *http.
 		return
 	}
 	if len(questions) == 0 {
-		writeError(w, http.StatusBadRequest, "create at least one interview question for this interview name before interviewing")
+		writeError(w, http.StatusBadRequest, "create at least one interview question for this interview type before interviewing")
 		return
 	}
 	switch r.Method {
@@ -1863,7 +1973,6 @@ func (s *server) publicCandidateInterviewHandler(w http.ResponseWriter, r *http.
 			"candidateLastName":        candidateRecord.LastName,
 			"interviewerTimePunchName": record.InterviewerTimePunchName,
 			"interviewType":            record.InterviewType,
-			"expiresAt":                record.ExpiresAt.Format(time.RFC3339),
 			"values":                   values,
 			"questions":                questions,
 		})
@@ -1880,6 +1989,10 @@ func (s *server) publicCandidateInterviewHandler(w http.ResponseWriter, r *http.
 				return
 			}
 			comment := strings.TrimSpace(r.PostForm.Get("comment_" + strconv.FormatInt(value.ID, 10)))
+			if comment == "" {
+				writeError(w, http.StatusBadRequest, "every value must include a comment")
+				return
+			}
 			if len([]rune(comment)) > 1000 {
 				writeError(w, http.StatusBadRequest, "value comments must be 1000 characters or fewer")
 				return
@@ -3757,7 +3870,7 @@ func (s *server) listLocationCandidateInterviewNames(w http.ResponseWriter, r *h
 	}
 	names, err := s.store.listCandidateInterviewNames(r.Context(), number)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "unable to load interview names")
+		writeError(w, http.StatusInternalServerError, "unable to load interview types")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -3782,31 +3895,39 @@ func (s *server) createLocationCandidateInterviewName(w http.ResponseWriter, r *
 	}
 	req.Name = strings.TrimSpace(req.Name)
 	if req.Name == "" {
-		writeError(w, http.StatusBadRequest, "interview name is required")
+		writeError(w, http.StatusBadRequest, "interview type is required")
 		return
 	}
 	if len([]rune(req.Name)) > 80 {
-		writeError(w, http.StatusBadRequest, "interview name must be 80 characters or fewer")
+		writeError(w, http.StatusBadRequest, "interview type must be 80 characters or fewer")
 		return
 	}
 	record := candidateInterviewName{
 		LocationNumber: number,
 		Name:           req.Name,
+		Priority:       100,
 		CreatedAt:      time.Now().UTC(),
 		UpdatedAt:      time.Now().UTC(),
+	}
+	if req.Priority != nil {
+		if *req.Priority < 0 || *req.Priority > 10000 {
+			writeError(w, http.StatusBadRequest, "priority must be between 0 and 10000")
+			return
+		}
+		record.Priority = *req.Priority
 	}
 	id, err := s.store.createCandidateInterviewName(r.Context(), record)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
-			writeError(w, http.StatusConflict, "an interview name with this value already exists")
+			writeError(w, http.StatusConflict, "an interview type with this value already exists")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "unable to create interview name")
+		writeError(w, http.StatusInternalServerError, "unable to create interview type")
 		return
 	}
 	record.ID = id
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"message": "interview name created",
+		"message": "interview type created",
 		"name":    record,
 	})
 }
@@ -3814,13 +3935,47 @@ func (s *server) createLocationCandidateInterviewName(w http.ResponseWriter, r *
 func (s *server) deleteLocationCandidateInterviewName(w http.ResponseWriter, r *http.Request, number string, nameID int64) {
 	if err := s.store.deleteCandidateInterviewName(r.Context(), number, nameID); err != nil {
 		if errors.Is(err, errNotFound) {
-			writeError(w, http.StatusNotFound, "interview name not found")
+			writeError(w, http.StatusNotFound, "interview type not found")
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "unable to delete interview name")
+		writeError(w, http.StatusInternalServerError, "unable to delete interview type")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"message": "interview name deleted"})
+	writeJSON(w, http.StatusOK, map[string]string{"message": "interview type deleted"})
+}
+
+func (s *server) updateLocationCandidateInterviewName(w http.ResponseWriter, r *http.Request, number string, nameID int64) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	var req updateCandidateInterviewNameRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Priority == nil {
+		writeError(w, http.StatusBadRequest, "priority is required")
+		return
+	}
+	priority := *req.Priority
+	if priority < 0 || priority > 10000 {
+		writeError(w, http.StatusBadRequest, "priority must be between 0 and 10000")
+		return
+	}
+	if err := s.store.updateCandidateInterviewNamePriority(r.Context(), number, nameID, priority); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "interview type not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to update interview type")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "interview type updated"})
 }
 
 func (s *server) listLocationCandidateInterviewQuestions(w http.ResponseWriter, r *http.Request, number string) {
@@ -3858,10 +4013,6 @@ func (s *server) createLocationCandidateInterviewQuestion(w http.ResponseWriter,
 		return
 	}
 	req.Question = strings.TrimSpace(req.Question)
-	if req.InterviewNameID <= 0 {
-		writeError(w, http.StatusBadRequest, "interview name is required")
-		return
-	}
 	if req.Question == "" {
 		writeError(w, http.StatusBadRequest, "question is required")
 		return
@@ -3870,33 +4021,109 @@ func (s *server) createLocationCandidateInterviewQuestion(w http.ResponseWriter,
 		writeError(w, http.StatusBadRequest, "question must be 500 characters or fewer")
 		return
 	}
-	interviewName, err := s.resolveInterviewNameByIDForLocation(r.Context(), number, req.InterviewNameID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "unable to load interview names")
-		return
-	}
-	if interviewName == "" {
-		writeError(w, http.StatusBadRequest, "select a valid interview name for this location")
-		return
+	interviewNameIDs := normalizeInterviewNameIDs(req.InterviewNameIDs, req.InterviewNameID)
+	interviewNamesByID := map[int64]string{}
+	if len(interviewNameIDs) > 0 {
+		names, err := s.store.listCandidateInterviewNames(r.Context(), number)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "unable to load interview types")
+			return
+		}
+		for _, name := range names {
+			interviewNamesByID[name.ID] = name.Name
+		}
+		for _, nameID := range interviewNameIDs {
+			if _, ok := interviewNamesByID[nameID]; !ok {
+				writeError(w, http.StatusBadRequest, "select valid interview types for this location")
+				return
+			}
+		}
 	}
 	record := candidateInterviewQuestion{
-		LocationNumber:  number,
-		InterviewNameID: req.InterviewNameID,
-		InterviewName:   interviewName,
-		Question:        req.Question,
-		CreatedAt:       time.Now().UTC(),
-		UpdatedAt:       time.Now().UTC(),
+		LocationNumber: number,
+		Question:       req.Question,
+		CreatedAt:      time.Now().UTC(),
+		UpdatedAt:      time.Now().UTC(),
 	}
 	id, err := s.store.createCandidateInterviewQuestion(r.Context(), record)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "unable to create interview question")
 		return
 	}
+	if err := s.store.updateCandidateInterviewQuestion(r.Context(), number, id, interviewNameIDs, nil); err != nil {
+		_ = s.store.deleteCandidateInterviewQuestion(r.Context(), number, id)
+		writeError(w, http.StatusInternalServerError, "unable to assign interview types")
+		return
+	}
 	record.ID = id
+	record.InterviewNameIDs = append(record.InterviewNameIDs, interviewNameIDs...)
+	for _, nameID := range interviewNameIDs {
+		record.InterviewNames = append(record.InterviewNames, interviewNamesByID[nameID])
+	}
+	if len(record.InterviewNameIDs) > 0 {
+		record.InterviewNameID = record.InterviewNameIDs[0]
+		record.InterviewName = record.InterviewNames[0]
+	}
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"message":  "interview question created",
 		"question": record,
 	})
+}
+
+func (s *server) updateLocationCandidateInterviewQuestion(w http.ResponseWriter, r *http.Request, number string, questionID int64) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	var req updateCandidateInterviewQuestionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	interviewNameIDs := normalizeInterviewNameIDs(req.InterviewNameIDs, req.InterviewNameID)
+	if len(interviewNameIDs) > 0 {
+		names, err := s.store.listCandidateInterviewNames(r.Context(), number)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "unable to load interview types")
+			return
+		}
+		allowed := make(map[int64]struct{}, len(names))
+		for _, name := range names {
+			allowed[name.ID] = struct{}{}
+		}
+		for _, nameID := range interviewNameIDs {
+			if _, ok := allowed[nameID]; !ok {
+				writeError(w, http.StatusBadRequest, "select valid interview types for this location")
+				return
+			}
+		}
+	}
+	var questionUpdate *string
+	if req.Question != nil {
+		trimmed := strings.TrimSpace(*req.Question)
+		if trimmed == "" {
+			writeError(w, http.StatusBadRequest, "question is required")
+			return
+		}
+		if len([]rune(trimmed)) > 500 {
+			writeError(w, http.StatusBadRequest, "question must be 500 characters or fewer")
+			return
+		}
+		questionUpdate = &trimmed
+	}
+	if err := s.store.updateCandidateInterviewQuestion(r.Context(), number, questionID, interviewNameIDs, questionUpdate); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "interview question not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to update interview question")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "interview question updated"})
 }
 
 func (s *server) deleteLocationCandidateInterviewQuestion(w http.ResponseWriter, r *http.Request, number string, questionID int64) {
@@ -4062,16 +4289,16 @@ func (s *server) createLocationCandidateInterview(w http.ResponseWriter, r *http
 	}
 	interviewName, err := s.resolveInterviewNameForLocation(r.Context(), number, req.InterviewType)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "unable to load interview names")
+		writeError(w, http.StatusInternalServerError, "unable to load interview types")
 		return
 	}
 	if interviewName == "" {
-		writeError(w, http.StatusBadRequest, "select a valid interview name for this location")
+		writeError(w, http.StatusBadRequest, "select a valid interview type for this location")
 		return
 	}
 	interviewNameID, err := s.resolveInterviewNameIDForLocation(r.Context(), number, interviewName)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "unable to load interview names")
+		writeError(w, http.StatusInternalServerError, "unable to load interview types")
 		return
 	}
 	questions, err := s.store.listCandidateInterviewQuestions(r.Context(), number, interviewNameID)
@@ -4080,7 +4307,7 @@ func (s *server) createLocationCandidateInterview(w http.ResponseWriter, r *http
 		return
 	}
 	if len(questions) == 0 {
-		writeError(w, http.StatusBadRequest, "create at least one interview question for this interview name before interviewing")
+		writeError(w, http.StatusBadRequest, "create at least one interview question for this interview type before interviewing")
 		return
 	}
 	values, err := s.store.listCandidateValues(r.Context(), number)
@@ -4123,11 +4350,16 @@ func (s *server) createLocationCandidateInterview(w http.ResponseWriter, r *http
 			writeError(w, http.StatusBadRequest, "every candidate value must be graded with A, B, C, D, or F")
 			return
 		}
+		comment := strings.TrimSpace(commentsByValueID[value.ID])
+		if comment == "" {
+			writeError(w, http.StatusBadRequest, "every candidate value must include a comment")
+			return
+		}
 		interviewGrades = append(interviewGrades, candidateInterviewGrade{
 			ValueID:     value.ID,
 			ValueName:   value.Name,
 			LetterGrade: grade,
-			Comment:     commentsByValueID[value.ID],
+			Comment:     comment,
 			Score:       letterGradeScore(grade),
 		})
 	}
@@ -4219,16 +4451,16 @@ func (s *server) createLocationCandidateInterviewLink(w http.ResponseWriter, r *
 	}
 	interviewName, err := s.resolveInterviewNameForLocation(r.Context(), number, req.InterviewType)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "unable to load interview names")
+		writeError(w, http.StatusInternalServerError, "unable to load interview types")
 		return
 	}
 	if interviewName == "" {
-		writeError(w, http.StatusBadRequest, "select a valid interview name for this location")
+		writeError(w, http.StatusBadRequest, "select a valid interview type for this location")
 		return
 	}
 	interviewNameID, err := s.resolveInterviewNameIDForLocation(r.Context(), number, interviewName)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "unable to load interview names")
+		writeError(w, http.StatusInternalServerError, "unable to load interview types")
 		return
 	}
 	questions, err := s.store.listCandidateInterviewQuestions(r.Context(), number, interviewNameID)
@@ -4237,30 +4469,91 @@ func (s *server) createLocationCandidateInterviewLink(w http.ResponseWriter, r *
 		return
 	}
 	if len(questions) == 0 {
-		writeError(w, http.StatusBadRequest, "create at least one interview question for this interview name before generating links")
+		writeError(w, http.StatusBadRequest, "create at least one interview question for this interview type before generating links")
 		return
 	}
-	expiresAt := time.Now().UTC().Add(72 * time.Hour)
 	token, err := randomToken(32)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "unable to generate interview link")
 		return
 	}
+	neverExpiresAt := time.Date(9999, time.December, 31, 23, 59, 59, 0, time.UTC)
 	if err := s.store.createCandidateInterviewToken(r.Context(), candidateInterviewToken{
 		Token:                    token,
 		LocationNumber:           number,
 		CandidateID:              candidateID,
 		InterviewerTimePunchName: req.InterviewerTimePunchName,
 		InterviewType:            interviewName,
-		ExpiresAt:                expiresAt,
+		ExpiresAt:                neverExpiresAt,
 	}); err != nil {
 		writeError(w, http.StatusInternalServerError, "unable to create interview link")
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"token":     token,
-		"expiresAt": expiresAt.Format(time.RFC3339),
+		"token": token,
+		"link":  "/interview/" + token,
 	})
+}
+
+func (s *server) listLocationCandidateInterviewLinks(w http.ResponseWriter, r *http.Request, number string, candidateID int64) {
+	if _, err := s.store.getCandidateByID(r.Context(), number, candidateID); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "candidate not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load candidate")
+		return
+	}
+	links, err := s.store.listCandidateInterviewLinks(r.Context(), number, candidateID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load interview links")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"count": len(links),
+		"links": links,
+	})
+}
+
+func (s *server) getLocationCandidateInterviewLink(w http.ResponseWriter, r *http.Request, number string, candidateID int64, token string) {
+	if _, err := s.store.getCandidateByID(r.Context(), number, candidateID); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "candidate not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load candidate")
+		return
+	}
+	link, err := s.store.getCandidateInterviewLink(r.Context(), number, candidateID, token)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "interview link not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load interview link")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"link": link})
+}
+
+func (s *server) deleteLocationCandidateInterviewLink(w http.ResponseWriter, r *http.Request, number string, candidateID int64, token string) {
+	if _, err := s.store.getCandidateByID(r.Context(), number, candidateID); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "candidate not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load candidate")
+		return
+	}
+	if err := s.store.deleteCandidateInterviewLink(r.Context(), number, candidateID, token); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "interview link not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to delete interview link")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "interview link deleted"})
 }
 
 func (s *server) updateLocationCandidateDecision(w http.ResponseWriter, r *http.Request, number string, candidateID int64) {
@@ -4335,7 +4628,8 @@ func (s *server) listLocationTimePunchEntries(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusInternalServerError, "unable to load location")
 		return
 	}
-	entries, err := s.store.listTimePunchEntries(r.Context(), number)
+	includeArchived := parseBoolQueryValue(r.URL.Query().Get("archived"))
+	entries, err := s.store.listTimePunchEntries(r.Context(), number, includeArchived)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "unable to load time punch entries")
 		return
@@ -4344,6 +4638,55 @@ func (s *server) listLocationTimePunchEntries(w http.ResponseWriter, r *http.Req
 		"count":   len(entries),
 		"entries": entries,
 	})
+}
+
+func (s *server) createLocationTimePunchEntry(w http.ResponseWriter, r *http.Request, number string) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	var req createTimePunchEntryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	req.TimePunchName = strings.TrimSpace(req.TimePunchName)
+	req.PunchDate = strings.TrimSpace(req.PunchDate)
+	req.TimeIn = strings.TrimSpace(req.TimeIn)
+	req.TimeOut = strings.TrimSpace(req.TimeOut)
+	req.Note = strings.TrimSpace(req.Note)
+	if err := validateCreateTimePunchEntry(req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if _, err := s.store.getLocationEmployee(r.Context(), number, req.TimePunchName); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusBadRequest, "employee is not active in this location")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load employee")
+		return
+	}
+	err := withSQLiteRetry(func() error {
+		return s.store.createTimePunchEntry(r.Context(), timePunchEntry{
+			LocationNum:   number,
+			TimePunchName: req.TimePunchName,
+			PunchDate:     req.PunchDate,
+			TimeIn:        req.TimeIn,
+			TimeOut:       req.TimeOut,
+			Note:          req.Note,
+			CreatedAt:     time.Now().UTC(),
+		})
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to save time punch entry")
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]string{"message": "time punch correction submitted"})
 }
 
 func (s *server) listLocationBusinessDays(w http.ResponseWriter, r *http.Request, number string) {
@@ -4525,6 +4868,49 @@ func (s *server) listLocationTimeOffRequests(w http.ResponseWriter, r *http.Requ
 	})
 }
 
+func (s *server) createLocationTimeOffRequest(w http.ResponseWriter, r *http.Request, number string) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	var req createTimeOffRequestRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	startDate, endDate, err := validateCreateTimeOffRequest(req)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if _, err := s.store.getLocationEmployee(r.Context(), number, strings.TrimSpace(req.TimePunchName)); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusBadRequest, "employee not found for this location")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to validate employee")
+		return
+	}
+	err = withSQLiteRetry(func() error {
+		return s.store.createTimeOffRequest(r.Context(), timeOffRequest{
+			LocationNum:   number,
+			TimePunchName: strings.TrimSpace(req.TimePunchName),
+			StartDate:     startDate,
+			EndDate:       endDate,
+			CreatedAt:     time.Now().UTC(),
+		})
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to save time off request")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "time off request submitted"})
+}
+
 func (s *server) archiveLocationTimeOffRequest(w http.ResponseWriter, r *http.Request, number string, requestID int64) {
 	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
 		if errors.Is(err, errNotFound) {
@@ -4565,6 +4951,28 @@ func (s *server) deleteLocationTimePunchEntry(w http.ResponseWriter, r *http.Req
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"message": "time punch entry deleted"})
+}
+
+func (s *server) archiveLocationTimePunchEntry(w http.ResponseWriter, r *http.Request, number string, entryID int64) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	if err := withSQLiteRetry(func() error {
+		return s.store.archiveTimePunchEntry(r.Context(), number, entryID)
+	}); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "time punch entry not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to archive time punch entry")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "time punch entry archived"})
 }
 
 func (s *server) getLocationEmployee(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
@@ -5246,6 +5654,8 @@ func (s *server) createLocation(w http.ResponseWriter, r *http.Request) {
 	entry := location{
 		Name:      strings.TrimSpace(req.Name),
 		Number:    strings.TrimSpace(req.Number),
+		Email:     strings.TrimSpace(req.Email),
+		Phone:     strings.TrimSpace(req.Phone),
 		CreatedAt: time.Now().UTC(),
 	}
 	if err := s.store.createLocation(r.Context(), entry); err != nil {
@@ -5330,6 +5740,15 @@ func (s *server) updateLocation(w http.ResponseWriter, r *http.Request, number s
 }
 
 func (s *server) deleteLocation(w http.ResponseWriter, r *http.Request, number string) {
+	var req deleteLocationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if strings.TrimSpace(req.ConfirmationText) != deleteLocationConfirmationPhrase {
+		writeError(w, http.StatusBadRequest, "confirmation phrase mismatch")
+		return
+	}
 	if err := s.store.deleteLocation(r.Context(), number); err != nil {
 		if errors.Is(err, errNotFound) {
 			writeError(w, http.StatusNotFound, "location not found")
@@ -5537,6 +5956,8 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 		`CREATE TABLE IF NOT EXISTS locations (
 			number TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
+			email TEXT NOT NULL DEFAULT '',
+			phone TEXT NOT NULL DEFAULT '',
 			created_at INTEGER NOT NULL
 		);`,
 		`CREATE TABLE IF NOT EXISTS location_employees (
@@ -5692,6 +6113,7 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			time_in TEXT NOT NULL,
 			time_out TEXT NOT NULL,
 			note TEXT NOT NULL DEFAULT '',
+			archived_at INTEGER NOT NULL DEFAULT 0,
 			created_at INTEGER NOT NULL,
 			FOREIGN KEY(location_number) REFERENCES locations(number) ON DELETE CASCADE
 		);`,
@@ -5748,6 +6170,7 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			location_number TEXT NOT NULL,
 			name TEXT NOT NULL,
+			priority INTEGER NOT NULL DEFAULT 100,
 			created_at INTEGER NOT NULL,
 			updated_at INTEGER NOT NULL,
 			UNIQUE(location_number, name),
@@ -5757,7 +6180,7 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 		`CREATE TABLE IF NOT EXISTS location_candidate_interview_questions (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			location_number TEXT NOT NULL,
-			interview_name_id INTEGER NOT NULL,
+			interview_name_id INTEGER,
 			question TEXT NOT NULL,
 			created_at INTEGER NOT NULL,
 			updated_at INTEGER NOT NULL,
@@ -5765,6 +6188,17 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			FOREIGN KEY(interview_name_id) REFERENCES location_candidate_interview_names(id) ON DELETE CASCADE
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_candidate_interview_questions_location_name ON location_candidate_interview_questions(location_number, interview_name_id, id ASC);`,
+		`CREATE TABLE IF NOT EXISTS location_candidate_interview_question_types (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			question_id INTEGER NOT NULL,
+			interview_name_id INTEGER NOT NULL,
+			created_at INTEGER NOT NULL,
+			UNIQUE(question_id, interview_name_id),
+			FOREIGN KEY(question_id) REFERENCES location_candidate_interview_questions(id) ON DELETE CASCADE,
+			FOREIGN KEY(interview_name_id) REFERENCES location_candidate_interview_names(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_candidate_interview_question_types_question ON location_candidate_interview_question_types(question_id, interview_name_id ASC);`,
+		`CREATE INDEX IF NOT EXISTS idx_candidate_interview_question_types_name ON location_candidate_interview_question_types(interview_name_id, question_id ASC);`,
 		`CREATE TABLE IF NOT EXISTS location_candidates (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			location_number TEXT NOT NULL,
@@ -6022,6 +6456,18 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 		return err
 	}
 	if _, err := s.exec(ctx, `
+		ALTER TABLE locations
+		ADD COLUMN email TEXT NOT NULL DEFAULT '';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE locations
+		ADD COLUMN phone TEXT NOT NULL DEFAULT '';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
 		ALTER TABLE location_uniform_order_lines
 		ADD COLUMN purchased_at INTEGER NOT NULL DEFAULT 0;
 	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
@@ -6042,6 +6488,12 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 	if _, err := s.exec(ctx, `
 		ALTER TABLE location_time_punch_entries
 		ADD COLUMN note TEXT NOT NULL DEFAULT '';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE location_time_punch_entries
+		ADD COLUMN archived_at INTEGER NOT NULL DEFAULT 0;
 	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
 		return err
 	}
@@ -6153,10 +6605,101 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
 		return err
 	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE location_candidate_interview_names
+		ADD COLUMN priority INTEGER NOT NULL DEFAULT 100;
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		UPDATE location_candidate_interview_names
+		SET priority = id
+		WHERE (COALESCE(priority, 0) <= 0 OR priority = 100)
+			AND NOT EXISTS (
+				SELECT 1 FROM location_candidate_interview_names AS x
+				WHERE COALESCE(x.priority, 0) > 0 AND x.priority != 100
+			);
+	`, nil); err != nil {
+		return err
+	}
+	if err := s.ensureCandidateInterviewQuestionTypeMigration(ctx); err != nil {
+		return err
+	}
 	_, err := s.exec(ctx, `DELETE FROM sessions WHERE expires_at <= @now;`, map[string]string{
 		"now": strconv.FormatInt(time.Now().UTC().Unix(), 10),
 	})
 	return err
+}
+
+func (s *sqliteStore) ensureCandidateInterviewQuestionTypeMigration(ctx context.Context) error {
+	rows, err := s.query(ctx, `PRAGMA table_info(location_candidate_interview_questions);`, nil)
+	if err != nil {
+		return err
+	}
+	needsMigration := false
+	for _, row := range rows {
+		name, nameErr := valueAsString(row["name"])
+		if nameErr != nil {
+			return nameErr
+		}
+		if strings.EqualFold(strings.TrimSpace(name), "interview_name_id") {
+			notNull, parseErr := valueAsInt64(row["notnull"])
+			if parseErr != nil {
+				return parseErr
+			}
+			needsMigration = notNull == 1
+			break
+		}
+	}
+	if !needsMigration {
+		return nil
+	}
+	statements := []string{
+		`CREATE TABLE IF NOT EXISTS location_candidate_interview_questions_new (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			location_number TEXT NOT NULL,
+			interview_name_id INTEGER,
+			question TEXT NOT NULL,
+			created_at INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL,
+			FOREIGN KEY(location_number) REFERENCES locations(number) ON DELETE CASCADE,
+			FOREIGN KEY(interview_name_id) REFERENCES location_candidate_interview_names(id) ON DELETE CASCADE
+		);`,
+		`INSERT INTO location_candidate_interview_questions_new (id, location_number, interview_name_id, question, created_at, updated_at)
+		SELECT id, location_number, interview_name_id, question, created_at, updated_at
+		FROM location_candidate_interview_questions;`,
+		`DROP TABLE location_candidate_interview_questions;`,
+		`ALTER TABLE location_candidate_interview_questions_new RENAME TO location_candidate_interview_questions;`,
+		`CREATE INDEX IF NOT EXISTS idx_candidate_interview_questions_location_name ON location_candidate_interview_questions(location_number, interview_name_id, id ASC);`,
+	}
+	for _, stmt := range statements {
+		if _, err := s.exec(ctx, stmt, nil); err != nil {
+			return err
+		}
+	}
+	backfillStatements := []string{
+		`CREATE TABLE IF NOT EXISTS location_candidate_interview_question_types (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			question_id INTEGER NOT NULL,
+			interview_name_id INTEGER NOT NULL,
+			created_at INTEGER NOT NULL,
+			UNIQUE(question_id, interview_name_id),
+			FOREIGN KEY(question_id) REFERENCES location_candidate_interview_questions(id) ON DELETE CASCADE,
+			FOREIGN KEY(interview_name_id) REFERENCES location_candidate_interview_names(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_candidate_interview_question_types_question ON location_candidate_interview_question_types(question_id, interview_name_id ASC);`,
+		`CREATE INDEX IF NOT EXISTS idx_candidate_interview_question_types_name ON location_candidate_interview_question_types(interview_name_id, question_id ASC);`,
+		`INSERT OR IGNORE INTO location_candidate_interview_question_types (question_id, interview_name_id, created_at)
+		SELECT id, interview_name_id, COALESCE(updated_at, created_at)
+		FROM location_candidate_interview_questions
+		WHERE interview_name_id IS NOT NULL AND interview_name_id > 0;`,
+	}
+	for _, stmt := range backfillStatements {
+		if _, err := s.exec(ctx, stmt, nil); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *sqliteStore) ensureAdminUser(ctx context.Context, username, password string) error {
@@ -6180,11 +6723,13 @@ func (s *sqliteStore) ensureAdminUser(ctx context.Context, username, password st
 
 func (s *sqliteStore) createLocation(ctx context.Context, loc location) error {
 	_, err := s.exec(ctx, `
-		INSERT INTO locations (number, name, created_at)
-		VALUES (@number, @name, @created_at);
+		INSERT INTO locations (number, name, email, phone, created_at)
+		VALUES (@number, @name, @email, @phone, @created_at);
 	`, map[string]string{
 		"number":     loc.Number,
 		"name":       loc.Name,
+		"email":      strings.TrimSpace(loc.Email),
+		"phone":      strings.TrimSpace(loc.Phone),
 		"created_at": strconv.FormatInt(loc.CreatedAt.UTC().Unix(), 10),
 	})
 	return err
@@ -6244,6 +6789,12 @@ func (s *sqliteStore) deleteLocation(ctx context.Context, number string) error {
 		WHERE location_number = @number;
 		DELETE FROM location_candidates
 		WHERE location_number = @number;
+		DELETE FROM location_candidate_interview_question_types
+		WHERE question_id IN (
+			SELECT id
+			FROM location_candidate_interview_questions
+			WHERE location_number = @number
+		);
 		DELETE FROM location_candidate_interview_questions
 		WHERE location_number = @number;
 		DELETE FROM location_candidate_values
@@ -6308,7 +6859,7 @@ func (s *sqliteStore) deleteLocation(ctx context.Context, number string) error {
 
 func (s *sqliteStore) listLocations(ctx context.Context) ([]location, error) {
 	rows, err := s.query(ctx, `
-		SELECT name, number, created_at
+		SELECT name, number, email, phone, created_at
 		FROM locations
 		ORDER BY created_at ASC;
 	`, nil)
@@ -6326,6 +6877,14 @@ func (s *sqliteStore) listLocations(ctx context.Context) ([]location, error) {
 		if err != nil {
 			return nil, err
 		}
+		email, err := valueAsString(row["email"])
+		if err != nil {
+			return nil, err
+		}
+		phone, err := valueAsString(row["phone"])
+		if err != nil {
+			return nil, err
+		}
 		createdAtUnix, err := valueAsInt64(row["created_at"])
 		if err != nil {
 			return nil, err
@@ -6333,6 +6892,8 @@ func (s *sqliteStore) listLocations(ctx context.Context) ([]location, error) {
 		out = append(out, location{
 			Name:      name,
 			Number:    number,
+			Email:     email,
+			Phone:     phone,
 			CreatedAt: time.Unix(createdAtUnix, 0).UTC(),
 		})
 	}
@@ -6341,7 +6902,7 @@ func (s *sqliteStore) listLocations(ctx context.Context) ([]location, error) {
 
 func (s *sqliteStore) getLocationByNumber(ctx context.Context, number string) (*location, error) {
 	rows, err := s.query(ctx, `
-		SELECT name, number, created_at
+		SELECT name, number, email, phone, created_at
 		FROM locations
 		WHERE number = @number
 		LIMIT 1;
@@ -6360,6 +6921,14 @@ func (s *sqliteStore) getLocationByNumber(ctx context.Context, number string) (*
 	if err != nil {
 		return nil, err
 	}
+	email, err := valueAsString(rows[0]["email"])
+	if err != nil {
+		return nil, err
+	}
+	phone, err := valueAsString(rows[0]["phone"])
+	if err != nil {
+		return nil, err
+	}
 	createdAtUnix, err := valueAsInt64(rows[0]["created_at"])
 	if err != nil {
 		return nil, err
@@ -6367,6 +6936,8 @@ func (s *sqliteStore) getLocationByNumber(ctx context.Context, number string) (*
 	return &location{
 		Name:      name,
 		Number:    locNumber,
+		Email:     email,
+		Phone:     phone,
 		CreatedAt: time.Unix(createdAtUnix, 0).UTC(),
 	}, nil
 }
@@ -6682,10 +7253,10 @@ func (s *sqliteStore) deleteCandidateValue(ctx context.Context, locationNumber s
 
 func (s *sqliteStore) listCandidateInterviewNames(ctx context.Context, locationNumber string) ([]candidateInterviewName, error) {
 	rows, err := s.query(ctx, `
-		SELECT id, location_number, name, created_at, updated_at
+		SELECT id, location_number, name, priority, created_at, updated_at
 		FROM location_candidate_interview_names
 		WHERE location_number = @location_number
-		ORDER BY id ASC;
+		ORDER BY priority ASC, id ASC;
 	`, map[string]string{"location_number": locationNumber})
 	if err != nil {
 		return nil, err
@@ -6704,6 +7275,10 @@ func (s *sqliteStore) listCandidateInterviewNames(ctx context.Context, locationN
 		if err != nil {
 			return nil, err
 		}
+		priority, err := valueAsInt64(row["priority"])
+		if err != nil {
+			return nil, err
+		}
 		createdAtUnix, err := valueAsInt64(row["created_at"])
 		if err != nil {
 			return nil, err
@@ -6716,6 +7291,7 @@ func (s *sqliteStore) listCandidateInterviewNames(ctx context.Context, locationN
 			ID:             id,
 			LocationNumber: loc,
 			Name:           name,
+			Priority:       priority,
 			CreatedAt:      time.Unix(createdAtUnix, 0).UTC(),
 			UpdatedAt:      time.Unix(updatedAtUnix, 0).UTC(),
 		})
@@ -6726,11 +7302,12 @@ func (s *sqliteStore) listCandidateInterviewNames(ctx context.Context, locationN
 func (s *sqliteStore) createCandidateInterviewName(ctx context.Context, name candidateInterviewName) (int64, error) {
 	now := time.Now().UTC().Unix()
 	_, err := s.exec(ctx, `
-		INSERT INTO location_candidate_interview_names (location_number, name, created_at, updated_at)
-		VALUES (@location_number, @name, @created_at, @updated_at);
+		INSERT INTO location_candidate_interview_names (location_number, name, priority, created_at, updated_at)
+		VALUES (@location_number, @name, @priority, @created_at, @updated_at);
 	`, map[string]string{
 		"location_number": name.LocationNumber,
 		"name":            strings.TrimSpace(name.Name),
+		"priority":        strconv.FormatInt(name.Priority, 10),
 		"created_at":      strconv.FormatInt(now, 10),
 		"updated_at":      strconv.FormatInt(now, 10),
 	})
@@ -6751,6 +7328,41 @@ func (s *sqliteStore) createCandidateInterviewName(ctx context.Context, name can
 		return 0, errNotFound
 	}
 	return valueAsInt64(rows[0]["id"])
+}
+
+func (s *sqliteStore) updateCandidateInterviewNamePriority(ctx context.Context, locationNumber string, nameID, priority int64) error {
+	rows, err := s.query(ctx, `
+		SELECT COUNT(*) AS count
+		FROM location_candidate_interview_names
+		WHERE id = @id AND location_number = @location_number;
+	`, map[string]string{
+		"id":              strconv.FormatInt(nameID, 10),
+		"location_number": locationNumber,
+	})
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return errNotFound
+	}
+	count, err := valueAsInt64(rows[0]["count"])
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return errNotFound
+	}
+	_, err = s.exec(ctx, `
+		UPDATE location_candidate_interview_names
+		SET priority = @priority, updated_at = @updated_at
+		WHERE id = @id AND location_number = @location_number;
+	`, map[string]string{
+		"id":              strconv.FormatInt(nameID, 10),
+		"location_number": locationNumber,
+		"priority":        strconv.FormatInt(priority, 10),
+		"updated_at":      strconv.FormatInt(time.Now().UTC().Unix(), 10),
+	})
+	return err
 }
 
 func (s *sqliteStore) deleteCandidateInterviewName(ctx context.Context, locationNumber string, nameID int64) error {
@@ -6787,36 +7399,36 @@ func (s *sqliteStore) deleteCandidateInterviewName(ctx context.Context, location
 
 func (s *sqliteStore) listCandidateInterviewQuestions(ctx context.Context, locationNumber string, interviewNameID int64) ([]candidateInterviewQuestion, error) {
 	query := `
-		SELECT q.id, q.location_number, q.interview_name_id, q.question, q.created_at, q.updated_at, n.name AS interview_name
+		SELECT q.id, q.location_number, q.question, q.created_at, q.updated_at
 		FROM location_candidate_interview_questions q
-		INNER JOIN location_candidate_interview_names n ON n.id = q.interview_name_id
 		WHERE q.location_number = @location_number
 	`
 	params := map[string]string{"location_number": locationNumber}
 	if interviewNameID > 0 {
-		query += " AND q.interview_name_id = @interview_name_id"
+		query = `
+			SELECT DISTINCT q.id, q.location_number, q.question, q.created_at, q.updated_at
+			FROM location_candidate_interview_questions q
+			INNER JOIN location_candidate_interview_question_types m ON m.question_id = q.id
+			INNER JOIN location_candidate_interview_names n ON n.id = m.interview_name_id
+			WHERE q.location_number = @location_number
+			  AND n.location_number = @location_number
+			  AND m.interview_name_id = @interview_name_id
+		`
 		params["interview_name_id"] = strconv.FormatInt(interviewNameID, 10)
 	}
-	query += " ORDER BY q.interview_name_id ASC, q.id ASC;"
+	query += " ORDER BY q.id ASC;"
 	rows, err := s.query(ctx, query, params)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]candidateInterviewQuestion, 0, len(rows))
+	indexByID := make(map[int64]int, len(rows))
 	for _, row := range rows {
 		id, err := valueAsInt64(row["id"])
 		if err != nil {
 			return nil, err
 		}
 		loc, err := valueAsString(row["location_number"])
-		if err != nil {
-			return nil, err
-		}
-		nameID, err := valueAsInt64(row["interview_name_id"])
-		if err != nil {
-			return nil, err
-		}
-		name, err := valueAsString(row["interview_name"])
 		if err != nil {
 			return nil, err
 		}
@@ -6832,44 +7444,80 @@ func (s *sqliteStore) listCandidateInterviewQuestions(ctx context.Context, locat
 		if err != nil {
 			return nil, err
 		}
+		indexByID[id] = len(out)
 		out = append(out, candidateInterviewQuestion{
-			ID:              id,
-			LocationNumber:  loc,
-			InterviewNameID: nameID,
-			InterviewName:   name,
-			Question:        question,
-			CreatedAt:       time.Unix(createdAtUnix, 0).UTC(),
-			UpdatedAt:       time.Unix(updatedAtUnix, 0).UTC(),
+			ID:             id,
+			LocationNumber: loc,
+			Question:       question,
+			CreatedAt:      time.Unix(createdAtUnix, 0).UTC(),
+			UpdatedAt:      time.Unix(updatedAtUnix, 0).UTC(),
 		})
+	}
+	if len(out) == 0 {
+		return out, nil
+	}
+	typeRows, err := s.query(ctx, `
+		SELECT m.question_id, m.interview_name_id, n.name
+		FROM location_candidate_interview_question_types m
+		INNER JOIN location_candidate_interview_names n ON n.id = m.interview_name_id
+		WHERE n.location_number = @location_number
+		ORDER BY m.question_id ASC, m.interview_name_id ASC;
+	`, map[string]string{
+		"location_number": locationNumber,
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range typeRows {
+		questionID, err := valueAsInt64(row["question_id"])
+		if err != nil {
+			return nil, err
+		}
+		idx, ok := indexByID[questionID]
+		if !ok {
+			continue
+		}
+		nameID, err := valueAsInt64(row["interview_name_id"])
+		if err != nil {
+			return nil, err
+		}
+		name, err := valueAsString(row["name"])
+		if err != nil {
+			return nil, err
+		}
+		out[idx].InterviewNameIDs = append(out[idx].InterviewNameIDs, nameID)
+		out[idx].InterviewNames = append(out[idx].InterviewNames, name)
+	}
+	for i := range out {
+		if len(out[i].InterviewNameIDs) > 0 {
+			out[i].InterviewNameID = out[i].InterviewNameIDs[0]
+			out[i].InterviewName = out[i].InterviewNames[0]
+		}
 	}
 	return out, nil
 }
 
 func (s *sqliteStore) createCandidateInterviewQuestion(ctx context.Context, question candidateInterviewQuestion) (int64, error) {
 	now := time.Now().UTC().Unix()
+	params := map[string]string{
+		"location_number": question.LocationNumber,
+		"question":        strings.TrimSpace(question.Question),
+		"created_at":      strconv.FormatInt(now, 10),
+		"updated_at":      strconv.FormatInt(now, 10),
+	}
+	selectQuery := `
+		SELECT id
+		FROM location_candidate_interview_questions
+		WHERE location_number = @location_number AND created_at = @created_at AND question = @question
+	`
 	_, err := s.exec(ctx, `
-		INSERT INTO location_candidate_interview_questions (location_number, interview_name_id, question, created_at, updated_at)
-		VALUES (@location_number, @interview_name_id, @question, @created_at, @updated_at);
-	`, map[string]string{
-		"location_number":   question.LocationNumber,
-		"interview_name_id": strconv.FormatInt(question.InterviewNameID, 10),
-		"question":          strings.TrimSpace(question.Question),
-		"created_at":        strconv.FormatInt(now, 10),
-		"updated_at":        strconv.FormatInt(now, 10),
-	})
+		INSERT INTO location_candidate_interview_questions (location_number, question, created_at, updated_at)
+		VALUES (@location_number, @question, @created_at, @updated_at);
+	`, params)
 	if err != nil {
 		return 0, err
 	}
-	rows, err := s.query(ctx, `
-		SELECT id
-		FROM location_candidate_interview_questions
-		WHERE location_number = @location_number AND interview_name_id = @interview_name_id
-		ORDER BY id DESC
-		LIMIT 1;
-	`, map[string]string{
-		"location_number":   question.LocationNumber,
-		"interview_name_id": strconv.FormatInt(question.InterviewNameID, 10),
-	})
+	rows, err := s.query(ctx, selectQuery+" ORDER BY id DESC LIMIT 1;", params)
 	if err != nil {
 		return 0, err
 	}
@@ -6877,6 +7525,75 @@ func (s *sqliteStore) createCandidateInterviewQuestion(ctx context.Context, ques
 		return 0, errNotFound
 	}
 	return valueAsInt64(rows[0]["id"])
+}
+
+func (s *sqliteStore) updateCandidateInterviewQuestion(ctx context.Context, locationNumber string, questionID int64, interviewNameIDs []int64, question *string) error {
+	rows, err := s.query(ctx, `
+		SELECT COUNT(*) AS count
+		FROM location_candidate_interview_questions
+		WHERE id = @id AND location_number = @location_number;
+	`, map[string]string{
+		"id":              strconv.FormatInt(questionID, 10),
+		"location_number": locationNumber,
+	})
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return errNotFound
+	}
+	count, err := valueAsInt64(rows[0]["count"])
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return errNotFound
+	}
+	_, err = s.exec(ctx, `
+		DELETE FROM location_candidate_interview_question_types
+		WHERE question_id = @question_id;
+	`, map[string]string{
+		"question_id": strconv.FormatInt(questionID, 10),
+	})
+	if err != nil {
+		return err
+	}
+	for _, interviewNameID := range interviewNameIDs {
+		if interviewNameID <= 0 {
+			continue
+		}
+		_, err = s.exec(ctx, `
+			INSERT OR IGNORE INTO location_candidate_interview_question_types (question_id, interview_name_id, created_at)
+			VALUES (@question_id, @interview_name_id, @created_at);
+		`, map[string]string{
+			"question_id":       strconv.FormatInt(questionID, 10),
+			"interview_name_id": strconv.FormatInt(interviewNameID, 10),
+			"created_at":        strconv.FormatInt(time.Now().UTC().Unix(), 10),
+		})
+		if err != nil {
+			return err
+		}
+	}
+	updateParams := map[string]string{
+		"id":              strconv.FormatInt(questionID, 10),
+		"location_number": locationNumber,
+		"updated_at":      strconv.FormatInt(time.Now().UTC().Unix(), 10),
+	}
+	updateQuery := `
+		UPDATE location_candidate_interview_questions
+		SET updated_at = @updated_at
+		WHERE id = @id AND location_number = @location_number;
+	`
+	if question != nil {
+		updateQuery = `
+			UPDATE location_candidate_interview_questions
+			SET question = @question, updated_at = @updated_at
+			WHERE id = @id AND location_number = @location_number;
+		`
+		updateParams["question"] = strings.TrimSpace(*question)
+	}
+	_, err = s.exec(ctx, updateQuery, updateParams)
+	return err
 }
 
 func (s *sqliteStore) deleteCandidateInterviewQuestion(ctx context.Context, locationNumber string, questionID int64) error {
@@ -7127,67 +7844,29 @@ func (s *sqliteStore) listHiredCandidateScorecardsByTimePunchName(ctx context.Co
 
 func (s *sqliteStore) createCandidateInterview(ctx context.Context, interview candidateInterview) (int64, error) {
 	now := time.Now().UTC().Unix()
-	statement := `
-		BEGIN;
-		INSERT INTO location_candidate_interviews (candidate_id, location_number, interviewer_time_punch_name, interview_type, notes, created_at)
-		VALUES (@candidate_id, @location_number, @interviewer_time_punch_name, @interview_type, @notes, @created_at);
-	`
-	for idx := range interview.Grades {
-		statement += `
-		INSERT INTO location_candidate_interview_grades (interview_id, value_id, letter_grade, grade_comment, created_at)
-		VALUES (
-			last_insert_rowid(),
-			@value_id_` + strconv.Itoa(idx) + `,
-			@letter_grade_` + strconv.Itoa(idx) + `,
-			@grade_comment_` + strconv.Itoa(idx) + `,
-			@created_at
-		);`
-	}
-	for idx := range interview.QuestionAnswers {
-		statement += `
-		INSERT INTO location_candidate_interview_question_answers (interview_id, question_id, answer, created_at)
-		VALUES (
-			last_insert_rowid(),
-			@question_id_` + strconv.Itoa(idx) + `,
-			@question_answer_` + strconv.Itoa(idx) + `,
-			@created_at
-		);`
-	}
-	statement += `
-		UPDATE location_candidates
-		SET updated_at = @updated_at
-		WHERE id = @candidate_id AND location_number = @location_number;
-		COMMIT;
-	`
-	params := map[string]string{
+	insertParams := map[string]string{
 		"candidate_id":                strconv.FormatInt(interview.CandidateID, 10),
 		"location_number":             interview.LocationNumber,
 		"interviewer_time_punch_name": interview.InterviewerTimePunchName,
 		"interview_type":              interview.InterviewType,
 		"notes":                       interview.Notes,
 		"created_at":                  strconv.FormatInt(now, 10),
-		"updated_at":                  strconv.FormatInt(now, 10),
 	}
-	for idx, grade := range interview.Grades {
-		params["value_id_"+strconv.Itoa(idx)] = strconv.FormatInt(grade.ValueID, 10)
-		params["letter_grade_"+strconv.Itoa(idx)] = grade.LetterGrade
-		params["grade_comment_"+strconv.Itoa(idx)] = strings.TrimSpace(grade.Comment)
-	}
-	for idx, answer := range interview.QuestionAnswers {
-		params["question_id_"+strconv.Itoa(idx)] = strconv.FormatInt(answer.QuestionID, 10)
-		params["question_answer_"+strconv.Itoa(idx)] = strings.TrimSpace(answer.Answer)
-	}
-	if _, err := s.exec(ctx, statement, params); err != nil {
+	if _, err := s.exec(ctx, `
+		INSERT INTO location_candidate_interviews (candidate_id, location_number, interviewer_time_punch_name, interview_type, notes, created_at)
+		VALUES (@candidate_id, @location_number, @interviewer_time_punch_name, @interview_type, @notes, @created_at);
+	`, insertParams); err != nil {
 		return 0, err
 	}
 	rows, err := s.query(ctx, `
 		SELECT id
 		FROM location_candidate_interviews
-		WHERE candidate_id = @candidate_id
+		WHERE candidate_id = @candidate_id AND location_number = @location_number
 		ORDER BY id DESC
 		LIMIT 1;
 	`, map[string]string{
-		"candidate_id": strconv.FormatInt(interview.CandidateID, 10),
+		"candidate_id":    strconv.FormatInt(interview.CandidateID, 10),
+		"location_number": interview.LocationNumber,
 	})
 	if err != nil {
 		return 0, err
@@ -7195,15 +7874,59 @@ func (s *sqliteStore) createCandidateInterview(ctx context.Context, interview ca
 	if len(rows) == 0 {
 		return 0, errNotFound
 	}
-	return valueAsInt64(rows[0]["id"])
+	interviewID, err := valueAsInt64(rows[0]["id"])
+	if err != nil {
+		return 0, err
+	}
+	for _, grade := range interview.Grades {
+		if _, err := s.exec(ctx, `
+			INSERT INTO location_candidate_interview_grades (interview_id, value_id, letter_grade, grade_comment, created_at)
+			VALUES (@interview_id, @value_id, @letter_grade, @grade_comment, @created_at);
+		`, map[string]string{
+			"interview_id":  strconv.FormatInt(interviewID, 10),
+			"value_id":      strconv.FormatInt(grade.ValueID, 10),
+			"letter_grade":  grade.LetterGrade,
+			"grade_comment": strings.TrimSpace(grade.Comment),
+			"created_at":    strconv.FormatInt(now, 10),
+		}); err != nil {
+			return 0, err
+		}
+	}
+	for _, answer := range interview.QuestionAnswers {
+		if _, err := s.exec(ctx, `
+			INSERT INTO location_candidate_interview_question_answers (interview_id, question_id, answer, created_at)
+			VALUES (@interview_id, @question_id, @answer, @created_at);
+		`, map[string]string{
+			"interview_id": strconv.FormatInt(interviewID, 10),
+			"question_id":  strconv.FormatInt(answer.QuestionID, 10),
+			"answer":       strings.TrimSpace(answer.Answer),
+			"created_at":   strconv.FormatInt(now, 10),
+		}); err != nil {
+			return 0, err
+		}
+	}
+	if _, err := s.exec(ctx, `
+		UPDATE location_candidates
+		SET updated_at = @updated_at
+		WHERE id = @candidate_id AND location_number = @location_number;
+	`, map[string]string{
+		"updated_at":      strconv.FormatInt(now, 10),
+		"candidate_id":    strconv.FormatInt(interview.CandidateID, 10),
+		"location_number": interview.LocationNumber,
+	}); err != nil {
+		return 0, err
+	}
+	return interviewID, nil
 }
 
 func (s *sqliteStore) listCandidateInterviews(ctx context.Context, locationNumber string, candidateID int64) ([]candidateInterview, error) {
 	rows, err := s.query(ctx, `
-		SELECT id, candidate_id, location_number, interviewer_time_punch_name, interview_type, notes, created_at
-		FROM location_candidate_interviews
-		WHERE location_number = @location_number AND candidate_id = @candidate_id
-		ORDER BY created_at DESC;
+		SELECT i.id, i.candidate_id, i.location_number, i.interviewer_time_punch_name, i.interview_type, i.notes, i.created_at
+		FROM location_candidate_interviews i
+		LEFT JOIN location_candidate_interview_names n
+			ON n.location_number = i.location_number AND n.name = i.interview_type
+		WHERE i.location_number = @location_number AND i.candidate_id = @candidate_id
+		ORDER BY COALESCE(n.priority, 2147483647) ASC, i.created_at ASC, i.id ASC;
 	`, map[string]string{
 		"location_number": locationNumber,
 		"candidate_id":    strconv.FormatInt(candidateID, 10),
@@ -8997,9 +9720,6 @@ func (s *sqliteStore) getCandidateInterviewToken(ctx context.Context, token stri
 		return nil, err
 	}
 	expiresAt := time.Unix(expiresUnix, 0).UTC()
-	if time.Now().UTC().After(expiresAt) {
-		return nil, errNotFound
-	}
 	usedUnix, err := valueAsInt64(rows[0]["used_at"])
 	if err != nil {
 		return nil, err
@@ -9017,6 +9737,40 @@ func (s *sqliteStore) getCandidateInterviewToken(ctx context.Context, token stri
 	}, nil
 }
 
+func (s *sqliteStore) deleteCandidateInterviewLink(ctx context.Context, locationNumber string, candidateID int64, token string) error {
+	rows, err := s.query(ctx, `
+		SELECT COUNT(*) AS count
+		FROM location_candidate_interview_tokens
+		WHERE token = @token AND location_number = @location_number AND candidate_id = @candidate_id;
+	`, map[string]string{
+		"token":           token,
+		"location_number": locationNumber,
+		"candidate_id":    strconv.FormatInt(candidateID, 10),
+	})
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return errNotFound
+	}
+	count, err := valueAsInt64(rows[0]["count"])
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return errNotFound
+	}
+	_, err = s.exec(ctx, `
+		DELETE FROM location_candidate_interview_tokens
+		WHERE token = @token AND location_number = @location_number AND candidate_id = @candidate_id;
+	`, map[string]string{
+		"token":           token,
+		"location_number": locationNumber,
+		"candidate_id":    strconv.FormatInt(candidateID, 10),
+	})
+	return err
+}
+
 func (s *sqliteStore) markCandidateInterviewTokenUsed(ctx context.Context, token string) error {
 	_, err := s.exec(ctx, `
 		UPDATE location_candidate_interview_tokens
@@ -9027,6 +9781,104 @@ func (s *sqliteStore) markCandidateInterviewTokenUsed(ctx context.Context, token
 		"used_at": strconv.FormatInt(time.Now().UTC().Unix(), 10),
 	})
 	return err
+}
+
+func (s *sqliteStore) listCandidateInterviewLinks(ctx context.Context, locationNumber string, candidateID int64) ([]candidateInterviewLink, error) {
+	rows, err := s.query(ctx, `
+		SELECT token, location_number, candidate_id, interviewer_time_punch_name, interview_type, expires_at, used_at, created_at
+		FROM location_candidate_interview_tokens
+		WHERE location_number = @location_number AND candidate_id = @candidate_id
+		ORDER BY created_at DESC;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"candidate_id":    strconv.FormatInt(candidateID, 10),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]candidateInterviewLink, 0, len(rows))
+	for _, row := range rows {
+		token, err := valueAsString(row["token"])
+		if err != nil {
+			return nil, err
+		}
+		loc, err := valueAsString(row["location_number"])
+		if err != nil {
+			return nil, err
+		}
+		cid, err := valueAsInt64(row["candidate_id"])
+		if err != nil {
+			return nil, err
+		}
+		interviewer, err := valueAsString(row["interviewer_time_punch_name"])
+		if err != nil {
+			return nil, err
+		}
+		itype, err := valueAsString(row["interview_type"])
+		if err != nil {
+			return nil, err
+		}
+		expiresUnix, err := valueAsInt64(row["expires_at"])
+		if err != nil {
+			return nil, err
+		}
+		createdUnix, err := valueAsInt64(row["created_at"])
+		if err != nil {
+			return nil, err
+		}
+		usedUnix := int64(0)
+		if rawUsed, ok := row["used_at"]; ok && rawUsed != nil {
+			usedUnix, err = valueAsInt64(rawUsed)
+			if err != nil {
+				return nil, err
+			}
+		}
+		record := candidateInterviewLink{
+			Token:                    token,
+			LocationNumber:           loc,
+			CandidateID:              cid,
+			InterviewerTimePunchName: interviewer,
+			InterviewType:            itype,
+			Link:                     "/interview/" + token,
+			ExpiresAt:                time.Unix(expiresUnix, 0).UTC(),
+			CreatedAt:                time.Unix(createdUnix, 0).UTC(),
+		}
+		if usedUnix > 0 {
+			usedAt := time.Unix(usedUnix, 0).UTC()
+			record.UsedAt = &usedAt
+		}
+		out = append(out, record)
+	}
+	return out, nil
+}
+
+func (s *sqliteStore) getCandidateInterviewLink(ctx context.Context, locationNumber string, candidateID int64, token string) (*candidateInterviewLink, error) {
+	rows, err := s.query(ctx, `
+		SELECT token, location_number, candidate_id, interviewer_time_punch_name, interview_type, expires_at, used_at, created_at
+		FROM location_candidate_interview_tokens
+		WHERE token = @token AND location_number = @location_number AND candidate_id = @candidate_id
+		LIMIT 1;
+	`, map[string]string{
+		"token":           token,
+		"location_number": locationNumber,
+		"candidate_id":    strconv.FormatInt(candidateID, 10),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(rows) == 0 {
+		return nil, errNotFound
+	}
+	list, err := s.listCandidateInterviewLinks(ctx, locationNumber, candidateID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range list {
+		if list[i].Token == token {
+			return &list[i], nil
+		}
+	}
+	return nil, errNotFound
 }
 
 func (s *sqliteStore) getLocationTimePunchToken(ctx context.Context, token string) (*locationTimePunchToken, error) {
@@ -9288,12 +10140,17 @@ func (s *sqliteStore) createTimePunchEntry(ctx context.Context, entry timePunchE
 	return err
 }
 
-func (s *sqliteStore) listTimePunchEntries(ctx context.Context, locationNumber string) ([]timePunchEntry, error) {
+func (s *sqliteStore) listTimePunchEntries(ctx context.Context, locationNumber string, archived bool) ([]timePunchEntry, error) {
+	archivedFilter := "archived_at = 0"
+	if archived {
+		archivedFilter = "archived_at > 0"
+	}
 	rows, err := s.query(ctx, `
-		SELECT id, location_number, time_punch_name, punch_date, time_in, time_out, note, created_at
+		SELECT id, location_number, time_punch_name, punch_date, time_in, time_out, note, archived_at, created_at
 		FROM location_time_punch_entries
 		WHERE location_number = @location_number
-		ORDER BY created_at DESC;
+			AND `+archivedFilter+`
+		ORDER BY created_at DESC, id DESC;
 	`, map[string]string{"location_number": locationNumber})
 	if err != nil {
 		return nil, err
@@ -9328,9 +10185,17 @@ func (s *sqliteStore) listTimePunchEntries(ctx context.Context, locationNumber s
 		if err != nil {
 			return nil, err
 		}
+		archivedAtUnix, err := valueAsInt64(row["archived_at"])
+		if err != nil {
+			return nil, err
+		}
 		createdAtUnix, err := valueAsInt64(row["created_at"])
 		if err != nil {
 			return nil, err
+		}
+		archivedAt := time.Time{}
+		if archivedAtUnix > 0 {
+			archivedAt = time.Unix(archivedAtUnix, 0).UTC()
 		}
 		out = append(out, timePunchEntry{
 			ID:            id,
@@ -9340,10 +10205,49 @@ func (s *sqliteStore) listTimePunchEntries(ctx context.Context, locationNumber s
 			TimeIn:        timeIn,
 			TimeOut:       timeOut,
 			Note:          note,
+			ArchivedAt:    archivedAt,
 			CreatedAt:     time.Unix(createdAtUnix, 0).UTC(),
 		})
 	}
 	return out, nil
+}
+
+func (s *sqliteStore) archiveTimePunchEntry(ctx context.Context, locationNumber string, entryID int64) error {
+	rows, err := s.query(ctx, `
+		SELECT COUNT(*) AS count
+		FROM location_time_punch_entries
+		WHERE id = @id
+			AND location_number = @location_number
+			AND archived_at = 0;
+	`, map[string]string{
+		"id":              strconv.FormatInt(entryID, 10),
+		"location_number": locationNumber,
+	})
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return errNotFound
+	}
+	count, err := valueAsInt64(rows[0]["count"])
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return errNotFound
+	}
+	_, err = s.exec(ctx, `
+		UPDATE location_time_punch_entries
+		SET archived_at = @archived_at
+		WHERE id = @id
+			AND location_number = @location_number
+			AND archived_at = 0;
+	`, map[string]string{
+		"id":              strconv.FormatInt(entryID, 10),
+		"location_number": locationNumber,
+		"archived_at":     strconv.FormatInt(time.Now().UTC().Unix(), 10),
+	})
+	return err
 }
 
 func (s *sqliteStore) deleteTimePunchEntry(ctx context.Context, locationNumber string, entryID int64) error {
@@ -10908,6 +11812,8 @@ func randomToken(bytesLen int) (string, error) {
 func validateCreateLocation(req createLocationRequest) error {
 	name := strings.TrimSpace(req.Name)
 	number := strings.TrimSpace(req.Number)
+	email := strings.TrimSpace(req.Email)
+	phone := strings.TrimSpace(req.Phone)
 	employerRepSignature := strings.TrimSpace(req.EmployerRepSignature)
 	businessName := strings.TrimSpace(req.BusinessName)
 	businessStreet := strings.TrimSpace(req.BusinessStreet)
@@ -10922,6 +11828,12 @@ func validateCreateLocation(req createLocationRequest) error {
 	}
 	if number == "" {
 		return errors.New("number is required")
+	}
+	if email == "" {
+		return errors.New("email is required")
+	}
+	if phone == "" {
+		return errors.New("phone is required")
 	}
 	if employerRepSignature == "" {
 		return errors.New("employer representative signature is required")
@@ -10955,6 +11867,15 @@ func validateCreateLocation(req createLocationRequest) error {
 	}
 	if len([]rune(businessEIN)) > 32 {
 		return errors.New("business EIN must be 32 characters or fewer")
+	}
+	if len([]rune(email)) > 200 {
+		return errors.New("email must be 200 characters or fewer")
+	}
+	if len([]rune(phone)) > 40 {
+		return errors.New("phone must be 40 characters or fewer")
+	}
+	if !strings.Contains(email, "@") {
+		return errors.New("email must be a valid email address")
 	}
 	if len([]rune(employerRepSignature)) > 120 {
 		return errors.New("employer representative signature must be 120 characters or fewer")
@@ -11565,6 +12486,28 @@ func normalizeNameText(value string) string {
 		}
 	}
 	return strings.TrimSpace(b.String())
+}
+
+func normalizeInterviewNameIDs(many []int64, single int64) []int64 {
+	seen := make(map[int64]struct{}, len(many)+1)
+	out := make([]int64, 0, len(many)+1)
+	for _, id := range many {
+		if id <= 0 {
+			continue
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	if single > 0 {
+		if _, exists := seen[single]; !exists {
+			out = append(out, single)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
 }
 
 func valueAsString(value any) (string, error) {

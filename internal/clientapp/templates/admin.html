@@ -21,14 +21,14 @@
     :root {
       --bg: #ffffff; --fg: #09090b; --card: #ffffff;
       --muted: #f4f4f5; --muted-fg: #71717a; --border: #e4e4e7;
-      --primary: #ea580c; --primary-fg: #ffffff;
+      --primary: #004f71; --primary-fg: #ffffff;
       --danger: #dc2626; --success: #16a34a;
       --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
     }
     html.dark {
       --bg: #09090b; --fg: #fafafa; --card: #09090b;
       --muted: #27272a; --muted-fg: #a1a1aa; --border: #3f3f46;
-      --primary: #fb923c; --primary-fg: #431407;
+      --primary: #004f71; --primary-fg: #ffffff;
       --danger: #f87171; --success: #4ade80;
       --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
     }
@@ -132,7 +132,7 @@
     input:focus {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 2px rgba(234,88,12,.15);
+      box-shadow: 0 0 0 2px rgba(0,79,113,.15);
     }
 
     html.dark input {
@@ -143,7 +143,7 @@
 
     html.dark input:focus {
       border-color: var(--primary);
-      box-shadow: 0 0 0 2px rgba(251,146,60,.15);
+      box-shadow: 0 0 0 2px rgba(0,79,113,.15);
     }
 
     /* Primary submit button */
@@ -332,13 +332,13 @@
         <p class="panel-desc">Use the submenu to create a location or view existing locations.</p>
 
         <div class="submenu" role="tablist" aria-label="Location admin sections">
-          <button type="button" class="submenu-btn active" data-panel-target="create" role="tab" aria-selected="true">Create Location</button>
-          <button type="button" class="submenu-btn" data-panel-target="view" role="tab" aria-selected="false">View Locations</button>
+          <button type="button" class="submenu-btn active" data-panel-target="view" role="tab" aria-selected="true">View Locations</button>
+          <button type="button" class="submenu-btn" data-panel-target="create" role="tab" aria-selected="false">Create Location</button>
         </div>
 
         <p id="status" class="status" aria-live="polite"></p>
 
-        <section class="tab-panel" data-panel-name="create">
+        <section class="tab-panel" data-panel-name="create" hidden>
           <form id="create-location-form">
             <div class="grid-2">
               <label>
@@ -348,6 +348,14 @@
               <label>
                 Location Number
                 <input id="number" name="number" type="text" placeholder="Example: TN-1024" required>
+              </label>
+              <label>
+                Location Email
+                <input id="email" name="email" type="email" placeholder="Example: location@example.com" required>
+              </label>
+              <label>
+                Location Phone
+                <input id="phone" name="phone" type="tel" placeholder="Example: (555) 123-4567" required>
               </label>
               <label>
                 Employer Representative Signature
@@ -385,7 +393,7 @@
           <p class="meta">Requests are secured with server-side session checks and CSRF verification.</p>
         </section>
 
-        <section class="tab-panel" data-panel-name="view" hidden>
+        <section class="tab-panel" data-panel-name="view">
           <section class="locations">
             <h2>Locations ({{ .TotalCount }})</h2>
             <div class="table-wrap">
@@ -395,7 +403,6 @@
                     <th>Name</th>
                     <th>Number</th>
                     <th>Created</th>
-                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -405,17 +412,11 @@
                         <td><a class="location-link" href="/admin/locations/{{ .Number }}">{{ .Name }}</a></td>
                         <td>{{ .Number }}</td>
                         <td>{{ .CreatedAt }}</td>
-                        <td>
-                          <div class="actions">
-                            <button class="table-btn edit-btn" type="button" data-number="{{ .Number }}" data-name="{{ .Name }}">Edit</button>
-                            <button class="table-btn danger delete-btn" type="button" data-number="{{ .Number }}" data-name="{{ .Name }}">Delete</button>
-                          </div>
-                        </td>
                       </tr>
                     {{ end }}
                   {{ else }}
                     <tr>
-                      <td colspan="4">No locations yet.</td>
+                      <td colspan="3">No locations yet.</td>
                     </tr>
                   {{ end }}
                 </tbody>
@@ -447,7 +448,6 @@
     const statusEl = document.getElementById("status");
     const submitBtn = document.getElementById("submit-btn");
     const endpoint = "/admin/locations";
-    const locationsSection = document.querySelector(".locations");
     const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
     const submenuButtons = Array.from(document.querySelectorAll(".submenu-btn"));
     const tabPanels = Array.from(document.querySelectorAll(".tab-panel"));
@@ -469,14 +469,14 @@
     }
 
     submenuButtons.forEach((btn) => {
-      btn.addEventListener("click", () => setActivePanel(btn.dataset.panelTarget || "create"));
+      btn.addEventListener("click", () => setActivePanel(btn.dataset.panelTarget || "view"));
     });
 
     const initialPanel = (window.location.hash || "").replace("#", "");
-    if (initialPanel === "view") {
-      setActivePanel("view", false);
-    } else {
+    if (initialPanel === "create") {
       setActivePanel("create", false);
+    } else {
+      setActivePanel("view", false);
     }
 
     if (form && statusEl && submitBtn) form.addEventListener("submit", async (event) => {
@@ -497,6 +497,8 @@
       const payload = {
         name: document.getElementById("name").value.trim(),
         number: document.getElementById("number").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        phone: document.getElementById("phone").value.trim(),
         employerRepSignature: document.getElementById("employer_rep_signature").value.trim(),
         businessName: document.getElementById("business_name").value.trim(),
         businessStreet: document.getElementById("business_street").value.trim(),
@@ -551,57 +553,6 @@
       });
     }
 
-    if (locationsSection) locationsSection.addEventListener("click", async (event) => {
-      const editBtn = event.target.closest(".edit-btn");
-      if (editBtn) {
-        const currentName = editBtn.dataset.name || "";
-        const number = editBtn.dataset.number || "";
-        const nextName = window.prompt("Update location name", currentName);
-        if (nextName === null) return;
-        const trimmed = nextName.trim();
-        if (!trimmed) {
-          window.alert("Location name is required.");
-          return;
-        }
-        await runLocationAction(number, "PUT", { name: trimmed }, "Location updated.");
-        return;
-      }
-
-      const deleteBtn = event.target.closest(".delete-btn");
-      if (deleteBtn) {
-        const number = deleteBtn.dataset.number || "";
-        const name = deleteBtn.dataset.name || number;
-        const confirmed = window.confirm(`Delete location "${name}" (${number})? This removes its employees too.`);
-        if (!confirmed) return;
-        await runLocationAction(number, "DELETE", null, "Location deleted.");
-      }
-    });
-
-    async function runLocationAction(number, method, payload, successMessage) {
-      if (!number) return;
-      statusEl.textContent = "";
-      statusEl.className = "status";
-      try {
-        const response = await fetch(`/admin/locations/${encodeURIComponent(number)}`, {
-          method,
-          headers: {
-            "Content-Type": "application/json",
-            "X-CSRF-Token": csrfToken
-          },
-          body: payload ? JSON.stringify(payload) : null
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(result.error || "Location operation failed.");
-        }
-        statusEl.textContent = successMessage;
-        statusEl.classList.add("ok");
-        window.setTimeout(() => window.location.reload(), 180);
-      } catch (error) {
-        statusEl.textContent = error.message || "Unexpected error occurred.";
-        statusEl.classList.add("error");
-      }
-    }
   </script>
 
   <script>

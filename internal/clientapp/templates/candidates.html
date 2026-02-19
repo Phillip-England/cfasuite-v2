@@ -21,14 +21,14 @@
     :root {
       --bg: #ffffff; --fg: #09090b; --card: #ffffff;
       --muted: #f4f4f5; --muted-fg: #71717a; --border: #e4e4e7;
-      --primary: #ea580c; --primary-fg: #ffffff;
+      --primary: #004f71; --primary-fg: #ffffff;
       --danger: #dc2626; --success: #16a34a;
       --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
     }
     html.dark {
       --bg: #09090b; --fg: #fafafa; --card: #09090b;
       --muted: #27272a; --muted-fg: #a1a1aa; --border: #3f3f46;
-      --primary: #fb923c; --primary-fg: #431407;
+      --primary: #004f71; --primary-fg: #ffffff;
       --danger: #f87171; --success: #4ade80;
       --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
     }
@@ -148,6 +148,9 @@
         <div>
           <h1>Candidates</h1>
           <p class="text-muted" style="margin-top:0.25rem;">{{ .Location.Name }} ({{ .Location.Number }})</p>
+          <div style="margin-top:0.75rem;">
+            <a class="btn btn-outline" href="/admin/locations/{{ .Location.Number }}/interview-process">Open Interview Process App</a>
+          </div>
         </div>
         {{ if .SuccessMessage }}<div class="alert alert-success">{{ .SuccessMessage }}</div>{{ end }}
         {{ if .Error }}<div class="alert alert-error">{{ .Error }}</div>{{ end }}
@@ -156,10 +159,6 @@
           <button class="hub-btn" type="button" data-target="new-candidate">
             <strong>New Candidate</strong>
             <span>Create candidate profiles quickly.</span>
-          </button>
-          <button class="hub-btn" type="button" data-target="values">
-            <strong>Interview Process</strong>
-            <span>Manage location-specific grading values.</span>
           </button>
           <button class="hub-btn" type="button" data-target="interviews">
             <strong>Interviews</strong>
@@ -191,134 +190,6 @@
               </div>
               <div><button class="btn btn-primary" type="submit">Create Candidate</button></div>
             </form>
-          </div>
-        </section>
-
-        <section class="section" data-panel="values">
-          <div class="panel stack">
-            <div>
-              <h2>Interview Process</h2>
-              <p class="text-muted" style="margin-top:0.25rem;">Configure three sections: Values, Questions, and Interview Names.</p>
-            </div>
-            <div class="process-hub">
-              <button class="process-btn" type="button" data-process-target="values">Values</button>
-              <button class="process-btn" type="button" data-process-target="questions">Questions</button>
-              <button class="process-btn" type="button" data-process-target="names">Interview Names</button>
-            </div>
-
-            <section class="process-panel" data-process-panel="values">
-              <div class="stack">
-                <div>
-                  <h2 style="font-size:1rem;">Values</h2>
-                  <p class="text-muted" style="margin-top:0.25rem;">High-level cultural values your organization cares about (teamwork, generosity, valuing others).</p>
-                </div>
-                <form method="post" action="/admin/locations/{{ .Location.Number }}/candidate-values" class="stack">
-                  <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-                  <div>
-                    <label for="value_name">Value Name</label>
-                    <input id="value_name" name="name" type="text" maxlength="80" required>
-                  </div>
-                  <div>
-                    <label for="value_description">Description</label>
-                    <textarea id="value_description" name="description" maxlength="400" placeholder="What does this value mean for this location?"></textarea>
-                  </div>
-                  <div><button class="btn btn-primary" type="submit">Add Value</button></div>
-                </form>
-                <div class="stack">
-                  {{ if .CandidateValues }}
-                    {{ range .CandidateValues }}
-                      <div class="value-item stack">
-                        <div class="row" style="justify-content:space-between;">
-                          <strong>{{ .Name }}</strong>
-                          <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidate-values/{{ .ID }}/delete">
-                            <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                            <button class="btn btn-danger" type="submit">Delete</button>
-                          </form>
-                        </div>
-                        {{ if .Description }}<p class="text-muted">{{ .Description }}</p>{{ end }}
-                      </div>
-                    {{ end }}
-                  {{ else }}
-                    <p class="text-muted">No values yet. Add at least one value before interviews.</p>
-                  {{ end }}
-                </div>
-              </div>
-            </section>
-
-            <section class="process-panel" data-process-panel="questions">
-              <div class="stack">
-                <div>
-                  <h2 style="font-size:1rem;">Questions</h2>
-                  <p class="text-muted" style="margin-top:.25rem;">Required interview questions tied to a specific interview name (for example: phone interview vs face-to-face).</p>
-                </div>
-                <form method="post" action="/admin/locations/{{ .Location.Number }}/candidate-interview-questions" class="stack">
-                  <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-                  <div class="grid-2">
-                    <div>
-                      <label for="question_interview_name_id">Interview Name</label>
-                      <select id="question_interview_name_id" name="interview_name_id" required>
-                        <option value="">Select interview name</option>
-                        {{ range .InterviewNames }}
-                          <option value="{{ .ID }}">{{ .Name }}</option>
-                        {{ end }}
-                      </select>
-                    </div>
-                    <div>
-                      <label for="question_text">Question</label>
-                      <input id="question_text" name="question" type="text" maxlength="500" placeholder="Example: Tell me about a time you served a teammate." required>
-                    </div>
-                  </div>
-                  <div><button class="btn btn-primary" type="submit">Add Question</button></div>
-                </form>
-                <div class="stack">
-                  {{ if .InterviewQuestions }}
-                    {{ range .InterviewQuestions }}
-                      <div class="value-item stack">
-                        <div class="row" style="justify-content:space-between;">
-                          <strong>{{ .InterviewName }}</strong>
-                          <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidate-interview-questions/{{ .ID }}/delete">
-                            <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                            <button class="btn btn-danger" type="submit">Delete</button>
-                          </form>
-                        </div>
-                        <p>{{ .Question }}</p>
-                      </div>
-                    {{ end }}
-                  {{ else }}
-                    <p class="text-muted">No interview questions configured yet.</p>
-                  {{ end }}
-                </div>
-              </div>
-            </section>
-
-            <section class="process-panel" data-process-panel="names">
-              <div class="stack">
-                <div>
-                  <h2 style="font-size:1rem;">Interview Names</h2>
-                  <p class="text-muted" style="margin-top:.25rem;">Names of interview types (onboarding, phone interview, face-to-face).</p>
-                </div>
-                <form method="post" action="/admin/locations/{{ .Location.Number }}/candidate-interview-names" class="row">
-                  <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-                  <input type="text" name="name" maxlength="80" placeholder="Example: Onboarding Interview" required style="max-width:320px;">
-                  <button class="btn btn-primary" type="submit">Add Name</button>
-                </form>
-                <div class="stack">
-                  {{ if .InterviewNames }}
-                    {{ range .InterviewNames }}
-                      <div class="value-item row" style="justify-content:space-between;">
-                        <strong>{{ .Name }}</strong>
-                        <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidate-interview-names/{{ .ID }}/delete">
-                          <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                          <button class="btn btn-danger" type="submit">Delete</button>
-                        </form>
-                      </div>
-                    {{ end }}
-                  {{ else }}
-                    <p class="text-muted">No interview names configured yet.</p>
-                  {{ end }}
-                </div>
-              </div>
-            </section>
           </div>
         </section>
 
@@ -427,23 +298,6 @@
         });
       });
 
-      var processButtons = Array.from(document.querySelectorAll(".process-btn"));
-      var processPanels = Array.from(document.querySelectorAll(".process-panel[data-process-panel]"));
-      function showProcessPanel(name) {
-        processButtons.forEach(function (btn) {
-          btn.classList.toggle("active", btn.getAttribute("data-process-target") === name);
-        });
-        processPanels.forEach(function (panel) {
-          panel.classList.toggle("active", panel.getAttribute("data-process-panel") === name);
-        });
-      }
-      processButtons.forEach(function (btn) {
-        btn.addEventListener("click", function () {
-          showProcessPanel(btn.getAttribute("data-process-target"));
-        });
-      });
-      showProcessPanel("values");
-
       var initial = window.location.hash ? window.location.hash.slice(1) : "interviews";
       var exists = panels.some(function (panel) { return panel.getAttribute("data-panel") === initial; });
       showPanel(exists ? initial : "interviews");
@@ -458,6 +312,7 @@
           });
         });
       }
+
     })();
   </script>
 </body>

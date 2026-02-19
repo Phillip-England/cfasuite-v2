@@ -20,14 +20,14 @@
     :root {
       --bg: #ffffff; --fg: #09090b; --card: #ffffff;
       --muted: #f4f4f5; --muted-fg: #71717a; --border: #e4e4e7;
-      --primary: #ea580c; --primary-fg: #ffffff;
+      --primary: #004f71; --primary-fg: #ffffff;
       --danger: #dc2626; --success: #16a34a;
       --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
     }
     html.dark {
       --bg: #09090b; --fg: #fafafa; --card: #09090b;
       --muted: #27272a; --muted-fg: #a1a1aa; --border: #3f3f46;
-      --primary: #fb923c; --primary-fg: #431407;
+      --primary: #004f71; --primary-fg: #ffffff;
       --danger: #f87171; --success: #4ade80;
       --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
     }
@@ -128,7 +128,11 @@
           </a>
           <a class="app-card" href="/admin/locations/{{ .Location.Number }}/candidates">
             <div class="app-title">Candidates</div>
-            <p class="app-desc">Create candidates, run interviews, grade by location values, and hire or pass.</p>
+            <p class="app-desc">Create candidates, run interviews, and make hire/pass decisions.</p>
+          </a>
+          <a class="app-card" href="/admin/locations/{{ .Location.Number }}/interview-process">
+            <div class="app-title">Interview Process</div>
+            <p class="app-desc">Manage interview values, questions, and interview types used by your location.</p>
           </a>
           <a class="app-card" href="/admin/locations/{{ .Location.Number }}/settings">
             <div class="app-title">Location Settings</div>
