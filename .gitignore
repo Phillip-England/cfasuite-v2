@@ -1,2 +1,4 @@
 .env
 *.db
+e2e/.venv
+e2e/tests_py/__pycache__

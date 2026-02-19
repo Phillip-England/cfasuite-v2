@@ -67,6 +67,7 @@ type pageData struct {
 	EmployeeScorecards      []candidateView
 	CandidateValues         []candidateValueView
 	InterviewNames          []candidateInterviewNameView
+	InterviewQuestions      []candidateInterviewQuestionView
 	Candidate               *candidateView
 	Interview               *candidateInterviewView
 	EmployeeNames           []string
@@ -189,15 +190,16 @@ type publicPaperworkSubmitResponse struct {
 }
 
 type publicInterviewResponse struct {
-	LocationNumber           string               `json:"locationNumber"`
-	LocationName             string               `json:"locationName"`
-	CandidateID              int64                `json:"candidateId"`
-	CandidateFirstName       string               `json:"candidateFirstName"`
-	CandidateLastName        string               `json:"candidateLastName"`
-	InterviewerTimePunchName string               `json:"interviewerTimePunchName"`
-	InterviewType            string               `json:"interviewType"`
-	ExpiresAt                string               `json:"expiresAt"`
-	Values                   []candidateValueView `json:"values"`
+	LocationNumber           string                           `json:"locationNumber"`
+	LocationName             string                           `json:"locationName"`
+	CandidateID              int64                            `json:"candidateId"`
+	CandidateFirstName       string                           `json:"candidateFirstName"`
+	CandidateLastName        string                           `json:"candidateLastName"`
+	InterviewerTimePunchName string                           `json:"interviewerTimePunchName"`
+	InterviewType            string                           `json:"interviewType"`
+	ExpiresAt                string                           `json:"expiresAt"`
+	Values                   []candidateValueView             `json:"values"`
+	Questions                []candidateInterviewQuestionView `json:"questions"`
 }
 
 type interviewLinkResponse struct {
@@ -375,14 +377,15 @@ type candidateInterviewGradeView struct {
 }
 
 type candidateInterviewView struct {
-	ID                       int64                         `json:"id"`
-	CandidateID              int64                         `json:"candidateId"`
-	LocationNumber           string                        `json:"locationNumber"`
-	InterviewerTimePunchName string                        `json:"interviewerTimePunchName"`
-	InterviewType            string                        `json:"interviewType"`
-	Notes                    string                        `json:"notes"`
-	CreatedAt                string                        `json:"createdAt"`
-	Grades                   []candidateInterviewGradeView `json:"grades"`
+	ID                       int64                                  `json:"id"`
+	CandidateID              int64                                  `json:"candidateId"`
+	LocationNumber           string                                 `json:"locationNumber"`
+	InterviewerTimePunchName string                                 `json:"interviewerTimePunchName"`
+	InterviewType            string                                 `json:"interviewType"`
+	Notes                    string                                 `json:"notes"`
+	CreatedAt                string                                 `json:"createdAt"`
+	Grades                   []candidateInterviewGradeView          `json:"grades"`
+	QuestionAnswers          []candidateInterviewQuestionAnswerView `json:"questionAnswers"`
 }
 
 type candidateInterviewNameView struct {
@@ -391,6 +394,24 @@ type candidateInterviewNameView struct {
 	Name           string `json:"name"`
 	CreatedAt      string `json:"createdAt"`
 	UpdatedAt      string `json:"updatedAt"`
+}
+
+type candidateInterviewQuestionView struct {
+	ID              int64  `json:"id"`
+	LocationNumber  string `json:"locationNumber"`
+	InterviewNameID int64  `json:"interviewNameId"`
+	InterviewName   string `json:"interviewName"`
+	Question        string `json:"question"`
+	CreatedAt       string `json:"createdAt"`
+	UpdatedAt       string `json:"updatedAt"`
+}
+
+type candidateInterviewQuestionAnswerView struct {
+	ID           int64  `json:"id"`
+	InterviewID  int64  `json:"interviewId"`
+	QuestionID   int64  `json:"questionId"`
+	QuestionText string `json:"questionText"`
+	Answer       string `json:"answer"`
 }
 
 type candidateView struct {
@@ -414,6 +435,11 @@ type candidateValuesResponse struct {
 type candidateInterviewNamesResponse struct {
 	Count int                          `json:"count"`
 	Names []candidateInterviewNameView `json:"names"`
+}
+
+type candidateInterviewQuestionsResponse struct {
+	Count     int                              `json:"count"`
+	Questions []candidateInterviewQuestionView `json:"questions"`
 }
 
 type candidatesResponse struct {
@@ -828,6 +854,10 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 			s.createCandidateInterviewNameProxy(w, r, locationNumber)
 			return
 		}
+		if locationNumber, ok := parseLocationCandidateInterviewQuestionsCreatePath(r.URL.Path); ok {
+			s.createCandidateInterviewQuestionProxy(w, r, locationNumber)
+			return
+		}
 		if locationNumber, candidateID, ok := parseLocationCandidateInterviewCreatePath(r.URL.Path); ok {
 			s.createCandidateInterviewProxy(w, r, locationNumber, candidateID)
 			return
@@ -846,6 +876,10 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 		}
 		if locationNumber, nameID, ok := parseLocationCandidateInterviewNameDeletePath(r.URL.Path); ok {
 			s.deleteCandidateInterviewNameProxy(w, r, locationNumber, nameID)
+			return
+		}
+		if locationNumber, questionID, ok := parseLocationCandidateInterviewQuestionDeletePath(r.URL.Path); ok {
+			s.deleteCandidateInterviewQuestionProxy(w, r, locationNumber, questionID)
 			return
 		}
 	}
@@ -1066,6 +1100,11 @@ func (s *server) locationCandidatesPage(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, "unable to load interview names", http.StatusBadGateway)
 		return
 	}
+	interviewQuestions, err := s.fetchLocationCandidateInterviewQuestions(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load interview questions", http.StatusBadGateway)
+		return
+	}
 	candidates, err := s.fetchLocationCandidates(r, locationNumber, false, "")
 	if err != nil {
 		http.Error(w, "unable to load candidates", http.StatusBadGateway)
@@ -1082,6 +1121,7 @@ func (s *server) locationCandidatesPage(w http.ResponseWriter, r *http.Request, 
 		CSRF:               csrfToken,
 		CandidateValues:    values,
 		InterviewNames:     interviewNames,
+		InterviewQuestions: interviewQuestions,
 		Candidates:         candidates,
 		ArchivedCandidates: archived,
 		Search:             archiveSearch,
@@ -1318,6 +1358,49 @@ func (s *server) createCandidateInterviewNameProxy(w http.ResponseWriter, r *htt
 	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?message="+url.QueryEscape("Interview name created"), http.StatusFound)
 }
 
+func (s *server) createCandidateInterviewQuestionProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	interviewNameID, _ := strconv.ParseInt(strings.TrimSpace(r.FormValue("interview_name_id")), 10, 64)
+	payload := map[string]any{
+		"interviewNameId": interviewNameID,
+		"question":        strings.TrimSpace(r.FormValue("question")),
+	}
+	body, _ := json.Marshal(payload)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidate-interview-questions", bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Unable+to+create+interview+question", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusCreated && apiResp.StatusCode != http.StatusOK {
+		msg := "unable to create interview question"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?message="+url.QueryEscape("Interview question created"), http.StatusFound)
+}
+
 func (s *server) updateCandidateValueProxy(w http.ResponseWriter, r *http.Request, locationNumber string, valueID int64) {
 	csrfToken := strings.TrimSpace(r.Header.Get(csrfHeaderName))
 	if csrfToken == "" {
@@ -1419,6 +1502,42 @@ func (s *server) deleteCandidateInterviewNameProxy(w http.ResponseWriter, r *htt
 		return
 	}
 	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?message="+url.QueryEscape("Interview name deleted"), http.StatusFound)
+}
+
+func (s *server) deleteCandidateInterviewQuestionProxy(w http.ResponseWriter, r *http.Request, locationNumber string, questionID int64) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodDelete, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidate-interview-questions/"+strconv.FormatInt(questionID, 10), nil)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Unable+to+delete+interview+question", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to delete interview question"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?message="+url.QueryEscape("Interview question deleted"), http.StatusFound)
 }
 
 func (s *server) createCandidateInterviewProxy(w http.ResponseWriter, r *http.Request, locationNumber string, candidateID int64) {
@@ -1834,14 +1953,15 @@ func (s *server) publicInterviewPage(w http.ResponseWriter, r *http.Request, tok
 		LastName:       payload.CandidateLastName,
 	}
 	if err := renderHTMLTemplate(w, s.publicInterviewTmpl, pageData{
-		Token:           token,
-		Location:        location,
-		Candidate:       candidate,
-		CandidateValues: payload.Values,
-		Employee:        &employeeView{TimePunchName: payload.InterviewerTimePunchName},
-		ReturnPath:      payload.InterviewType,
-		SuccessMessage:  r.URL.Query().Get("message"),
-		Error:           r.URL.Query().Get("error"),
+		Token:              token,
+		Location:           location,
+		Candidate:          candidate,
+		CandidateValues:    payload.Values,
+		InterviewQuestions: payload.Questions,
+		Employee:           &employeeView{TimePunchName: payload.InterviewerTimePunchName},
+		ReturnPath:         payload.InterviewType,
+		SuccessMessage:     r.URL.Query().Get("message"),
+		Error:              r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("public interview template render failed: %v", err)
@@ -4755,6 +4875,32 @@ func (s *server) fetchLocationCandidateInterviewNames(r *http.Request, number st
 	return payload.Names, nil
 }
 
+func (s *server) fetchLocationCandidateInterviewQuestions(r *http.Request, number string) ([]candidateInterviewQuestionView, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number)+"/candidate-interview-questions",
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to fetch candidate interview questions")
+	}
+	var payload candidateInterviewQuestionsResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	return payload.Questions, nil
+}
+
 func (s *server) fetchLocationCandidates(r *http.Request, number string, archived bool, search string) ([]candidateView, error) {
 	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(number) + "/candidates?archived=" + strconv.FormatBool(archived)
 	if strings.TrimSpace(search) != "" {
@@ -5472,6 +5618,20 @@ func parseLocationCandidateInterviewNamesCreatePath(path string) (string, bool) 
 	return locationNumber, true
 }
 
+func parseLocationCandidateInterviewQuestionsCreatePath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 2 || parts[1] != "candidate-interview-questions" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
 func parseLocationCandidateValueUpdatePath(path string) (string, int64, bool) {
 	trimmed := strings.TrimPrefix(path, "/admin/locations/")
 	trimmed = strings.Trim(trimmed, "/")
@@ -5524,6 +5684,24 @@ func parseLocationCandidateInterviewNameDeletePath(path string) (string, int64, 
 		return "", 0, false
 	}
 	return locationNumber, nameID, true
+}
+
+func parseLocationCandidateInterviewQuestionDeletePath(path string) (string, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "candidate-interview-questions" || parts[3] != "delete" {
+		return "", 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, false
+	}
+	questionID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || questionID <= 0 {
+		return "", 0, false
+	}
+	return locationNumber, questionID, true
 }
 
 func parseLocationCandidateInterviewCreatePath(path string) (string, int64, bool) {

@@ -146,6 +146,7 @@ type createCandidateInterviewRequest struct {
 	InterviewType            string            `json:"interviewType"`
 	Grades                   map[string]string `json:"grades"`
 	GradeComments            map[string]string `json:"gradeComments"`
+	QuestionAnswers          map[string]string `json:"questionAnswers"`
 	Notes                    string            `json:"notes"`
 }
 
@@ -156,6 +157,11 @@ type updateCandidateDecisionRequest struct {
 type createCandidateInterviewLinkRequest struct {
 	InterviewerTimePunchName string `json:"interviewerTimePunchName"`
 	InterviewType            string `json:"interviewType"`
+}
+
+type createCandidateInterviewQuestionRequest struct {
+	InterviewNameID int64  `json:"interviewNameId"`
+	Question        string `json:"question"`
 }
 
 type createUniformOrderRequest struct {
@@ -454,14 +460,38 @@ type candidateInterviewName struct {
 }
 
 type candidateInterview struct {
-	ID                       int64                     `json:"id"`
-	CandidateID              int64                     `json:"candidateId"`
-	LocationNumber           string                    `json:"locationNumber"`
-	InterviewerTimePunchName string                    `json:"interviewerTimePunchName"`
-	InterviewType            string                    `json:"interviewType"`
-	Notes                    string                    `json:"notes"`
-	CreatedAt                time.Time                 `json:"createdAt"`
-	Grades                   []candidateInterviewGrade `json:"grades"`
+	ID                       int64                              `json:"id"`
+	CandidateID              int64                              `json:"candidateId"`
+	LocationNumber           string                             `json:"locationNumber"`
+	InterviewerTimePunchName string                             `json:"interviewerTimePunchName"`
+	InterviewType            string                             `json:"interviewType"`
+	Notes                    string                             `json:"notes"`
+	CreatedAt                time.Time                          `json:"createdAt"`
+	Grades                   []candidateInterviewGrade          `json:"grades"`
+	QuestionAnswers          []candidateInterviewQuestionAnswer `json:"questionAnswers,omitempty"`
+}
+
+type candidateInterviewQuestion struct {
+	ID              int64     `json:"id"`
+	LocationNumber  string    `json:"locationNumber"`
+	InterviewNameID int64     `json:"interviewNameId"`
+	InterviewName   string    `json:"interviewName"`
+	Question        string    `json:"question"`
+	CreatedAt       time.Time `json:"createdAt"`
+	UpdatedAt       time.Time `json:"updatedAt"`
+}
+
+type candidateInterviewQuestionAnswer struct {
+	ID           int64  `json:"id"`
+	InterviewID  int64  `json:"interviewId"`
+	QuestionID   int64  `json:"questionId"`
+	QuestionText string `json:"questionText"`
+	Answer       string `json:"answer"`
+}
+
+type candidateInterviewQuestionsResponse struct {
+	Count     int                          `json:"count"`
+	Questions []candidateInterviewQuestion `json:"questions"`
 }
 
 type candidateInterviewGrade struct {
@@ -765,6 +795,20 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	if len(parts) == 2 && parts[1] == "candidate-interview-questions" {
+		switch r.Method {
+		case http.MethodGet:
+			s.listLocationCandidateInterviewQuestions(w, r, locationNumber)
+			return
+		case http.MethodPost:
+			s.createLocationCandidateInterviewQuestion(w, r, locationNumber)
+			return
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+	}
+
 	if len(parts) == 3 && parts[1] == "candidate-interview-names" {
 		nameID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
 		if err != nil || nameID <= 0 {
@@ -796,6 +840,20 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
+	}
+
+	if len(parts) == 3 && parts[1] == "candidate-interview-questions" {
+		questionID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+		if err != nil || questionID <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid candidate interview question id")
+			return
+		}
+		if r.Method != http.MethodDelete {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		s.deleteLocationCandidateInterviewQuestion(w, r, locationNumber, questionID)
+		return
 	}
 
 	if len(parts) == 2 && parts[1] == "candidates" {
@@ -1763,6 +1821,29 @@ func (s *server) publicCandidateInterviewHandler(w http.ResponseWriter, r *http.
 		writeError(w, http.StatusBadRequest, "candidate values are not configured for this location")
 		return
 	}
+	interviewName, err := s.resolveInterviewNameForLocation(r.Context(), record.LocationNumber, record.InterviewType)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load interview names")
+		return
+	}
+	if interviewName == "" {
+		writeError(w, http.StatusBadRequest, "this interview link references an invalid interview name")
+		return
+	}
+	interviewNameID, err := s.resolveInterviewNameIDForLocation(r.Context(), record.LocationNumber, interviewName)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load interview names")
+		return
+	}
+	questions, err := s.store.listCandidateInterviewQuestions(r.Context(), record.LocationNumber, interviewNameID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load interview questions")
+		return
+	}
+	if len(questions) == 0 {
+		writeError(w, http.StatusBadRequest, "create at least one interview question for this interview name before interviewing")
+		return
+	}
 	switch r.Method {
 	case http.MethodGet:
 		loc, err := s.store.getLocationByNumber(r.Context(), record.LocationNumber)
@@ -1784,6 +1865,7 @@ func (s *server) publicCandidateInterviewHandler(w http.ResponseWriter, r *http.
 			"interviewType":            record.InterviewType,
 			"expiresAt":                record.ExpiresAt.Format(time.RFC3339),
 			"values":                   values,
+			"questions":                questions,
 		})
 	case http.MethodPost:
 		if err := r.ParseForm(); err != nil {
@@ -1810,6 +1892,23 @@ func (s *server) publicCandidateInterviewHandler(w http.ResponseWriter, r *http.
 				Score:       letterGradeScore(grade),
 			})
 		}
+		questionAnswers := make([]candidateInterviewQuestionAnswer, 0, len(questions))
+		for _, question := range questions {
+			answer := strings.TrimSpace(r.PostForm.Get("question_" + strconv.FormatInt(question.ID, 10)))
+			if answer == "" {
+				writeError(w, http.StatusBadRequest, "every interview question must be answered")
+				return
+			}
+			if len([]rune(answer)) > 3000 {
+				writeError(w, http.StatusBadRequest, "interview question answers must be 3000 characters or fewer")
+				return
+			}
+			questionAnswers = append(questionAnswers, candidateInterviewQuestionAnswer{
+				QuestionID:   question.ID,
+				QuestionText: question.Question,
+				Answer:       answer,
+			})
+		}
 		notes := strings.TrimSpace(r.PostForm.Get("notes"))
 		if len([]rune(notes)) > 3000 {
 			writeError(w, http.StatusBadRequest, "notes must be 3000 characters or fewer")
@@ -1823,6 +1922,7 @@ func (s *server) publicCandidateInterviewHandler(w http.ResponseWriter, r *http.
 			Notes:                    notes,
 			CreatedAt:                time.Now().UTC(),
 			Grades:                   interviewGrades,
+			QuestionAnswers:          questionAnswers,
 		}
 		id, err := s.store.createCandidateInterview(r.Context(), interview)
 		if err != nil {
@@ -3723,6 +3823,94 @@ func (s *server) deleteLocationCandidateInterviewName(w http.ResponseWriter, r *
 	writeJSON(w, http.StatusOK, map[string]string{"message": "interview name deleted"})
 }
 
+func (s *server) listLocationCandidateInterviewQuestions(w http.ResponseWriter, r *http.Request, number string) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	questions, err := s.store.listCandidateInterviewQuestions(r.Context(), number, 0)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load interview questions")
+		return
+	}
+	writeJSON(w, http.StatusOK, candidateInterviewQuestionsResponse{
+		Count:     len(questions),
+		Questions: questions,
+	})
+}
+
+func (s *server) createLocationCandidateInterviewQuestion(w http.ResponseWriter, r *http.Request, number string) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	var req createCandidateInterviewQuestionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	req.Question = strings.TrimSpace(req.Question)
+	if req.InterviewNameID <= 0 {
+		writeError(w, http.StatusBadRequest, "interview name is required")
+		return
+	}
+	if req.Question == "" {
+		writeError(w, http.StatusBadRequest, "question is required")
+		return
+	}
+	if len([]rune(req.Question)) > 500 {
+		writeError(w, http.StatusBadRequest, "question must be 500 characters or fewer")
+		return
+	}
+	interviewName, err := s.resolveInterviewNameByIDForLocation(r.Context(), number, req.InterviewNameID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load interview names")
+		return
+	}
+	if interviewName == "" {
+		writeError(w, http.StatusBadRequest, "select a valid interview name for this location")
+		return
+	}
+	record := candidateInterviewQuestion{
+		LocationNumber:  number,
+		InterviewNameID: req.InterviewNameID,
+		InterviewName:   interviewName,
+		Question:        req.Question,
+		CreatedAt:       time.Now().UTC(),
+		UpdatedAt:       time.Now().UTC(),
+	}
+	id, err := s.store.createCandidateInterviewQuestion(r.Context(), record)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to create interview question")
+		return
+	}
+	record.ID = id
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"message":  "interview question created",
+		"question": record,
+	})
+}
+
+func (s *server) deleteLocationCandidateInterviewQuestion(w http.ResponseWriter, r *http.Request, number string, questionID int64) {
+	if err := s.store.deleteCandidateInterviewQuestion(r.Context(), number, questionID); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "interview question not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to delete interview question")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "interview question deleted"})
+}
+
 func (s *server) listLocationCandidates(w http.ResponseWriter, r *http.Request, number string) {
 	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
 		if errors.Is(err, errNotFound) {
@@ -3881,6 +4069,20 @@ func (s *server) createLocationCandidateInterview(w http.ResponseWriter, r *http
 		writeError(w, http.StatusBadRequest, "select a valid interview name for this location")
 		return
 	}
+	interviewNameID, err := s.resolveInterviewNameIDForLocation(r.Context(), number, interviewName)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load interview names")
+		return
+	}
+	questions, err := s.store.listCandidateInterviewQuestions(r.Context(), number, interviewNameID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load interview questions")
+		return
+	}
+	if len(questions) == 0 {
+		writeError(w, http.StatusBadRequest, "create at least one interview question for this interview name before interviewing")
+		return
+	}
 	values, err := s.store.listCandidateValues(r.Context(), number)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "unable to load candidate values")
@@ -3929,6 +4131,32 @@ func (s *server) createLocationCandidateInterview(w http.ResponseWriter, r *http
 			Score:       letterGradeScore(grade),
 		})
 	}
+	questionAnswersByID := make(map[int64]string, len(req.QuestionAnswers))
+	for rawQuestionID, rawAnswer := range req.QuestionAnswers {
+		questionID, parseErr := strconv.ParseInt(strings.TrimSpace(rawQuestionID), 10, 64)
+		if parseErr != nil || questionID <= 0 {
+			continue
+		}
+		answer := strings.TrimSpace(rawAnswer)
+		if len([]rune(answer)) > 3000 {
+			writeError(w, http.StatusBadRequest, "interview question answers must be 3000 characters or fewer")
+			return
+		}
+		questionAnswersByID[questionID] = answer
+	}
+	questionAnswers := make([]candidateInterviewQuestionAnswer, 0, len(questions))
+	for _, question := range questions {
+		answer := strings.TrimSpace(questionAnswersByID[question.ID])
+		if answer == "" {
+			writeError(w, http.StatusBadRequest, "every interview question must be answered")
+			return
+		}
+		questionAnswers = append(questionAnswers, candidateInterviewQuestionAnswer{
+			QuestionID:   question.ID,
+			QuestionText: question.Question,
+			Answer:       answer,
+		})
+	}
 	now := time.Now().UTC()
 	interview := candidateInterview{
 		CandidateID:              candidateID,
@@ -3938,6 +4166,7 @@ func (s *server) createLocationCandidateInterview(w http.ResponseWriter, r *http
 		Notes:                    req.Notes,
 		CreatedAt:                now,
 		Grades:                   interviewGrades,
+		QuestionAnswers:          questionAnswers,
 	}
 	id, err := s.store.createCandidateInterview(r.Context(), interview)
 	if err != nil {
@@ -3995,6 +4224,20 @@ func (s *server) createLocationCandidateInterviewLink(w http.ResponseWriter, r *
 	}
 	if interviewName == "" {
 		writeError(w, http.StatusBadRequest, "select a valid interview name for this location")
+		return
+	}
+	interviewNameID, err := s.resolveInterviewNameIDForLocation(r.Context(), number, interviewName)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load interview names")
+		return
+	}
+	questions, err := s.store.listCandidateInterviewQuestions(r.Context(), number, interviewNameID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load interview questions")
+		return
+	}
+	if len(questions) == 0 {
+		writeError(w, http.StatusBadRequest, "create at least one interview question for this interview name before generating links")
 		return
 	}
 	expiresAt := time.Now().UTC().Add(72 * time.Hour)
@@ -5511,6 +5754,17 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			FOREIGN KEY(location_number) REFERENCES locations(number) ON DELETE CASCADE
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_candidate_interview_names_location ON location_candidate_interview_names(location_number, id ASC);`,
+		`CREATE TABLE IF NOT EXISTS location_candidate_interview_questions (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			location_number TEXT NOT NULL,
+			interview_name_id INTEGER NOT NULL,
+			question TEXT NOT NULL,
+			created_at INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL,
+			FOREIGN KEY(location_number) REFERENCES locations(number) ON DELETE CASCADE,
+			FOREIGN KEY(interview_name_id) REFERENCES location_candidate_interview_names(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_candidate_interview_questions_location_name ON location_candidate_interview_questions(location_number, interview_name_id, id ASC);`,
 		`CREATE TABLE IF NOT EXISTS location_candidates (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			location_number TEXT NOT NULL,
@@ -5548,6 +5802,17 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			FOREIGN KEY(value_id) REFERENCES location_candidate_values(id) ON DELETE CASCADE
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_candidate_interview_grades_interview ON location_candidate_interview_grades(interview_id, id ASC);`,
+		`CREATE TABLE IF NOT EXISTS location_candidate_interview_question_answers (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			interview_id INTEGER NOT NULL,
+			question_id INTEGER NOT NULL,
+			answer TEXT NOT NULL,
+			created_at INTEGER NOT NULL,
+			UNIQUE(interview_id, question_id),
+			FOREIGN KEY(interview_id) REFERENCES location_candidate_interviews(id) ON DELETE CASCADE,
+			FOREIGN KEY(question_id) REFERENCES location_candidate_interview_questions(id) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_candidate_interview_question_answers_interview ON location_candidate_interview_question_answers(interview_id, id ASC);`,
 		`CREATE TABLE IF NOT EXISTS location_candidate_interview_tokens (
 			token TEXT PRIMARY KEY,
 			location_number TEXT NOT NULL,
@@ -5969,9 +6234,17 @@ func (s *sqliteStore) deleteLocation(ctx context.Context, number string) error {
 			FROM location_candidate_interviews
 			WHERE location_number = @number
 		);
+		DELETE FROM location_candidate_interview_question_answers
+		WHERE interview_id IN (
+			SELECT id
+			FROM location_candidate_interviews
+			WHERE location_number = @number
+		);
 		DELETE FROM location_candidate_interviews
 		WHERE location_number = @number;
 		DELETE FROM location_candidates
+		WHERE location_number = @number;
+		DELETE FROM location_candidate_interview_questions
 		WHERE location_number = @number;
 		DELETE FROM location_candidate_values
 		WHERE location_number = @number;
@@ -6512,6 +6785,132 @@ func (s *sqliteStore) deleteCandidateInterviewName(ctx context.Context, location
 	return err
 }
 
+func (s *sqliteStore) listCandidateInterviewQuestions(ctx context.Context, locationNumber string, interviewNameID int64) ([]candidateInterviewQuestion, error) {
+	query := `
+		SELECT q.id, q.location_number, q.interview_name_id, q.question, q.created_at, q.updated_at, n.name AS interview_name
+		FROM location_candidate_interview_questions q
+		INNER JOIN location_candidate_interview_names n ON n.id = q.interview_name_id
+		WHERE q.location_number = @location_number
+	`
+	params := map[string]string{"location_number": locationNumber}
+	if interviewNameID > 0 {
+		query += " AND q.interview_name_id = @interview_name_id"
+		params["interview_name_id"] = strconv.FormatInt(interviewNameID, 10)
+	}
+	query += " ORDER BY q.interview_name_id ASC, q.id ASC;"
+	rows, err := s.query(ctx, query, params)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]candidateInterviewQuestion, 0, len(rows))
+	for _, row := range rows {
+		id, err := valueAsInt64(row["id"])
+		if err != nil {
+			return nil, err
+		}
+		loc, err := valueAsString(row["location_number"])
+		if err != nil {
+			return nil, err
+		}
+		nameID, err := valueAsInt64(row["interview_name_id"])
+		if err != nil {
+			return nil, err
+		}
+		name, err := valueAsString(row["interview_name"])
+		if err != nil {
+			return nil, err
+		}
+		question, err := valueAsString(row["question"])
+		if err != nil {
+			return nil, err
+		}
+		createdAtUnix, err := valueAsInt64(row["created_at"])
+		if err != nil {
+			return nil, err
+		}
+		updatedAtUnix, err := valueAsInt64(row["updated_at"])
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, candidateInterviewQuestion{
+			ID:              id,
+			LocationNumber:  loc,
+			InterviewNameID: nameID,
+			InterviewName:   name,
+			Question:        question,
+			CreatedAt:       time.Unix(createdAtUnix, 0).UTC(),
+			UpdatedAt:       time.Unix(updatedAtUnix, 0).UTC(),
+		})
+	}
+	return out, nil
+}
+
+func (s *sqliteStore) createCandidateInterviewQuestion(ctx context.Context, question candidateInterviewQuestion) (int64, error) {
+	now := time.Now().UTC().Unix()
+	_, err := s.exec(ctx, `
+		INSERT INTO location_candidate_interview_questions (location_number, interview_name_id, question, created_at, updated_at)
+		VALUES (@location_number, @interview_name_id, @question, @created_at, @updated_at);
+	`, map[string]string{
+		"location_number":   question.LocationNumber,
+		"interview_name_id": strconv.FormatInt(question.InterviewNameID, 10),
+		"question":          strings.TrimSpace(question.Question),
+		"created_at":        strconv.FormatInt(now, 10),
+		"updated_at":        strconv.FormatInt(now, 10),
+	})
+	if err != nil {
+		return 0, err
+	}
+	rows, err := s.query(ctx, `
+		SELECT id
+		FROM location_candidate_interview_questions
+		WHERE location_number = @location_number AND interview_name_id = @interview_name_id
+		ORDER BY id DESC
+		LIMIT 1;
+	`, map[string]string{
+		"location_number":   question.LocationNumber,
+		"interview_name_id": strconv.FormatInt(question.InterviewNameID, 10),
+	})
+	if err != nil {
+		return 0, err
+	}
+	if len(rows) == 0 {
+		return 0, errNotFound
+	}
+	return valueAsInt64(rows[0]["id"])
+}
+
+func (s *sqliteStore) deleteCandidateInterviewQuestion(ctx context.Context, locationNumber string, questionID int64) error {
+	rows, err := s.query(ctx, `
+		SELECT COUNT(*) AS count
+		FROM location_candidate_interview_questions
+		WHERE id = @id AND location_number = @location_number;
+	`, map[string]string{
+		"id":              strconv.FormatInt(questionID, 10),
+		"location_number": locationNumber,
+	})
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return errNotFound
+	}
+	count, err := valueAsInt64(rows[0]["count"])
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return errNotFound
+	}
+	_, err = s.exec(ctx, `
+		DELETE FROM location_candidate_interview_questions
+		WHERE id = @id AND location_number = @location_number;
+	`, map[string]string{
+		"id":              strconv.FormatInt(questionID, 10),
+		"location_number": locationNumber,
+	})
+	return err
+}
+
 func (s *sqliteStore) createCandidate(ctx context.Context, candidateRecord candidate) (int64, error) {
 	now := time.Now().UTC().Unix()
 	_, err := s.exec(ctx, `
@@ -6744,6 +7143,16 @@ func (s *sqliteStore) createCandidateInterview(ctx context.Context, interview ca
 			@created_at
 		);`
 	}
+	for idx := range interview.QuestionAnswers {
+		statement += `
+		INSERT INTO location_candidate_interview_question_answers (interview_id, question_id, answer, created_at)
+		VALUES (
+			last_insert_rowid(),
+			@question_id_` + strconv.Itoa(idx) + `,
+			@question_answer_` + strconv.Itoa(idx) + `,
+			@created_at
+		);`
+	}
 	statement += `
 		UPDATE location_candidates
 		SET updated_at = @updated_at
@@ -6763,6 +7172,10 @@ func (s *sqliteStore) createCandidateInterview(ctx context.Context, interview ca
 		params["value_id_"+strconv.Itoa(idx)] = strconv.FormatInt(grade.ValueID, 10)
 		params["letter_grade_"+strconv.Itoa(idx)] = grade.LetterGrade
 		params["grade_comment_"+strconv.Itoa(idx)] = strings.TrimSpace(grade.Comment)
+	}
+	for idx, answer := range interview.QuestionAnswers {
+		params["question_id_"+strconv.Itoa(idx)] = strconv.FormatInt(answer.QuestionID, 10)
+		params["question_answer_"+strconv.Itoa(idx)] = strings.TrimSpace(answer.Answer)
 	}
 	if _, err := s.exec(ctx, statement, params); err != nil {
 		return 0, err
@@ -6832,6 +7245,10 @@ func (s *sqliteStore) listCandidateInterviews(ctx context.Context, locationNumbe
 		if err != nil {
 			return nil, err
 		}
+		questionAnswers, err := s.listCandidateInterviewQuestionAnswers(ctx, id)
+		if err != nil {
+			return nil, err
+		}
 		out = append(out, candidateInterview{
 			ID:                       id,
 			CandidateID:              cid,
@@ -6841,6 +7258,7 @@ func (s *sqliteStore) listCandidateInterviews(ctx context.Context, locationNumbe
 			Notes:                    notes,
 			CreatedAt:                time.Unix(createdAtUnix, 0).UTC(),
 			Grades:                   grades,
+			QuestionAnswers:          questionAnswers,
 		})
 	}
 	return out, nil
@@ -6893,6 +7311,52 @@ func (s *sqliteStore) listCandidateInterviewGrades(ctx context.Context, intervie
 			LetterGrade: letterGrade,
 			Comment:     gradeComment,
 			Score:       letterGradeScore(letterGrade),
+		})
+	}
+	return out, nil
+}
+
+func (s *sqliteStore) listCandidateInterviewQuestionAnswers(ctx context.Context, interviewID int64) ([]candidateInterviewQuestionAnswer, error) {
+	rows, err := s.query(ctx, `
+		SELECT a.id, a.interview_id, a.question_id, a.answer, q.question
+		FROM location_candidate_interview_question_answers a
+		INNER JOIN location_candidate_interview_questions q ON q.id = a.question_id
+		WHERE a.interview_id = @interview_id
+		ORDER BY a.id ASC;
+	`, map[string]string{
+		"interview_id": strconv.FormatInt(interviewID, 10),
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]candidateInterviewQuestionAnswer, 0, len(rows))
+	for _, row := range rows {
+		id, err := valueAsInt64(row["id"])
+		if err != nil {
+			return nil, err
+		}
+		iid, err := valueAsInt64(row["interview_id"])
+		if err != nil {
+			return nil, err
+		}
+		questionID, err := valueAsInt64(row["question_id"])
+		if err != nil {
+			return nil, err
+		}
+		answer, err := valueAsString(row["answer"])
+		if err != nil {
+			return nil, err
+		}
+		questionText, err := valueAsString(row["question"])
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, candidateInterviewQuestionAnswer{
+			ID:           id,
+			InterviewID:  iid,
+			QuestionID:   questionID,
+			QuestionText: questionText,
+			Answer:       answer,
 		})
 	}
 	return out, nil
@@ -10779,6 +11243,39 @@ func (s *server) resolveInterviewNameForLocation(ctx context.Context, locationNu
 		}
 	}
 	return "", nil
+}
+
+func (s *server) resolveInterviewNameByIDForLocation(ctx context.Context, locationNumber string, interviewNameID int64) (string, error) {
+	if interviewNameID <= 0 {
+		return "", nil
+	}
+	names, err := s.store.listCandidateInterviewNames(ctx, locationNumber)
+	if err != nil {
+		return "", err
+	}
+	for _, name := range names {
+		if name.ID == interviewNameID {
+			return strings.TrimSpace(name.Name), nil
+		}
+	}
+	return "", nil
+}
+
+func (s *server) resolveInterviewNameIDForLocation(ctx context.Context, locationNumber, raw string) (int64, error) {
+	target := strings.TrimSpace(raw)
+	if target == "" {
+		return 0, nil
+	}
+	names, err := s.store.listCandidateInterviewNames(ctx, locationNumber)
+	if err != nil {
+		return 0, err
+	}
+	for _, name := range names {
+		if strings.EqualFold(strings.TrimSpace(name.Name), target) {
+			return name.ID, nil
+		}
+	}
+	return 0, nil
 }
 
 func candidateAverageGradePercent(interviews []candidateInterview) float64 {

@@ -88,40 +88,6 @@
       font-weight: 900;
       margin-left: 2px;
     }
-    .completion-strip {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 6px;
-      margin-bottom: 10px;
-    }
-    .completion-item {
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 8px 10px;
-      background: var(--soft);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.82rem;
-      font-weight: 800;
-    }
-    .completion-item.complete {
-      border-color: var(--ok-line);
-      background: var(--ok-bg);
-      color: var(--ok-fg);
-    }
-    .completion-item.incomplete {
-      border-color: var(--warn-line);
-      background: var(--warn-bg);
-      color: var(--warn-fg);
-    }
-    .completion-item .state {
-      font-size: 0.78rem;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-    }
     .personal-card,
     .instruction-card,
     .doc-upload-grid {
@@ -412,24 +378,7 @@
     <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})<br>Employee: <strong>{{ .Employee.FirstName }} {{ .Employee.LastName }}</strong></p>
     {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
     {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
-    <section class="completion-strip">
-      <div id="status-i9" class="completion-item incomplete">
-        <span>I-9</span>
-        <span class="state">Incomplete</span>
-      </div>
-      <div id="status-legal" class="completion-item incomplete">
-        <span>Legal Documents</span>
-        <span class="state">Incomplete</span>
-      </div>
-      <div id="status-w4" class="completion-item incomplete">
-        <span>W-4</span>
-        <span class="state">Incomplete</span>
-      </div>
-      <div id="status-signature" class="completion-item incomplete">
-        <span>Signature</span>
-        <span class="state">Incomplete</span>
-      </div>
-    </section>
+
 
     <div class="switch">
       <button id="show-i9" type="button" class="active">I-9</button>
@@ -625,24 +574,12 @@
       const signaturePanel = document.getElementById("panel-signature");
       const paperworkTarget = document.getElementById("paperwork_target");
       const paperworkSubmitBtn = document.getElementById("paperwork-submit-btn");
-      const statusI9 = document.getElementById("status-i9");
-      const statusLegal = document.getElementById("status-legal");
-      const statusW4 = document.getElementById("status-w4");
-      const statusSignature = document.getElementById("status-signature");
       let ink = false;
       function hasText(id) {
         return (document.getElementById(id)?.value || "").trim() !== "";
       }
       function hasSegmented(ids, lengths) {
         return ids.every((id, idx) => digitsOnly(document.getElementById(id)?.value || "").length === lengths[idx]);
-      }
-      function setCompletionState(el, complete, missingCount) {
-        if (!el) return;
-        el.classList.toggle("complete", complete);
-        el.classList.toggle("incomplete", !complete);
-        const state = el.querySelector(".state");
-        if (!state) return;
-        state.textContent = complete ? "Complete" : `Missing ${missingCount}`;
       }
       function setSectionButtonState(btn, complete) {
         if (!btn) return;
@@ -873,10 +810,6 @@
         const legal = getLegalDocsCompletion();
         const w4 = getW4Completion();
         const signature = getSignatureCompletion();
-        setCompletionState(statusI9, i9.complete, i9.missing);
-        setCompletionState(statusLegal, legal.complete, legal.complete ? 0 : 1);
-        setCompletionState(statusW4, w4.complete, w4.missing);
-        setCompletionState(statusSignature, signature.complete, signature.missing);
         setSectionButtonState(i9Btn, i9.complete);
         setSectionButtonState(legalBtn, legal.complete);
         setSectionButtonState(w4Btn, w4.complete);

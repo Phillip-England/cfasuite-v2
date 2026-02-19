@@ -80,6 +80,24 @@
             </div>
           </article>
         {{ end }}
+        <section class="stack">
+          <h2 style="font-size:1rem;">Interview Questions</h2>
+          {{ if .InterviewQuestions }}
+            {{ range .InterviewQuestions }}
+              <article class="value-card stack">
+                <div>
+                  <h2 style="font-size:1rem;">{{ .Question }}</h2>
+                </div>
+                <div>
+                  <label for="question_{{ .ID }}">Answer (required, up to 3000 chars)</label>
+                  <textarea id="question_{{ .ID }}" name="question_{{ .ID }}" maxlength="3000" required placeholder="Enter interview response"></textarea>
+                </div>
+              </article>
+            {{ end }}
+          {{ else }}
+            <p class="meta">No interview questions are configured for this interview type.</p>
+          {{ end }}
+        </section>
         <div>
           <label for="notes">Overall Interview Notes</label>
           <textarea id="notes" name="notes" maxlength="3000" placeholder="Optional overall comments."></textarea>

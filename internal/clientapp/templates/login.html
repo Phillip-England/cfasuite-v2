@@ -133,14 +133,28 @@
             >
           </label>
           <button
+            id="login-btn"
             type="submit"
             class="w-full h-10 px-4 rounded-md bg-orange-600 hover:bg-orange-700 text-white text-sm font-semibold transition-colors"
           >Continue</button>
-          <p class="error-msg">{{ .Error }}</p>
+          <p class="error-msg" aria-live="polite">{{ .Error }}</p>
         </form>
       </div>
     </div>
   </div>
+
+  <script>
+    (function () {
+      var form = document.querySelector("form");
+      var btn = document.getElementById("login-btn");
+      if (form && btn) {
+        form.addEventListener("submit", function () {
+          btn.disabled = true;
+          btn.textContent = "Signing in\u2026";
+        });
+      }
+    })();
+  </script>
 
   <script>
     (function () {

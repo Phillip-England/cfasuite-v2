@@ -86,6 +86,30 @@
           <div class="empty">No grades are recorded for this interview.</div>
         {{ end }}
       </section>
+
+      <section class="stack">
+        <h2 style="font-size:1rem;">Question Answers</h2>
+        {{ if .Interview.QuestionAnswers }}
+          <table>
+            <thead>
+              <tr>
+                <th>Question</th>
+                <th>Answer</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{ range .Interview.QuestionAnswers }}
+                <tr>
+                  <td>{{ .QuestionText }}</td>
+                  <td>{{ .Answer }}</td>
+                </tr>
+              {{ end }}
+            </tbody>
+          </table>
+        {{ else }}
+          <div class="empty">No question answers are recorded for this interview.</div>
+        {{ end }}
+      </section>
     </section>
   </div>
 </body>

@@ -257,7 +257,7 @@
   <section class="panel">
     <p class="eyebrow">Admin Portal</p>
     <h1>Create Chick-fil-A Location</h1>
-    <p class="subtext">Use this form to quickly add a location with a friendly display name and store number. No database persistence yet, this is API-backed in memory only.</p>
+    <p class="subtext">Use this form to add a location. All fields are required for I-9 and W-4 compliance.</p>
 
     <form id="create-location-form">
       <div class="grid">
@@ -270,6 +270,40 @@
           <input id="number" name="number" type="text" placeholder="Example: TN-1024" required>
         </label>
       </div>
+      <div class="grid">
+        <label>
+          Employer Representative Signature
+          <input id="employer_rep_signature" name="employer_rep_signature" type="text" placeholder="Example: John Smith" required>
+        </label>
+        <label>
+          Business / Organization Name
+          <input id="business_name" name="business_name" type="text" placeholder="Example: Chick-fil-A LLC" required>
+        </label>
+      </div>
+      <div class="grid">
+        <label>
+          Business Street
+          <input id="business_street" name="business_street" type="text" placeholder="Example: 123 Main St" required>
+        </label>
+        <label>
+          Business City
+          <input id="business_city" name="business_city" type="text" placeholder="Example: Nashville" required>
+        </label>
+      </div>
+      <div class="grid">
+        <label>
+          Business State
+          <input id="business_state" name="business_state" type="text" placeholder="Example: TN" required>
+        </label>
+        <label>
+          Business EIN
+          <div style="display:flex;align-items:center;gap:6px;">
+            <input id="business_ein_1" name="business_ein_1" type="text" placeholder="12" maxlength="2" style="width:64px;" required>
+            <span>–</span>
+            <input id="business_ein_2" name="business_ein_2" type="text" placeholder="3456789" maxlength="7" style="flex:1;" required>
+          </div>
+        </label>
+      </div>
 
       <button id="submit-btn" type="submit">Create Location</button>
       <p id="status" class="status" aria-live="polite"></p>
@@ -277,6 +311,17 @@
 
     <p class="meta">Requests are secured with server-side session checks and CSRF verification.</p>
   </section>
+
+  {{ if .Locations }}
+  <section class="panel" style="margin-top:24px;">
+    <p class="eyebrow">Existing Locations</p>
+    <ul style="list-style:none;margin:0;padding:0;display:grid;gap:10px;">
+      {{ range .Locations }}
+      <li><a class="location-link" href="/admin/locations/{{ .Number }}" style="font-weight:700;color:var(--brand);">{{ .Name }} &mdash; {{ .Number }}</a></li>
+      {{ end }}
+    </ul>
+  </section>
+  {{ end }}
 
   <script>
     const form = document.getElementById("create-location-form");
@@ -292,9 +337,17 @@
       statusEl.className = "status";
       submitBtn.disabled = true;
 
+      const ein1 = document.getElementById("business_ein_1").value.trim();
+      const ein2 = document.getElementById("business_ein_2").value.trim();
       const payload = {
         name: document.getElementById("name").value.trim(),
-        number: document.getElementById("number").value.trim()
+        number: document.getElementById("number").value.trim(),
+        employerRepSignature: document.getElementById("employer_rep_signature").value.trim(),
+        businessName: document.getElementById("business_name").value.trim(),
+        businessStreet: document.getElementById("business_street").value.trim(),
+        businessCity: document.getElementById("business_city").value.trim(),
+        businessState: document.getElementById("business_state").value.trim(),
+        businessEin: ein1 + (ein2 ? "-" + ein2 : "")
       };
 
       try {
@@ -313,7 +366,7 @@
           throw new Error(message);
         }
 
-        statusEl.textContent = "Location created successfully.";
+        statusEl.textContent = `Location ${payload.number} (${payload.name}) created successfully.`;
         statusEl.classList.add("ok");
         form.reset();
       } catch (error) {

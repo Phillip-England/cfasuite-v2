@@ -52,17 +52,42 @@
     .btn-outline { background-color: transparent; color: var(--fg); border-color: var(--border); }
     .btn-danger { background-color: transparent; color: var(--danger); border-color: var(--danger); }
     .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-    .pill { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 999px; padding: 0.125rem 0.625rem; font-size: 0.75rem; color: var(--muted-fg); }
     .alert { border-radius: 0.5rem; padding: 0.625rem 0.75rem; font-size: 0.875rem; border: 1px solid var(--border); }
     .alert-success { border-color: color-mix(in srgb, var(--success) 35%, var(--border)); color: var(--success); }
     .alert-error { border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); color: var(--danger); }
     .back { font-size: 0.8125rem; font-weight: 500; color: var(--muted-fg); display: inline-flex; align-items: center; margin-bottom: 1rem; text-decoration: none; }
-    .candidate-card { border: 1px solid var(--border); border-radius: 0.75rem; padding: 1rem; background: color-mix(in srgb, var(--card) 94%, var(--muted)); }
     .value-item { border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.75rem; }
     .table-wrap { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; }
     th, td { text-align: left; padding: 0.625rem; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
     th { color: var(--muted-fg); font-weight: 600; }
+    .active-candidate-list { display: grid; gap: 0.5rem; }
+    .active-candidate-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.5rem;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 0.625rem;
+      padding: 0.75rem 0.875rem;
+      background: var(--card);
+      color: var(--fg);
+      text-decoration: none;
+      transition: background-color 120ms, border-color 120ms, transform 120ms;
+      cursor: pointer;
+    }
+    .active-candidate-row:hover {
+      background: color-mix(in srgb, var(--card) 92%, var(--muted));
+      border-color: var(--primary);
+      text-decoration: none;
+      transform: translateY(-1px);
+    }
+    .active-candidate-name { font-weight: 700; line-height: 1.25; }
+    .active-candidate-meta { color: var(--muted-fg); font-size: 0.8125rem; text-align: right; }
+    @media (max-width: 700px) {
+      .active-candidate-row { grid-template-columns: 1fr; }
+      .active-candidate-meta { text-align: left; }
+    }
 
     .hub { display: grid; gap: 0.75rem; grid-template-columns: 1fr; margin-top: 0.75rem; }
     @media (min-width: 640px) { .hub { grid-template-columns: repeat(4, 1fr); } }
@@ -73,6 +98,26 @@
     .hub-btn span { display: block; font-size: 0.8125rem; color: var(--muted-fg); }
     .section { display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
     .section.active { display: block; }
+    .process-hub { display: grid; gap: 0.625rem; grid-template-columns: 1fr; margin-top: 0.5rem; }
+    @media (min-width: 700px) { .process-hub { grid-template-columns: repeat(3, 1fr); } }
+    .process-btn {
+      width: 100%;
+      text-align: left;
+      padding: 0.75rem 0.875rem;
+      background-color: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      cursor: pointer;
+      font-family: inherit;
+      color: var(--fg);
+      transition: 150ms;
+      font-weight: 700;
+      font-size: 0.875rem;
+    }
+    .process-btn:hover { background-color: var(--muted); }
+    .process-btn.active { background-color: var(--muted); border-color: var(--primary); }
+    .process-panel { display: none; margin-top: 0.25rem; }
+    .process-panel.active { display: block; }
     .link-box { border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.75rem; background: color-mix(in srgb, var(--card) 96%, var(--muted)); }
     .copy-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
     .copy-row input { flex: 1; min-width: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
@@ -113,7 +158,7 @@
             <span>Create candidate profiles quickly.</span>
           </button>
           <button class="hub-btn" type="button" data-target="values">
-            <strong>Interview Values</strong>
+            <strong>Interview Process</strong>
             <span>Manage location-specific grading values.</span>
           </button>
           <button class="hub-btn" type="button" data-target="interviews">
@@ -152,65 +197,128 @@
         <section class="section" data-panel="values">
           <div class="panel stack">
             <div>
-              <h2>Interview Values</h2>
-              <p class="text-muted" style="margin-top:0.25rem;">Per-location grading values for all interviews.</p>
+              <h2>Interview Process</h2>
+              <p class="text-muted" style="margin-top:0.25rem;">Configure three sections: Values, Questions, and Interview Names.</p>
             </div>
-            <form method="post" action="/admin/locations/{{ .Location.Number }}/candidate-values" class="stack">
-              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-              <div>
-                <label for="value_name">Value Name</label>
-                <input id="value_name" name="name" type="text" maxlength="80" required>
-              </div>
-              <div>
-                <label for="value_description">Description</label>
-                <textarea id="value_description" name="description" maxlength="400" placeholder="What does this value mean for this location?"></textarea>
-              </div>
-              <div><button class="btn btn-primary" type="submit">Add Value</button></div>
-            </form>
-            <div class="stack">
-              {{ if .CandidateValues }}
-                {{ range .CandidateValues }}
-                  <div class="value-item stack">
-                    <div class="row" style="justify-content:space-between;">
-                      <strong>{{ .Name }}</strong>
-                      <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidate-values/{{ .ID }}/delete">
-                        <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                        <button class="btn btn-danger" type="submit">Delete</button>
-                      </form>
-                    </div>
-                    {{ if .Description }}<p class="text-muted">{{ .Description }}</p>{{ end }}
-                  </div>
-                {{ end }}
-              {{ else }}
-                <p class="text-muted">No values yet. Add at least one value before interviews.</p>
-              {{ end }}
+            <div class="process-hub">
+              <button class="process-btn" type="button" data-process-target="values">Values</button>
+              <button class="process-btn" type="button" data-process-target="questions">Questions</button>
+              <button class="process-btn" type="button" data-process-target="names">Interview Names</button>
             </div>
 
-            <div style="height:1px;background:var(--border);margin:.5rem 0;"></div>
-            <div>
-              <h2 style="font-size:1rem;">Interview Names</h2>
-              <p class="text-muted" style="margin-top:.25rem;">These names appear in interview dropdowns for this location.</p>
-            </div>
-            <form method="post" action="/admin/locations/{{ .Location.Number }}/candidate-interview-names" class="row">
-              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-              <input type="text" name="name" maxlength="80" placeholder="Example: Onboarding Interview" required style="max-width:320px;">
-              <button class="btn btn-primary" type="submit">Add Name</button>
-            </form>
-            <div class="stack">
-              {{ if .InterviewNames }}
-                {{ range .InterviewNames }}
-                  <div class="value-item row" style="justify-content:space-between;">
-                    <strong>{{ .Name }}</strong>
-                    <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidate-interview-names/{{ .ID }}/delete">
-                      <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                      <button class="btn btn-danger" type="submit">Delete</button>
-                    </form>
+            <section class="process-panel" data-process-panel="values">
+              <div class="stack">
+                <div>
+                  <h2 style="font-size:1rem;">Values</h2>
+                  <p class="text-muted" style="margin-top:0.25rem;">High-level cultural values your organization cares about (teamwork, generosity, valuing others).</p>
+                </div>
+                <form method="post" action="/admin/locations/{{ .Location.Number }}/candidate-values" class="stack">
+                  <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+                  <div>
+                    <label for="value_name">Value Name</label>
+                    <input id="value_name" name="name" type="text" maxlength="80" required>
                   </div>
-                {{ end }}
-              {{ else }}
-                <p class="text-muted">No interview names configured yet.</p>
-              {{ end }}
-            </div>
+                  <div>
+                    <label for="value_description">Description</label>
+                    <textarea id="value_description" name="description" maxlength="400" placeholder="What does this value mean for this location?"></textarea>
+                  </div>
+                  <div><button class="btn btn-primary" type="submit">Add Value</button></div>
+                </form>
+                <div class="stack">
+                  {{ if .CandidateValues }}
+                    {{ range .CandidateValues }}
+                      <div class="value-item stack">
+                        <div class="row" style="justify-content:space-between;">
+                          <strong>{{ .Name }}</strong>
+                          <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidate-values/{{ .ID }}/delete">
+                            <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                            <button class="btn btn-danger" type="submit">Delete</button>
+                          </form>
+                        </div>
+                        {{ if .Description }}<p class="text-muted">{{ .Description }}</p>{{ end }}
+                      </div>
+                    {{ end }}
+                  {{ else }}
+                    <p class="text-muted">No values yet. Add at least one value before interviews.</p>
+                  {{ end }}
+                </div>
+              </div>
+            </section>
+
+            <section class="process-panel" data-process-panel="questions">
+              <div class="stack">
+                <div>
+                  <h2 style="font-size:1rem;">Questions</h2>
+                  <p class="text-muted" style="margin-top:.25rem;">Required interview questions tied to a specific interview name (for example: phone interview vs face-to-face).</p>
+                </div>
+                <form method="post" action="/admin/locations/{{ .Location.Number }}/candidate-interview-questions" class="stack">
+                  <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+                  <div class="grid-2">
+                    <div>
+                      <label for="question_interview_name_id">Interview Name</label>
+                      <select id="question_interview_name_id" name="interview_name_id" required>
+                        <option value="">Select interview name</option>
+                        {{ range .InterviewNames }}
+                          <option value="{{ .ID }}">{{ .Name }}</option>
+                        {{ end }}
+                      </select>
+                    </div>
+                    <div>
+                      <label for="question_text">Question</label>
+                      <input id="question_text" name="question" type="text" maxlength="500" placeholder="Example: Tell me about a time you served a teammate." required>
+                    </div>
+                  </div>
+                  <div><button class="btn btn-primary" type="submit">Add Question</button></div>
+                </form>
+                <div class="stack">
+                  {{ if .InterviewQuestions }}
+                    {{ range .InterviewQuestions }}
+                      <div class="value-item stack">
+                        <div class="row" style="justify-content:space-between;">
+                          <strong>{{ .InterviewName }}</strong>
+                          <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidate-interview-questions/{{ .ID }}/delete">
+                            <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                            <button class="btn btn-danger" type="submit">Delete</button>
+                          </form>
+                        </div>
+                        <p>{{ .Question }}</p>
+                      </div>
+                    {{ end }}
+                  {{ else }}
+                    <p class="text-muted">No interview questions configured yet.</p>
+                  {{ end }}
+                </div>
+              </div>
+            </section>
+
+            <section class="process-panel" data-process-panel="names">
+              <div class="stack">
+                <div>
+                  <h2 style="font-size:1rem;">Interview Names</h2>
+                  <p class="text-muted" style="margin-top:.25rem;">Names of interview types (onboarding, phone interview, face-to-face).</p>
+                </div>
+                <form method="post" action="/admin/locations/{{ .Location.Number }}/candidate-interview-names" class="row">
+                  <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+                  <input type="text" name="name" maxlength="80" placeholder="Example: Onboarding Interview" required style="max-width:320px;">
+                  <button class="btn btn-primary" type="submit">Add Name</button>
+                </form>
+                <div class="stack">
+                  {{ if .InterviewNames }}
+                    {{ range .InterviewNames }}
+                      <div class="value-item row" style="justify-content:space-between;">
+                        <strong>{{ .Name }}</strong>
+                        <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidate-interview-names/{{ .ID }}/delete">
+                          <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                          <button class="btn btn-danger" type="submit">Delete</button>
+                        </form>
+                      </div>
+                    {{ end }}
+                  {{ else }}
+                    <p class="text-muted">No interview names configured yet.</p>
+                  {{ end }}
+                </div>
+              </div>
+            </section>
           </div>
         </section>
 
@@ -218,27 +326,20 @@
           <div class="stack">
             <div>
               <h2>Active Candidates</h2>
-              <p class="text-muted" style="margin-top:0.25rem;">Search candidates and open a dedicated candidate page for interviewing details.</p>
+              <p class="text-muted" style="margin-top:0.25rem;">Search and click a row to open candidate details.</p>
             </div>
             <div>
               <input id="active-candidate-search" type="text" placeholder="Search active candidates by name">
             </div>
             {{ if .Candidates }}
-              <div class="stack" id="active-candidate-list">
+              <div id="active-candidate-list" class="active-candidate-list">
                 {{ range .Candidates }}
-                  <article class="candidate-card stack active-candidate-row" data-search-name="{{ .FirstName }} {{ .LastName }}">
-                    <div class="row" style="justify-content:space-between;">
-                      <div>
-                        <h3>{{ .FirstName }} {{ .LastName }}</h3>
-                        <p class="text-muted" style="margin-top:0.25rem;">Created {{ .CreatedAt }}</p>
-                      </div>
-                      <div class="row">
-                        <a class="btn btn-primary" href="/admin/locations/{{ $.Location.Number }}/candidates/{{ .ID }}">Open Candidate</a>
-                        <a class="btn btn-outline" href="/admin/locations/{{ $.Location.Number }}/candidates/{{ .ID }}/scorecard">Scorecard</a>
-                        <span class="pill">{{ .Status }}</span>
-                      </div>
-                    </div>
-                  </article>
+                  <a class="active-candidate-row"
+                     data-search-name="{{ .FirstName }} {{ .LastName }}"
+                     href="/admin/locations/{{ $.Location.Number }}/candidates/{{ .ID }}">
+                    <span class="active-candidate-name">{{ .FirstName }} {{ .LastName }}</span>
+                    <span class="active-candidate-meta">Created {{ .CreatedAt }}</span>
+                  </a>
                 {{ end }}
               </div>
             {{ else }}
@@ -325,6 +426,23 @@
           showPanel(btn.getAttribute("data-target"));
         });
       });
+
+      var processButtons = Array.from(document.querySelectorAll(".process-btn"));
+      var processPanels = Array.from(document.querySelectorAll(".process-panel[data-process-panel]"));
+      function showProcessPanel(name) {
+        processButtons.forEach(function (btn) {
+          btn.classList.toggle("active", btn.getAttribute("data-process-target") === name);
+        });
+        processPanels.forEach(function (panel) {
+          panel.classList.toggle("active", panel.getAttribute("data-process-panel") === name);
+        });
+      }
+      processButtons.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          showProcessPanel(btn.getAttribute("data-process-target"));
+        });
+      });
+      showProcessPanel("values");
 
       var initial = window.location.hash ? window.location.hash.slice(1) : "interviews";
       var exists = panels.some(function (panel) { return panel.getAttribute("data-panel") === initial; });

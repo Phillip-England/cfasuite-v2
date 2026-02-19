@@ -521,10 +521,10 @@
           throw new Error(message);
         }
 
-        statusEl.textContent = "Location created successfully.";
+        statusEl.textContent = `Location ${payload.number} (${payload.name}) created successfully.`;
         statusEl.classList.add("ok");
         form.reset();
-        window.setTimeout(() => window.location.reload(), 250);
+        window.setTimeout(() => { window.location.hash = 'view'; window.location.reload(); }, 250);
       } catch (error) {
         statusEl.textContent = error.message || "Unexpected error occurred.";
         statusEl.classList.add("error");

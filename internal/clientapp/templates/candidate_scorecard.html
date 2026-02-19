@@ -76,6 +76,26 @@
                   </tbody>
                 </table>
               </div>
+              {{ if .QuestionAnswers }}
+              <div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Question</th>
+                      <th>Answer</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {{ range .QuestionAnswers }}
+                      <tr>
+                        <td>{{ .QuestionText }}</td>
+                        <td>{{ .Answer }}</td>
+                      </tr>
+                    {{ end }}
+                  </tbody>
+                </table>
+              </div>
+              {{ end }}
             </article>
           {{ end }}
         </div>

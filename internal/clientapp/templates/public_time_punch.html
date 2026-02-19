@@ -98,6 +98,7 @@
       cursor: pointer;
     }
     .submit-btn:hover { background: var(--accent-dark); }
+    .submit-btn:disabled { opacity: 0.65; cursor: not-allowed; }
 
     @media (min-width: 720px) {
       body { padding: 22px; }
@@ -212,6 +213,7 @@
       <div class="field">
         <label class="label" for="time_out">Time Out</label>
         <input id="time_out" type="time" name="time_out" required>
+        <p id="time-order-error" role="alert" style="display:none; margin:0; font-size:0.8rem; font-weight:700; color:#9f1e1e;">Time Out must be after Time In.</p>
       </div>
 
       <div class="field">
@@ -220,7 +222,7 @@
         <p class="search-note"><span id="note_count">0</span>/255</p>
       </div>
 
-      <button class="submit-btn" type="submit">Submit Correction</button>
+      <button id="submit-btn" class="submit-btn" type="submit">Submit Correction</button>
     </form>
   </section>
   <script>
@@ -288,6 +290,36 @@
       }
 
       filterOptions();
+    })();
+
+    (() => {
+      const timeIn = document.getElementById("time_in");
+      const timeOut = document.getElementById("time_out");
+      const timeError = document.getElementById("time-order-error");
+      const form = document.querySelector("form");
+      const submitBtn = document.getElementById("submit-btn");
+
+      function validateTimes() {
+        if (!timeIn || !timeOut || !timeIn.value || !timeOut.value) return true;
+        const valid = timeOut.value > timeIn.value;
+        if (timeError) timeError.style.display = valid ? "none" : "block";
+        return valid;
+      }
+
+      if (timeIn) timeIn.addEventListener("change", validateTimes);
+      if (timeOut) timeOut.addEventListener("change", validateTimes);
+
+      if (form && submitBtn) {
+        form.addEventListener("submit", function (e) {
+          if (!validateTimes()) {
+            e.preventDefault();
+            if (timeOut) timeOut.focus();
+            return;
+          }
+          submitBtn.disabled = true;
+          submitBtn.textContent = "Submitting\u2026";
+        });
+      }
     })();
   </script>
     <script>

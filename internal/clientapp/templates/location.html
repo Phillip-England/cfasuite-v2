@@ -171,9 +171,12 @@
           <h2>Add Employee</h2>
           <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/create" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-            <input type="text" name="first_name" placeholder="First Name" required>
-            <input type="text" name="last_name" placeholder="Last Name" required>
-            <select name="department">
+            <label for="add-first-name">First Name</label>
+            <input id="add-first-name" type="text" name="first_name" placeholder="First Name" required>
+            <label for="add-last-name">Last Name</label>
+            <input id="add-last-name" type="text" name="last_name" placeholder="Last Name" required>
+            <label for="add-department">Department</label>
+            <select id="add-department" name="department">
               {{ range .Departments }}
                 <option value="{{ . }}" {{ if eq . "INIT" }}selected{{ end }}>{{ . }}</option>
               {{ end }}
@@ -201,6 +204,8 @@
             <h2>View All Employees ({{ len .Employees }})</h2>
             <a class="archive-link" href="/admin/locations/{{ .Location.Number }}/employees/archived">View Archived Employees</a>
           </div>
+          <p id="dept-flash" role="alert" style="display:none; margin-bottom:0.5rem; font-size:0.8125rem; font-weight:600; color:var(--danger);"></p>
+          <p class="text-muted" style="margin-bottom:0.5rem; font-size:0.8rem;">&#42; Needs initial department assignment</p>
           <div class="employee-search">
             <input id="employee-search-input" type="text" placeholder="Search employee by name">
             <div id="employee-search-meta" class="employee-search-meta">Showing {{ len .Employees }} of {{ len .Employees }}</div>
@@ -247,6 +252,14 @@
     const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
     const locationNumber = "{{ .Location.Number }}";
     const selects = document.querySelectorAll(".department-select");
+    const deptFlash = document.getElementById("dept-flash");
+    function showDeptFlash(msg) {
+      if (!deptFlash) return;
+      deptFlash.textContent = msg;
+      deptFlash.style.display = "block";
+      clearTimeout(deptFlash._t);
+      deptFlash._t = setTimeout(() => { deptFlash.style.display = "none"; }, 4000);
+    }
     const employeeRows = Array.from(document.querySelectorAll(".employee-row"));
     const employeeSearchInput = document.getElementById("employee-search-input");
     const employeeSearchMeta = document.getElementById("employee-search-meta");
@@ -294,7 +307,7 @@
           selectEl.defaultValue = nextDepartment;
         } catch (error) {
           selectEl.value = previous;
-          window.alert(error.message || "Unable to update department.");
+          showDeptFlash(error.message || "Unable to update department.");
         } finally {
           selectEl.disabled = false;
         }

@@ -75,6 +75,7 @@
       cursor: pointer;
     }
     .submit-btn:hover { background: var(--accent-dark); }
+    .submit-btn:disabled { opacity: 0.65; cursor: not-allowed; }
     @media (min-width: 720px) {
       body { padding: 22px; }
       .card { padding: 20px; }
@@ -185,9 +186,10 @@
       <div class="field" id="end_date_field" style="display:none;">
         <label class="label" for="end_date">End Date</label>
         <input id="end_date" type="date" name="end_date">
+        <p id="date-order-error" role="alert" style="display:none; margin:0; font-size:0.8rem; font-weight:700; color:#9f1e1e;">End Date must be on or after Start Date.</p>
       </div>
 
-      <button class="submit-btn" type="submit">Submit Time Off Request</button>
+      <button id="submit-btn" class="submit-btn" type="submit">Submit Time Off Request</button>
     </form>
   </section>
 
@@ -257,6 +259,36 @@
       };
       rangeToggle.addEventListener("change", sync);
       sync();
+    })();
+
+    (() => {
+      const startInput = document.getElementById("start_date");
+      const endInput = document.getElementById("end_date");
+      const dateError = document.getElementById("date-order-error");
+      const form = document.querySelector("form");
+      const submitBtn = document.getElementById("submit-btn");
+
+      function validateDates() {
+        if (!startInput || !endInput || !endInput.value) return true;
+        const valid = endInput.value >= startInput.value;
+        if (dateError) dateError.style.display = valid ? "none" : "block";
+        return valid;
+      }
+
+      if (startInput) startInput.addEventListener("change", validateDates);
+      if (endInput) endInput.addEventListener("change", validateDates);
+
+      if (form && submitBtn) {
+        form.addEventListener("submit", function (e) {
+          if (!validateDates()) {
+            e.preventDefault();
+            if (endInput) endInput.focus();
+            return;
+          }
+          submitBtn.disabled = true;
+          submitBtn.textContent = "Submitting\u2026";
+        });
+      }
     })();
   </script>
     <script>
