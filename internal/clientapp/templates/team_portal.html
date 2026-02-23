@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Team Member Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script>
+    (function () {
+      var stored = localStorage.getItem("cfasuite-theme");
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    })();
+  </script>
+  <style>
+    :root { --primary:#004f71; --border:#e4e4e7; --muted:#71717a; }
+    html.dark { --border:#3f3f46; --muted:#a1a1aa; }
+    .portal-card { border:1px solid var(--border); border-radius:12px; padding:1rem; background:transparent; }
+    .portal-title { margin:0 0 .25rem; font:700 1.15rem/1.3 "Space Grotesk",sans-serif; }
+    .portal-sub { margin:0 0 .75rem; color:var(--muted); font-size:.9rem; }
+    .portal-message { margin:0 0 .75rem; font-size:.85rem; font-weight:700; }
+    .portal-message.error { color:#b91c1c; }
+    .portal-message.ok { color:#166534; }
+
+    .app-tabs { display:flex; flex-wrap:wrap; gap:.5rem; margin:.75rem 0 1rem; }
+    .app-tab { border:1px solid var(--border); border-radius:10px; padding:.45rem .7rem; background:transparent; color:inherit; font:700 .8rem/1.2 "Manrope",sans-serif; cursor:pointer; }
+    .app-tab.active { background:#09090b; color:#fff; border-color:#09090b; }
+    html.dark .app-tab.active { background:#f4f4f5; color:#09090b; border-color:#f4f4f5; }
+
+    .app-panel { display:none; border:1px solid var(--border); border-radius:10px; padding:.75rem; }
+    .app-panel.active { display:block; }
+    .app-title { margin:0 0 .2rem; font:700 .98rem/1.3 "Space Grotesk",sans-serif; }
+    .app-sub { margin:0 0 .65rem; color:var(--muted); font-size:.82rem; }
+
+    .sub-tabs { display:flex; gap:.4rem; margin:0 0 .65rem; }
+    .sub-tab { border:1px solid var(--border); border-radius:8px; padding:.35rem .55rem; background:transparent; color:inherit; font:700 .74rem/1.2 "Manrope",sans-serif; cursor:pointer; text-transform:uppercase; letter-spacing:.04em; }
+    .sub-tab.active { background:#09090b; color:#fff; border-color:#09090b; }
+    html.dark .sub-tab.active { background:#f4f4f5; color:#09090b; border-color:#f4f4f5; }
+
+    .sub-panel { display:none; }
+    .sub-panel.active { display:block; }
+
+    .form-grid { display:grid; gap:.55rem; }
+    .field { display:grid; gap:.25rem; }
+    .field label { font-size:.74rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+    .field input, .field select, .field textarea {
+      box-sizing:border-box;
+      width:100%; border:1px solid var(--border); border-radius:8px; padding:.5rem .6rem;
+      background:transparent; color:inherit; font:600 .83rem/1.25 "Manrope",sans-serif;
+    }
+    input[type="date"]::-webkit-calendar-picker-indicator,
+    input[type="time"]::-webkit-calendar-picker-indicator { cursor: pointer; }
+    html.dark input[type="date"]::-webkit-calendar-picker-indicator,
+    html.dark input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: .9; }
+    .field textarea { min-height:84px; resize:vertical; }
+    .submit-btn { border:1px solid var(--border); border-radius:8px; padding:.48rem .65rem; background:#004f71; color:#fff; font:700 .8rem/1.2 "Manrope",sans-serif; cursor:pointer; width:fit-content; }
+
+    .history-empty { margin:0; color:var(--muted); font-size:.82rem; }
+    .history-table { width:100%; border-collapse:collapse; font-size:.8rem; }
+    .history-table th, .history-table td { border-top:1px solid var(--border); padding:.4rem .3rem; text-align:left; vertical-align:top; }
+    .history-table th { color:var(--muted); font-weight:800; text-transform:uppercase; letter-spacing:.04em; font-size:.7rem; }
+    .history-table tr:first-child th, .history-table tr:first-child td { border-top:0; }
+    .history-status { font-weight:700; }
+  </style>
+</head>
+<body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
+  <div class="px-4 py-10">
+    <div class="mx-auto max-w-[1100px]">
+      <section class="portal-card">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:.5rem;">
+          <a href="/logout" style="font-size:.78rem;font-weight:700;text-decoration:none;border:1px solid var(--border);border-radius:8px;padding:.35rem .6rem;">Logout</a>
+        </div>
+        <h1 class="portal-title">Team Member Portal</h1>
+        <p class="portal-sub">{{ .Location.Name }} ({{ .Location.Number }}){{ if .CurrentUser }} · {{ .CurrentUser.TimePunchName }}{{ end }}</p>
+        {{ if .Error }}<p class="portal-message error">{{ .Error }}</p>{{ end }}
+        {{ if .SuccessMessage }}<p class="portal-message ok">{{ .SuccessMessage }}</p>{{ end }}
+
+        <div class="app-tabs">
+          <button type="button" class="app-tab" data-app-tab="time-punch">Submit Time Punch</button>
+          <button type="button" class="app-tab" data-app-tab="time-off">Vacation Requests</button>
+          <button type="button" class="app-tab" data-app-tab="uniform">Order Uniform</button>
+        </div>
+
+        <section class="app-panel" data-app-panel="time-punch">
+          <h2 class="app-title">Submit Time Punch</h2>
+          <p class="app-sub">Create and review your time punch correction requests.</p>
+          <div class="sub-tabs">
+            <button type="button" class="sub-tab" data-sub-tab="time-punch-create">Create</button>
+            <button type="button" class="sub-tab" data-sub-tab="time-punch-view">In Process</button>
+            <button type="button" class="sub-tab" data-sub-tab="time-punch-completed">Completed</button>
+          </div>
+          <div class="sub-panel" data-sub-panel="time-punch-create">
+            <form class="form-grid" method="post" action="/team/time-punch">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+              <div class="field">
+                <label for="tp-date">Date</label>
+                <input id="tp-date" type="date" name="punch_date" required>
+              </div>
+              <div class="field">
+                <label for="tp-in">Time In</label>
+                <input id="tp-in" type="time" name="time_in" required>
+              </div>
+              <div class="field">
+                <label for="tp-out">Time Out</label>
+                <input id="tp-out" type="time" name="time_out" required>
+              </div>
+              <div class="field">
+                <label for="tp-note">Note (Optional)</label>
+                <textarea id="tp-note" name="note" maxlength="255"></textarea>
+              </div>
+              <div class="field" style="display:flex;align-items:flex-start;gap:.5rem;">
+                <input id="tp-forgot-break" type="checkbox" name="forgot_break_clock_in_return" value="1" style="width:auto;margin-top:.15rem;">
+                <label for="tp-forgot-break" style="text-transform:none;letter-spacing:0;font-size:.82rem;color:inherit;font-weight:700;">I forgot to clock back in from break</label>
+              </div>
+              <button class="submit-btn" type="submit">Submit Time Punch</button>
+            </form>
+          </div>
+          <div class="sub-panel" data-sub-panel="time-punch-view">
+            {{ if .TimePunchEntries }}
+            <table class="history-table">
+              <tr><th>Date</th><th>Time In</th><th>Time Out</th><th>Status</th></tr>
+              {{ range .TimePunchEntries }}
+              <tr>
+                <td>{{ .PunchDate }}</td>
+                <td>{{ .TimeIn }}</td>
+                <td>{{ .TimeOut }}</td>
+                <td class="history-status">In Process</td>
+              </tr>
+              {{ end }}
+            </table>
+            {{ else }}
+            <p class="history-empty">No in process time punches yet.</p>
+            {{ end }}
+          </div>
+          <div class="sub-panel" data-sub-panel="time-punch-completed">
+            {{ if .ArchivedTimePunchEntries }}
+            <table class="history-table">
+              <tr><th>Date</th><th>Time In</th><th>Time Out</th><th>Status</th></tr>
+              {{ range .ArchivedTimePunchEntries }}
+              <tr>
+                <td>{{ .PunchDate }}</td>
+                <td>{{ .TimeIn }}</td>
+                <td>{{ .TimeOut }}</td>
+                <td class="history-status">Completed</td>
+              </tr>
+              {{ end }}
+            </table>
+            {{ else }}
+            <p class="history-empty">No completed time punches yet.</p>
+            {{ end }}
+          </div>
+        </section>
+
+        <section class="app-panel" data-app-panel="time-off">
+          <h2 class="app-title">Vacation Requests</h2>
+          <p class="app-sub">Create and review your vacation requests.</p>
+          <div class="sub-tabs">
+            <button type="button" class="sub-tab" data-sub-tab="time-off-create">Create</button>
+            <button type="button" class="sub-tab" data-sub-tab="time-off-view">Waiting to be Processed</button>
+            <button type="button" class="sub-tab" data-sub-tab="time-off-processed">Processed</button>
+          </div>
+          <div class="sub-panel" data-sub-panel="time-off-create">
+            <form class="form-grid" method="post" action="/team/time-off">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+              <div class="field">
+                <label for="to-start">Start Date</label>
+                <input id="to-start" type="date" name="start_date" required>
+              </div>
+              <div class="field">
+                <label for="to-end">End Date (Optional)</label>
+                <input id="to-end" type="date" name="end_date">
+              </div>
+              <button class="submit-btn" type="submit">Submit Vacation Request</button>
+            </form>
+          </div>
+          <div class="sub-panel" data-sub-panel="time-off-view">
+            {{ if .TimeOffRequests }}
+            <table class="history-table">
+              <tr><th>Start</th><th>End</th><th>Status</th></tr>
+              {{ range .TimeOffRequests }}
+              <tr>
+                <td>{{ .StartDate }}</td>
+                <td>{{ .EndDate }}</td>
+                <td class="history-status">Waiting to be Processed</td>
+              </tr>
+              {{ end }}
+            </table>
+            {{ else }}
+            <p class="history-empty">No requests waiting to be processed.</p>
+            {{ end }}
+          </div>
+          <div class="sub-panel" data-sub-panel="time-off-processed">
+            {{ if .ArchivedTimeOffRequests }}
+            <table class="history-table">
+              <tr><th>Start</th><th>End</th><th>Status</th></tr>
+              {{ range .ArchivedTimeOffRequests }}
+              <tr>
+                <td>{{ .StartDate }}</td>
+                <td>{{ .EndDate }}</td>
+                <td class="history-status">Processed</td>
+              </tr>
+              {{ end }}
+            </table>
+            {{ else }}
+            <p class="history-empty">No processed vacation requests yet.</p>
+            {{ end }}
+          </div>
+        </section>
+
+        <section class="app-panel" data-app-panel="uniform">
+          <h2 class="app-title">Order Uniform</h2>
+          <p class="app-sub">Create and review your uniform orders.</p>
+          <div class="sub-tabs">
+            <button type="button" class="sub-tab" data-sub-tab="uniform-create">Create</button>
+            <button type="button" class="sub-tab" data-sub-tab="uniform-view">View</button>
+          </div>
+          <div class="sub-panel" data-sub-panel="uniform-create">
+            <form class="form-grid" method="post" action="/team/uniform-order">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+              <input type="hidden" name="order_type" value="">
+              <div class="field">
+                <label for="u-item">Item</label>
+                <select id="u-item" name="item_id" required>
+                  <option value="">Select item</option>
+                  {{ range .UniformItems }}
+                  <option value="{{ .ID }}">{{ .Name }} (${{ printf "%.2f" .Price }})</option>
+                  {{ end }}
+                </select>
+              </div>
+              <div id="uniform-standard-fields">
+                <div id="u-size-fields"></div>
+                <div class="field">
+                  <label for="u-qty">Quantity</label>
+                  <input id="u-qty" type="number" min="1" step="1" name="quantity" value="1" required>
+                </div>
+                <div class="field">
+                  <label for="u-note">Note (Optional)</label>
+                  <textarea id="u-note" name="note" maxlength="500"></textarea>
+                </div>
+              </div>
+              <div id="uniform-shoe-fields" style="display:none;">
+                <div class="field" style="gap:.45rem;">
+                  <p class="portal-sub" style="margin:0;">
+                    Use the links below and copy the <strong>Style # (5 digits)</strong> from Shoes For Crews.
+                    Enter the shoe price <strong>before</strong> tax/shipping. We automatically add <strong>10% tax + $10 shipping per pair</strong>.
+                  </p>
+                  <div style="display:flex;flex-wrap:wrap;gap:.45rem;">
+                    <a href="https://www.shoesforcrews.com/catalog/men-view-all" target="_blank" rel="noopener noreferrer" class="sub-tab" style="padding:.45rem .7rem; display:inline-block; text-align:center;">Men's Non-Slip Shoes</a>
+                    <a href="https://www.shoesforcrews.com/catalog/women-view-all" target="_blank" rel="noopener noreferrer" class="sub-tab" style="padding:.45rem .7rem; display:inline-block; text-align:center;">Women's Non-Slip Shoes</a>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="shoe-item-number">Shoe Style # (5 digits)</label>
+                  <input id="shoe-item-number" type="text" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" name="shoe_item_number" placeholder="e.g. 12345">
+                </div>
+                <div class="field">
+                  <label for="shoe-price">Shoe Price (before tax/shipping)</label>
+                  <input id="shoe-price" type="text" name="shoe_price" placeholder="e.g. 40.00">
+                </div>
+                <p id="shoe-pricing-hint" class="portal-sub" style="margin:0;">Final charge per pair = entered price + 10% tax + $10 shipping.</p>
+                <div class="field">
+                  <label for="shoe-url">Shoe URL (Optional)</label>
+                  <input id="shoe-url" type="url" name="shoe_url" placeholder="https://www.shoesforcrews.com/...">
+                </div>
+                <div class="field">
+                  <label for="shoe-qty">Quantity</label>
+                  <input id="shoe-qty" type="number" min="1" step="1" name="quantity" value="1">
+                </div>
+                <div class="field">
+                  <label for="shoe-note">Note (Optional)</label>
+                  <textarea id="shoe-note" name="note" maxlength="500"></textarea>
+                </div>
+              </div>
+              <button class="submit-btn" type="submit">Submit Uniform Order</button>
+            </form>
+          </div>
+          <div class="sub-panel" data-sub-panel="uniform-view">
+            {{ if .UniformOrders }}
+            <table class="history-table">
+              <tr><th>Items</th><th>Total</th><th>Status</th></tr>
+              {{ range .UniformOrders }}
+              <tr>
+                <td>{{ .ItemsSummary }}</td>
+                <td>${{ printf "%.2f" .Total }}</td>
+                <td class="history-status">{{ .Status }}</td>
+              </tr>
+              {{ end }}
+            </table>
+            {{ else }}
+            <p class="history-empty">No uniform orders yet.</p>
+            {{ end }}
+          </div>
+        </section>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var appTabs = Array.prototype.slice.call(document.querySelectorAll('[data-app-tab]'));
+      var appPanels = Array.prototype.slice.call(document.querySelectorAll('[data-app-panel]'));
+      var subTabs = Array.prototype.slice.call(document.querySelectorAll('[data-sub-tab]'));
+      var subPanels = Array.prototype.slice.call(document.querySelectorAll('[data-sub-panel]'));
+
+      function openApp(name) {
+        appTabs.forEach(function (btn) { btn.classList.toggle('active', btn.getAttribute('data-app-tab') === name); });
+        appPanels.forEach(function (panel) { panel.classList.toggle('active', panel.getAttribute('data-app-panel') === name); });
+      }
+
+      function openSub(name) {
+        subTabs.forEach(function (btn) { btn.classList.toggle('active', btn.getAttribute('data-sub-tab') === name); });
+        subPanels.forEach(function (panel) { panel.classList.toggle('active', panel.getAttribute('data-sub-panel') === name); });
+      }
+
+      appTabs.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var app = btn.getAttribute('data-app-tab') || '';
+          openApp(app);
+          openSub(app + '-create');
+        });
+      });
+
+      subTabs.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          openSub(btn.getAttribute('data-sub-tab') || '');
+        });
+      });
+
+      var params = new URLSearchParams(window.location.search || '');
+      var initialApp = (params.get('app') || 'time-punch').trim();
+      var initialMode = (params.get('mode') || 'create').trim();
+      if (initialApp !== 'time-punch' && initialApp !== 'time-off' && initialApp !== 'uniform') {
+        initialApp = 'time-punch';
+      }
+      if (initialMode !== 'create' && initialMode !== 'view') {
+        initialMode = 'create';
+      }
+      openApp(initialApp);
+      openSub(initialApp + '-' + initialMode);
+
+      var uniformSizeFieldsByItem = {
+        {{ range .UniformItems }}
+        "{{ .ID }}": [
+          {{ range .SizeFields }}
+          { label: {{ printf "%q" .Label }}, options: [{{ range $idx, $option := .Options }}{{ if $idx }}, {{ end }}{{ printf "%q" $option }}{{ end }}] },
+          {{ end }}
+        ],
+        {{ end }}
+      };
+      var uniformItemSystemKeyByItem = {
+        {{ range .UniformItems }}
+        "{{ .ID }}": {{ printf "%q" .SystemKey }},
+        {{ end }}
+      };
+      var itemSelect = document.getElementById('u-item');
+      var sizeFieldsWrap = document.getElementById('u-size-fields');
+      var orderTypeInput = document.querySelector('form[action="/team/uniform-order"] input[name="order_type"]');
+      var standardFields = document.getElementById('uniform-standard-fields');
+      var shoeFields = document.getElementById('uniform-shoe-fields');
+      var standardQty = document.getElementById('u-qty');
+      var standardNote = document.getElementById('u-note');
+      var shoeItemNumber = document.getElementById('shoe-item-number');
+      var shoePrice = document.getElementById('shoe-price');
+      var shoePricingHint = document.getElementById('shoe-pricing-hint');
+      var shoeURL = document.getElementById('shoe-url');
+      var shoeQty = document.getElementById('shoe-qty');
+      var shoeNote = document.getElementById('shoe-note');
+
+      function syncSizes() {
+        if (!itemSelect || !sizeFieldsWrap) return;
+        var selectedItemID = String(itemSelect.value || '');
+        var systemKey = String(uniformItemSystemKeyByItem[selectedItemID] || '').toLowerCase();
+        var selectedOption = itemSelect.options[itemSelect.selectedIndex];
+        var selectedLabel = String(selectedOption ? selectedOption.textContent : '').toLowerCase().trim();
+        var isShoe = systemKey === 'shoes' || selectedLabel.indexOf('shoes for crews') !== -1;
+        if (orderTypeInput) {
+          orderTypeInput.value = isShoe ? 'shoes' : '';
+        }
+        if (standardFields) standardFields.style.display = isShoe ? 'none' : '';
+        if (shoeFields) shoeFields.style.display = isShoe ? '' : 'none';
+        if (standardQty) standardQty.required = !isShoe;
+        if (standardQty) standardQty.disabled = isShoe;
+        if (shoeItemNumber) {
+          shoeItemNumber.required = isShoe;
+          shoeItemNumber.disabled = !isShoe;
+        }
+        if (shoePrice) shoePrice.required = isShoe;
+        if (shoePrice) shoePrice.disabled = !isShoe;
+        if (shoeQty) shoeQty.required = isShoe;
+        if (shoeQty) shoeQty.disabled = !isShoe;
+        if (standardNote) standardNote.disabled = isShoe;
+        if (shoeNote) shoeNote.disabled = !isShoe;
+        if (shoeURL) shoeURL.disabled = !isShoe;
+
+        var fields = uniformSizeFieldsByItem[String(itemSelect.value || '')] || [];
+        sizeFieldsWrap.innerHTML = '';
+        if (isShoe) {
+          return;
+        }
+        fields.forEach(function (field, idx) {
+          var wrapper = document.createElement('div');
+          wrapper.className = 'field';
+          var label = document.createElement('label');
+          label.setAttribute('for', 'u-size-field-' + idx);
+          label.textContent = field.label;
+          var hiddenLabel = document.createElement('input');
+          hiddenLabel.type = 'hidden';
+          hiddenLabel.name = 'size_field_label';
+          hiddenLabel.value = field.label;
+          var select = document.createElement('select');
+          select.id = 'u-size-field-' + idx;
+          select.name = 'size_field_value';
+          select.required = true;
+          var placeholder = document.createElement('option');
+          placeholder.value = '';
+          placeholder.textContent = 'Select ' + field.label;
+          select.appendChild(placeholder);
+          (field.options || []).forEach(function (optionValue) {
+            var option = document.createElement('option');
+            option.value = optionValue;
+            option.textContent = optionValue;
+            select.appendChild(option);
+          });
+          wrapper.appendChild(label);
+          wrapper.appendChild(hiddenLabel);
+          wrapper.appendChild(select);
+          sizeFieldsWrap.appendChild(wrapper);
+        });
+      }
+      if (itemSelect && sizeFieldsWrap) {
+        itemSelect.addEventListener('change', syncSizes);
+        syncSizes();
+      }
+
+      function parseUSD(value) {
+        var cleaned = String(value || '').replace(/[$,\s]/g, '');
+        if (cleaned === '') return NaN;
+        var parsed = Number.parseFloat(cleaned);
+        return Number.isFinite(parsed) ? parsed : NaN;
+      }
+
+      function syncShoePricingHint() {
+        if (!shoePricingHint) return;
+        var base = parseUSD(shoePrice ? shoePrice.value : '');
+        var qtyRaw = Number.parseInt(shoeQty ? shoeQty.value : '1', 10);
+        var qty = Number.isFinite(qtyRaw) && qtyRaw > 0 ? qtyRaw : 1;
+        if (!Number.isFinite(base) || base <= 0) {
+          shoePricingHint.textContent = 'Final charge per pair = entered price + 10% tax + $10 shipping.';
+          return;
+        }
+        var tax = base * 0.10;
+        var unit = base + tax + 10;
+        var lineTotal = unit * qty;
+        shoePricingHint.textContent = 'Per pair: $' + unit.toFixed(2) + ' ($' + base.toFixed(2) + ' + $' + tax.toFixed(2) + ' tax + $10.00 shipping). Line total: $' + lineTotal.toFixed(2) + '.';
+      }
+      if (shoePrice) shoePrice.addEventListener('input', syncShoePricingHint);
+      if (shoeQty) shoeQty.addEventListener('input', syncShoePricingHint);
+      syncShoePricingHint();
+    })();
+  </script>
+</body>
+</html>

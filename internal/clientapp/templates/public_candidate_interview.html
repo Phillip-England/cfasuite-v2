@@ -40,7 +40,23 @@
     .value-card { border:1px solid var(--border); border-radius:10px; padding:0.875rem; }
     .grid-2 { display:grid; gap:0.75rem; grid-template-columns: repeat(2, minmax(0,1fr)); }
     @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
-    .btn { min-height:2.4rem; border:1px solid var(--primary); background:var(--primary); color:var(--primary-fg); border-radius:8px; padding:0.5rem 0.85rem; font-weight:700; cursor:pointer; }
+    .btn {
+      min-height: 2.4rem;
+      border: 1px solid var(--border);
+      background: var(--fg);
+      color: var(--bg);
+      border-radius: 8px;
+      padding: 0.5rem 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+      transition: opacity 150ms, transform 150ms;
+    }
+    .btn:hover:not(:disabled) { opacity: 0.92; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    @media (min-width: 640px) {
+      .btn { width: fit-content; }
+    }
     .msg { font-size:0.875rem; }
     .msg.error { color: var(--danger); }
     .completion {
@@ -62,28 +78,28 @@
       color: #4ade80;
     }
     .completion.warn {
-      border-color: #2f8fb8;
-      background: #e6f2f7;
-      color: #003b55;
+      border-color: #d4d4d8;
+      background: #fafafa;
+      color: #3f3f46;
     }
     html.dark .completion.warn {
-      border-color: #003b55;
-      background: #002a3c;
-      color: #2f8fb8;
+      border-color: #3f3f46;
+      background: #18181b;
+      color: #d4d4d8;
     }
     .required-empty { color: var(--danger); }
     .required-complete { color: #16a34a; }
     .value-card.card-incomplete {
-      border-color: #2f8fb8;
-      background: #e6f2f7;
+      border-color: #d4d4d8;
+      background: #fafafa;
     }
     .value-card.card-complete {
       border-color: #86efac;
       background: #f0fdf4;
     }
     html.dark .value-card.card-incomplete {
-      border-color: #003b55;
-      background: #002a3c;
+      border-color: #3f3f46;
+      background: #18181b;
     }
     html.dark .value-card.card-complete {
       border-color: #166534;
@@ -141,8 +157,21 @@
                   <h2 style="font-size:1rem;">{{ .Question }}</h2>
                 </div>
                 <div>
-                  <label class="required-label" for="question_{{ .ID }}">Answer (required, up to 3000 chars)</label>
-                  <textarea id="question_{{ .ID }}" name="question_{{ .ID }}" maxlength="3000" required placeholder="Enter interview response"></textarea>
+                  {{ if eq .ResponseType "multiple_choice" }}
+                    <label class="required-label" for="question_{{ .ID }}">Select Answer (required)</label>
+                    <select id="question_{{ .ID }}" name="question_{{ .ID }}" required>
+                      <option value="" selected>Select an option</option>
+                      {{ range .ResponseOptions }}
+                        <option value="{{ . }}">{{ . }}</option>
+                      {{ end }}
+                    </select>
+                  {{ else if eq .ResponseType "number" }}
+                    <label class="required-label" for="question_{{ .ID }}">Numeric Answer (required)</label>
+                    <input id="question_{{ .ID }}" name="question_{{ .ID }}" type="number" step="any" required placeholder="Enter a number">
+                  {{ else }}
+                    <label class="required-label" for="question_{{ .ID }}">Answer (required, up to 3000 chars)</label>
+                    <textarea id="question_{{ .ID }}" name="question_{{ .ID }}" maxlength="3000" required placeholder="Enter interview response"></textarea>
+                  {{ end }}
                 </div>
               </article>
             {{ end }}

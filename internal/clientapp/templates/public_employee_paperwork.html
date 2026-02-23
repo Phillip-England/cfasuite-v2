@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/assets/app.css">
+  <script defer src="/assets/upload-drop.js"></script>
   <title>Employee Paperwork</title>
   <style>
     :root {
@@ -351,28 +352,11 @@
   </script>
 
 </head>
-<body class="min-h-screen pt-20 bg-white text-zinc-900 dark:bg-black dark:text-zinc-100 transition-colors duration-200">
-  <button id="theme-toggle" type="button" class="fixed top-3 right-3 z-[1200] rounded-full border border-zinc-300/80 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.08em] text-zinc-700 dark:text-zinc-200 shadow-sm backdrop-blur">Dark</button>
-  <nav id="app-nav" class="fixed top-3 left-3 right-20 z-[1100]">
-    <div class="mx-auto max-w-6xl rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur px-3 py-2">
-      <div class="flex items-center justify-between gap-3">
-        <div class="text-sm font-extrabold tracking-[0.06em] uppercase text-zinc-800 dark:text-zinc-100">CFA Suite</div>
-        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" class="md:hidden inline-flex items-center justify-center rounded-md border border-zinc-300 dark:border-zinc-700 p-2 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-          <span class="sr-only">Toggle navigation</span>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-            <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16" />
-          </svg>
-        </button>
-      </div>
-      <div id="nav-links" class="mt-2 hidden flex-col gap-1 text-xs font-semibold md:mt-2 md:flex md:flex-row md:flex-wrap md:items-center md:gap-2">
-        <a href="/employee/paperwork/{{ .Token }}" class="block px-2.5 py-1 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black">Paperwork</a>
-        <a href="/employee/photo-upload/{{ .Token }}" class="block px-2.5 py-1 rounded-md text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800">Photo Upload</a>
-      
-      </div>
-    </div>
-  </nav>
-
-
+<body class="min-h-screen pt-6 bg-white text-zinc-900 dark:bg-black dark:text-zinc-100 transition-colors duration-200">
+  <button id="theme-toggle" type="button" aria-label="Toggle theme" class="fixed top-3 right-3 z-[1200] h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors backdrop-blur">
+    <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+  </button>
   <section class="card mx-auto w-full max-w-[760px] rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 md:p-6">
     <h1>Employee Paperwork</h1>
     <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})<br>Employee: <strong>{{ .Employee.FirstName }} {{ .Employee.LastName }}</strong></p>
@@ -470,7 +454,7 @@
 
       <section id="panel-signature" class="panel panel-grid">
         <section class="wizard-step">
-        <p class="sub" style="margin:0;">Draw your signature to sign all submitted paperwork. Typed signature is optional for printed name.</p>
+        <p class="sub" style="margin:0;">Draw your signature to sign all submitted paperwork and confirm the attestation below.</p>
         <input id="i9_last_name" type="hidden" name="last_name" value="{{ .Employee.LastName }}">
         <input id="i9_first_name" type="hidden" name="first_name" value="{{ .Employee.FirstName }}">
         <input id="i9_middle_initial" type="hidden" name="middle_initial">
@@ -483,7 +467,6 @@
         <input id="i9_ssn" type="hidden" name="ssn">
         <input id="i9_email" type="hidden" name="email">
         <input id="i9_phone" type="hidden" name="phone">
-        <div class="field"><label class="label" for="i9_employee_signature">Signature (Typed, Optional)</label><input id="i9_employee_signature" type="text" name="employee_signature"></div>
         <section class="signature-pad-shell">
           <div class="label" style="text-transform:none;letter-spacing:0;font-size:0.86rem;">Digital Signature (Draw)</div>
           <canvas id="i9-signature-pad" class="signature-pad" width="560" height="170"></canvas>
@@ -493,6 +476,13 @@
           </div>
           <div id="i9-signature-status" class="signature-status"></div>
         </section>
+        <div class="field">
+          <label class="label" for="employee_esign_attestation" style="text-transform:none;letter-spacing:0;">Electronic Signature Attestation<span class="req">*</span></label>
+          <label style="display:flex;align-items:flex-start;gap:8px;font-size:0.9rem;line-height:1.35;text-transform:none;letter-spacing:0;font-weight:600;">
+            <input id="employee_esign_attestation" name="employee_esign_attestation" type="checkbox" value="1" style="width:18px;height:18px;min-height:18px;margin-top:2px;">
+            I certify under penalty of perjury that the information submitted is true and complete, and I adopt my drawn signature for this I-9 and W-4 submission.
+          </label>
+        </div>
         </section>
         <button id="paperwork-submit-btn" class="btn" type="submit">Submit Paperwork</button>
       </section>
@@ -797,7 +787,9 @@
       function getSignatureCompletion() {
         let missing = 0;
         const drawnSig = hasText("i9_employee_signature_drawn");
+        const attested = !!document.getElementById("employee_esign_attestation")?.checked;
         if (!drawnSig) missing += 1;
+        if (!attested) missing += 1;
         return { complete: missing === 0, missing };
       }
       function getW4Completion() {
@@ -1190,18 +1182,13 @@
       const canvas = document.getElementById("i9-signature-pad");
       const clearBtn = document.getElementById("i9-signature-clear");
       const hidden = document.getElementById("i9_employee_signature_drawn");
-      const textSig = document.getElementById("i9_employee_signature");
+      const attestation = document.getElementById("employee_esign_attestation");
       const status = document.getElementById("i9-signature-status");
-      if (!canvas || !clearBtn || !hidden || !textSig) return;
+      if (!canvas || !clearBtn || !hidden) return;
       const ctx = canvas.getContext("2d");
       let drawing = false;
       let lastX = 0;
       let lastY = 0;
-      function buildSignatureName() {
-        const first = (document.getElementById("personal_first_name")?.value || "").trim();
-        const last = (document.getElementById("personal_last_name")?.value || "").trim();
-        return `${first} ${last}`.trim();
-      }
       function pos(event) {
         const rect = canvas.getBoundingClientRect();
         return {
@@ -1240,12 +1227,6 @@
       canvas.addEventListener("pointerup", () => {
         if (!ink) return;
         hidden.value = canvas.toDataURL("image/png");
-        if (textSig.value.trim() === "") {
-          const fallbackName = buildSignatureName();
-          if (fallbackName !== "") {
-            textSig.value = fallbackName;
-          }
-        }
         if (status) status.textContent = "Drawn signature will be submitted automatically.";
         updateCompletionStatus();
       });
@@ -1256,7 +1237,7 @@
         if (status) status.textContent = "Signature cleared.";
         updateCompletionStatus();
       });
-      textSig.addEventListener("input", updateCompletionStatus);
+      if (attestation) attestation.addEventListener("change", updateCompletionStatus);
       document.getElementById("i9_status")?.addEventListener("change", updateCompletionStatus);
       document.getElementById("w4_filing_status")?.addEventListener("change", updateCompletionStatus);
       [
@@ -1271,12 +1252,6 @@
         syncAllLegalDocumentExpirations();
         if (ink && hidden.value === "") {
           hidden.value = canvas.toDataURL("image/png");
-          if (textSig.value.trim() === "") {
-            const fallbackName = buildSignatureName();
-            if (fallbackName !== "") {
-              textSig.value = fallbackName;
-            }
-          }
         }
         if (paperworkTarget) paperworkTarget.value = "all";
         updateW4DependentTotals();
@@ -1308,37 +1283,16 @@
       const storageKey = "cfasuite-theme";
       const root = document.documentElement;
       const toggle = document.getElementById("theme-toggle");
-      const navToggle = document.getElementById("nav-toggle");
-      const navLinks = document.getElementById("nav-links");
 
       function currentTheme() {
         return root.classList.contains("dark") ? "dark" : "light";
       }
-
-      function updateLabel() {
-        if (!toggle) return;
-        const next = currentTheme() === "dark" ? "light" : "dark";
-        toggle.textContent = next === "dark" ? "Dark" : "Light";
-        toggle.setAttribute("aria-label", "Switch to " + next + " mode");
-        toggle.title = "Switch to " + next + " mode";
-      }
-
-      updateLabel();
 
       if (toggle) {
         toggle.addEventListener("click", function () {
           const next = currentTheme() === "dark" ? "light" : "dark";
           root.classList.toggle("dark", next === "dark");
           window.localStorage.setItem(storageKey, next);
-          updateLabel();
-        });
-      }
-
-      if (navToggle && navLinks) {
-        navToggle.addEventListener("click", function () {
-          const expanded = navToggle.getAttribute("aria-expanded") === "true";
-          navToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
-          navLinks.classList.toggle("hidden", expanded);
         });
       }
     })();

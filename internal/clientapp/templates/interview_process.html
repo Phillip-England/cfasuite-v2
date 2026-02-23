@@ -62,6 +62,13 @@
     .process-btn.active { background-color: var(--muted); border-color: var(--primary); }
     .process-panel { display: none; margin-top: 0.25rem; }
     .process-panel.active { display: block; }
+    .sub-hub { display:grid; gap:.5rem; grid-template-columns:1fr; margin:.25rem 0 .5rem; }
+    @media (min-width: 700px) { .sub-hub { grid-template-columns:repeat(2,1fr); } }
+    .sub-btn { width:100%; text-align:left; padding:.625rem .75rem; background:var(--bg); border:1px solid var(--border); border-radius:.5rem; cursor:pointer; font-family:inherit; color:var(--fg); transition:150ms; font-weight:700; font-size:.8125rem; }
+    .sub-btn:hover { background:var(--muted); }
+    .sub-btn.active { background:var(--muted); border-color:var(--primary); }
+    .sub-panel { display:none; }
+    .sub-panel.active { display:block; }
     .question-list { display: grid; gap: 0.625rem; }
     .question-item { border: 1px solid var(--border); border-radius: 0.5rem; background: var(--card); overflow: hidden; }
     .question-summary { list-style: none; cursor: pointer; padding: 0.75rem 0.875rem; display: grid; gap: 0.5rem; }
@@ -72,18 +79,38 @@
     .question-tag { border: 1px solid var(--border); border-radius: 999px; padding: 0.1rem 0.5rem; font-size: 0.75rem; color: var(--muted-fg); }
     .question-body { border-top: 1px solid var(--border); padding: 0.875rem; display: grid; gap: 0.75rem; }
     .question-item[open] .question-summary { background: color-mix(in srgb, var(--card) 90%, var(--muted)); }
+    .response-option-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; align-items: center; }
+    .response-option-remove-btn { width: auto; white-space: nowrap; min-height: 2.35rem; }
+    .response-options-actions { margin-top: 0.375rem; }
+    .name-order-row { display: flex; flex-wrap: nowrap; gap: 0.625rem; align-items: stretch; overflow-x: auto; padding-bottom: 0.25rem; }
+    .name-order-card {
+      min-width: 220px;
+      max-width: 320px;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 0.625rem;
+      background: var(--card);
+      cursor: grab;
+      display: grid;
+      gap: 0.5rem;
+    }
+    .name-order-card.dragging { opacity: 0.55; }
+    .name-order-card-title { font-weight: 700; }
+    .order-status { min-height: 1.25rem; font-size: 0.8125rem; color: var(--muted-fg); }
+    .order-status.error { color: var(--danger); }
+    .order-status.success { color: var(--success); }
   </style>
 </head>
 <body>
   <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
     <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
-      <a href="/admin" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
+      <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
       <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
-        <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
         <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
         <a href="/admin/locations/{{ .Location.Number }}/candidates" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Candidates</a>
         <a href="/admin/locations/{{ .Location.Number }}/interview-process" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Interview Process</a>
       </nav>
+      <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
     </div>
   </header>
 
@@ -147,79 +174,186 @@
           <div class="stack">
             <div>
               <h2 style="font-size:1rem;">Questions</h2>
-              <p class="text-muted" style="margin-top:.25rem;">Create required interview questions first, then assign each to one or more interview types.</p>
+              <p class="text-muted" style="margin-top:.25rem;">Use Quick Add to assign many questions to selected interview types in one step, or create a custom question below.</p>
             </div>
-            <form method="post" action="/admin/locations/{{ .Location.Number }}/candidate-interview-questions" class="stack">
-              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-              <div>
-                <label for="question_text">Question</label>
-                <input id="question_text" name="question" type="text" maxlength="500" placeholder="Example: Tell me about a time you served a teammate." required>
-              </div>
-              <div class="stack" style="gap:.5rem;">
-                <label>Assign Interview Types</label>
-                <div class="grid-3">
-                  {{ range .InterviewNames }}
-                    <label class="row" style="justify-content:flex-start;border:1px solid var(--border);border-radius:.5rem;padding:.5rem .625rem;">
-                      <input type="checkbox" name="interview_name_ids" value="{{ .ID }}" style="width:auto;min-height:auto;">
-                      <span>{{ .Name }}</span>
-                    </label>
-                  {{ end }}
+            <div class="sub-hub">
+              <button class="sub-btn" type="button" data-question-target="create">Create Question</button>
+              <button class="sub-btn" type="button" data-question-target="starter">Quick Add</button>
+              <button class="sub-btn" type="button" data-question-target="view">View Questions</button>
+            </div>
+            <section class="sub-panel" data-question-panel="create">
+              <form method="post" action="/admin/locations/{{ .Location.Number }}/candidate-interview-questions" class="stack">
+                <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+                <div>
+                  <label for="question_text">Question</label>
+                  <input id="question_text" name="question" type="text" maxlength="500" placeholder="Example: Tell me about a time you served a teammate." required>
                 </div>
-                {{ if not .InterviewNames }}<p class="text-muted">Create interview types first, then assign them to questions.</p>{{ end }}
-              </div>
-              <div><button class="btn btn-primary" type="submit">Add Question</button></div>
-            </form>
-            <div class="stack">
-              {{ if .InterviewQuestions }}
-                <div class="question-list">
-                  {{ range .InterviewQuestions }}
-                    <details class="question-item">
-                      <summary class="question-summary">
-                        <div class="question-title">{{ .Question }}</div>
-                        <div class="question-tags">
-                          {{ if .InterviewNames }}
-                            {{ range .InterviewNames }}
-                              <span class="question-tag">{{ . }}</span>
-                            {{ end }}
-                          {{ else }}
-                            <span class="question-tag">Unassigned Interview Types</span>
-                          {{ end }}
-                        </div>
-                      </summary>
-                      <div class="question-body">
-                        <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidate-interview-questions/{{ .ID }}/assign" class="stack question-assign-form" data-selected-ids="{{ range $i, $id := .InterviewNameIDs }}{{ if $i }},{{ end }}{{ $id }}{{ end }}">
-                          <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                          <div>
-                            <label for="question_{{ .ID }}">Question Text</label>
-                            <textarea id="question_{{ .ID }}" name="question" maxlength="500" required>{{ .Question }}</textarea>
-                          </div>
-                          <div>
-                            <label>Interview Types</label>
-                            <div class="grid-3">
-                              {{ range $.InterviewNames }}
-                                <label class="row" style="justify-content:flex-start;border:1px solid var(--border);border-radius:.5rem;padding:.5rem .625rem;">
-                                  <input type="checkbox" name="interview_name_ids" value="{{ .ID }}" style="width:auto;min-height:auto;">
-                                  <span>{{ .Name }}</span>
-                                </label>
-                              {{ end }}
-                            </div>
-                          </div>
-                          <div class="row">
-                            <button class="btn btn-primary" type="submit">Save Changes</button>
-                          </div>
-                        </form>
-                        <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidate-interview-questions/{{ .ID }}/delete">
-                          <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                          <button class="btn btn-danger" type="submit">Delete Question</button>
-                        </form>
+                <div>
+                  <label for="response_type_new">Expected Response Type</label>
+                  <select id="response_type_new" name="response_type">
+                    <option value="text" selected>Text</option>
+                    <option value="yes_no">Yes / No</option>
+                    <option value="true_false">True / False</option>
+                    <option value="multiple_choice">Multiple Choice</option>
+                    <option value="number">Number</option>
+                  </select>
+                </div>
+                <div class="response-options-field" style="display:none;">
+                  <label>Multiple Choice Options</label>
+                  <div class="stack response-options-list"></div>
+                  <div class="row response-options-actions">
+                    <button class="btn btn-outline add-response-option-btn" type="button">+ Add Option</button>
+                  </div>
+                  <p class="text-muted">Add at least 2 unique options.</p>
+                </div>
+                <div class="stack" style="gap:.5rem;">
+                  <label>Assign Interview Types</label>
+                  <div class="grid-3">
+                    {{ range .InterviewNames }}
+                      <label class="row" style="justify-content:flex-start;border:1px solid var(--border);border-radius:.5rem;padding:.5rem .625rem;">
+                        <input type="checkbox" name="interview_name_ids" value="{{ .ID }}" style="width:auto;min-height:auto;">
+                        <span>{{ .Name }}</span>
+                      </label>
+                    {{ end }}
+                  </div>
+                  {{ if not .InterviewNames }}<p class="text-muted">Create interview types first, then assign them to questions.</p>{{ end }}
+                </div>
+                <div><button class="btn btn-primary" type="submit">Add Question</button></div>
+              </form>
+            </section>
+            <section class="sub-panel" data-question-panel="starter">
+              <div class="stack">
+                <div>
+                  <h2 style="font-size:1rem;">Quick Add Questions</h2>
+                  <p class="text-muted" style="margin-top:.25rem;">Step 1: select interview types. Step 2: select questions. Step 3: add all at once.</p>
+                </div>
+                <form method="post" action="/admin/locations/{{ .Location.Number }}/candidate-interview-questions/starters" class="stack">
+                  <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+                  <div class="stack" style="gap:.5rem;">
+                    <div class="row" style="justify-content:space-between;">
+                      <label style="margin:0;">Interview Types</label>
+                      <div class="row">
+                        <button class="btn btn-outline" type="button" data-check-toggle="all" data-check-group="quick-add-types">Select All</button>
+                        <button class="btn btn-outline" type="button" data-check-toggle="none" data-check-group="quick-add-types">Clear</button>
                       </div>
-                    </details>
-                  {{ end }}
-                </div>
-              {{ else }}
-                <p class="text-muted">No interview questions configured yet.</p>
-              {{ end }}
-            </div>
+                    </div>
+                    <div class="grid-3">
+                      {{ range .InterviewNames }}
+                        <label class="row" style="justify-content:flex-start;border:1px solid var(--border);border-radius:.5rem;padding:.5rem .625rem;">
+                          <input type="checkbox" name="interview_name_ids" value="{{ .ID }}" data-check-group-input="quick-add-types" style="width:auto;min-height:auto;">
+                          <span>{{ .Name }}</span>
+                        </label>
+                      {{ end }}
+                    </div>
+                    {{ if not .InterviewNames }}<p class="text-muted">Create interview types first.</p>{{ end }}
+                  </div>
+                  <div class="stack" style="gap:.5rem;">
+                    <div class="row" style="justify-content:space-between;">
+                      <label style="margin:0;">Questions</label>
+                      <div class="row">
+                        <button class="btn btn-outline" type="button" data-check-toggle="all" data-check-group="quick-add-questions">Select All</button>
+                        <button class="btn btn-outline" type="button" data-check-toggle="none" data-check-group="quick-add-questions">Clear</button>
+                      </div>
+                    </div>
+                    <div class="stack" style="gap:.5rem;">
+                      {{ range .InterviewQuestionStarters }}
+                        <label class="row" style="justify-content:flex-start;align-items:flex-start;border:1px solid var(--border);border-radius:.5rem;padding:.55rem .65rem;">
+                          <input type="checkbox" name="starter_key" value="{{ .Key }}" data-check-group-input="quick-add-questions" style="width:auto;min-height:auto;margin-top:.1rem;">
+                          <span>
+                            <strong style="display:block;line-height:1.35;">{{ .Question }}</strong>
+                            <span class="text-muted">{{ .ResponseLabel }}</span>
+                          </span>
+                        </label>
+                      {{ end }}
+                    </div>
+                  </div>
+                  <div>
+                    <button class="btn btn-primary" type="submit">Add Selected Questions</button>
+                  </div>
+                </form>
+              </div>
+            </section>
+            <section class="sub-panel" data-question-panel="view">
+              <div class="stack">
+                {{ if .InterviewQuestions }}
+                  <div class="question-list">
+                    {{ range .InterviewQuestions }}
+                      <details class="question-item">
+                        <summary class="question-summary">
+                          <div class="question-title">{{ .Question }}</div>
+                          <div class="question-tags">
+                            <span class="question-tag">
+                              {{ if eq .ResponseKind "yes_no" }}Yes / No{{ else if eq .ResponseKind "true_false" }}True / False{{ else if eq .ResponseType "multiple_choice" }}Multiple Choice{{ else if eq .ResponseType "number" }}Number{{ else }}Text{{ end }}
+                            </span>
+                            {{ if .InterviewNames }}
+                              {{ range .InterviewNames }}
+                                <span class="question-tag">{{ . }}</span>
+                              {{ end }}
+                            {{ else }}
+                              <span class="question-tag">Unassigned Interview Types</span>
+                            {{ end }}
+                          </div>
+                        </summary>
+                        <div class="question-body">
+                          <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidate-interview-questions/{{ .ID }}/assign" class="stack question-assign-form" data-selected-ids="{{ range $i, $id := .InterviewNameIDs }}{{ if $i }},{{ end }}{{ $id }}{{ end }}">
+                            <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                            <div>
+                              <label for="question_{{ .ID }}">Question Text</label>
+                              <textarea id="question_{{ .ID }}" name="question" maxlength="500" required>{{ .Question }}</textarea>
+                            </div>
+                            <div>
+                              <label for="response_type_{{ .ID }}">Expected Response Type</label>
+                              <select id="response_type_{{ .ID }}" name="response_type">
+                                <option value="text" {{ if eq .ResponseKind "text" }}selected{{ end }}>Text</option>
+                                <option value="yes_no" {{ if eq .ResponseKind "yes_no" }}selected{{ end }}>Yes / No</option>
+                                <option value="true_false" {{ if eq .ResponseKind "true_false" }}selected{{ end }}>True / False</option>
+                                <option value="multiple_choice" {{ if eq .ResponseKind "multiple_choice" }}selected{{ end }}>Multiple Choice</option>
+                                <option value="number" {{ if eq .ResponseKind "number" }}selected{{ end }}>Number</option>
+                              </select>
+                            </div>
+                            <div class="response-options-field">
+                              <label>Multiple Choice Options</label>
+                              <div class="stack response-options-list">
+                                {{ range .ResponseOptions }}
+                                  <div class="response-option-row">
+                                    <input type="text" name="response_options" maxlength="200" value="{{ . }}" placeholder="Option value" required>
+                                    <button class="btn btn-danger remove-response-option-btn response-option-remove-btn" type="button">Remove</button>
+                                  </div>
+                                {{ end }}
+                              </div>
+                              <div class="row response-options-actions">
+                                <button class="btn btn-outline add-response-option-btn" type="button">+ Add Option</button>
+                              </div>
+                              <p class="text-muted">Options must be unique.</p>
+                            </div>
+                            <div>
+                              <label>Interview Types</label>
+                              <div class="grid-3">
+                                {{ range $.InterviewNames }}
+                                  <label class="row" style="justify-content:flex-start;border:1px solid var(--border);border-radius:.5rem;padding:.5rem .625rem;">
+                                    <input type="checkbox" name="interview_name_ids" value="{{ .ID }}" style="width:auto;min-height:auto;">
+                                    <span>{{ .Name }}</span>
+                                  </label>
+                                {{ end }}
+                              </div>
+                            </div>
+                            <div class="row">
+                              <button class="btn btn-primary" type="submit">Save Changes</button>
+                            </div>
+                          </form>
+                          <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidate-interview-questions/{{ .ID }}/delete">
+                            <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                            <button class="btn btn-danger" type="submit">Delete Question</button>
+                          </form>
+                        </div>
+                      </details>
+                    {{ end }}
+                  </div>
+                {{ else }}
+                  <p class="text-muted">No interview questions configured yet.</p>
+                {{ end }}
+              </div>
+            </section>
           </div>
         </section>
 
@@ -236,24 +370,22 @@
             </form>
             <div class="stack">
               {{ if .InterviewNames }}
-                {{ range .InterviewNames }}
-                  <div class="value-item stack">
-                    <div class="row" style="justify-content:space-between;">
-                      <strong>{{ .Name }}</strong>
-                      <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidate-interview-names/{{ .ID }}/delete">
-                        <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                        <button class="btn btn-danger" type="submit">Delete</button>
-                      </form>
-                    </div>
-                    <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidate-interview-names/{{ .ID }}/priority" class="row">
-                      <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                      <label for="priority_{{ .ID }}" style="margin:0;">Priority</label>
-                      <input id="priority_{{ .ID }}" type="number" name="priority" min="0" max="10000" value="{{ .Priority }}" style="max-width:120px;">
-                      <button class="btn btn-outline" type="submit">Save Priority</button>
-                    </form>
-                    <p class="text-muted">Lower priority appears earlier on scorecards.</p>
-                  </div>
-                {{ end }}
+                <p class="text-muted">Drag interview types left-to-right to set priority order. Leftmost is highest priority.</p>
+                <div class="name-order-row" id="interview-name-order" data-location-number="{{ .Location.Number }}" data-csrf="{{ .CSRF }}">
+                  {{ range .InterviewNames }}
+                    <article class="name-order-card" draggable="true" data-name-id="{{ .ID }}">
+                      <div class="name-order-card-title">{{ .Name }}</div>
+                      <div class="row" style="justify-content:space-between;">
+                        <span class="text-muted">Drag to reorder</span>
+                        <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidate-interview-names/{{ .ID }}/delete">
+                          <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                          <button class="btn btn-danger" type="submit">Delete</button>
+                        </form>
+                      </div>
+                    </article>
+                  {{ end }}
+                </div>
+                <p id="interview-name-order-status" class="order-status"></p>
               {{ else }}
                 <p class="text-muted">No interview types configured yet.</p>
               {{ end }}
@@ -293,6 +425,33 @@
       }
       showProcessPanel(initialProcess);
 
+      var questionButtons = Array.from(document.querySelectorAll(".sub-btn[data-question-target]"));
+      var questionPanels = Array.from(document.querySelectorAll(".sub-panel[data-question-panel]"));
+      function showQuestionPanel(name) {
+        questionButtons.forEach(function (btn) {
+          btn.classList.toggle("active", btn.getAttribute("data-question-target") === name);
+        });
+        questionPanels.forEach(function (panel) {
+          panel.classList.toggle("active", panel.getAttribute("data-question-panel") === name);
+        });
+      }
+      questionButtons.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var target = (btn.getAttribute("data-question-target") || "").trim();
+          if (!target) return;
+          showQuestionPanel(target);
+          var url = new URL(window.location.href);
+          url.searchParams.set("question_panel", target);
+          window.history.replaceState(null, "", url.toString());
+        });
+      });
+      var initialQuestionPanel = (urlParams.get("question_panel") || "").toLowerCase().trim();
+      var validQuestionPanels = ["create", "starter", "view"];
+      if (validQuestionPanels.indexOf(initialQuestionPanel) === -1) {
+        initialQuestionPanel = "create";
+      }
+      showQuestionPanel(initialQuestionPanel);
+
       var questionAssignForms = Array.from(document.querySelectorAll(".question-assign-form"));
       questionAssignForms.forEach(function (form) {
         var raw = (form.getAttribute("data-selected-ids") || "").trim();
@@ -306,6 +465,203 @@
           checkbox.checked = !!selected[(checkbox.value || "").trim()];
         });
       });
+
+      function buildResponseOptionRow(value) {
+        var row = document.createElement("div");
+        row.className = "response-option-row";
+
+        var input = document.createElement("input");
+        input.type = "text";
+        input.name = "response_options";
+        input.maxLength = 200;
+        input.placeholder = "Option value";
+        input.required = true;
+        input.value = value || "";
+
+        var removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "btn btn-danger remove-response-option-btn response-option-remove-btn";
+        removeBtn.textContent = "Remove";
+        removeBtn.addEventListener("click", function () {
+          row.remove();
+        });
+
+        row.appendChild(input);
+        row.appendChild(removeBtn);
+        return row;
+      }
+
+      function ensureMinimumOptionRows(form, minRows) {
+        var optionsList = form.querySelector(".response-options-list");
+        if (!optionsList) return;
+        while (optionsList.querySelectorAll('input[name="response_options"]').length < minRows) {
+          optionsList.appendChild(buildResponseOptionRow(""));
+        }
+      }
+
+      function syncResponseOptionsVisibility(form) {
+        if (!form) return;
+        var typeSelect = form.querySelector('select[name="response_type"]');
+        var optionsField = form.querySelector(".response-options-field");
+        var optionInputs = Array.from(form.querySelectorAll('input[name="response_options"]'));
+        var addOptionBtn = form.querySelector(".add-response-option-btn");
+        if (!typeSelect || !optionsField) return;
+        var selectedType = (typeSelect.value || "").trim();
+        var isMultiple = selectedType === "multiple_choice";
+        optionsField.style.display = isMultiple ? "" : "none";
+        optionInputs.forEach(function (input) {
+          input.disabled = !isMultiple;
+        });
+        if (addOptionBtn) {
+          addOptionBtn.disabled = !isMultiple;
+        }
+        if (isMultiple) {
+          ensureMinimumOptionRows(form, 2);
+        }
+      }
+
+      function validateUniqueResponseOptions(form) {
+        var typeSelect = form.querySelector('select[name="response_type"]');
+        if (!typeSelect || (typeSelect.value || "").trim() !== "multiple_choice") {
+          return true;
+        }
+        var seen = {};
+        var hasDuplicate = false;
+        Array.from(form.querySelectorAll('input[name="response_options"]')).forEach(function (input) {
+          var value = (input.value || "").trim();
+          input.setCustomValidity("");
+          if (!value) return;
+          var key = value.toLowerCase();
+          if (seen[key]) {
+            hasDuplicate = true;
+            input.setCustomValidity("Options must be unique.");
+          } else {
+            seen[key] = true;
+          }
+        });
+        return !hasDuplicate;
+      }
+
+      var questionForms = Array.from(document.querySelectorAll('form[action*="/candidate-interview-questions"]'));
+      questionForms.forEach(function (form) {
+        var addOptionBtn = form.querySelector(".add-response-option-btn");
+        var optionsList = form.querySelector(".response-options-list");
+        if (addOptionBtn && optionsList) {
+          addOptionBtn.addEventListener("click", function () {
+            optionsList.appendChild(buildResponseOptionRow(""));
+          });
+          Array.from(form.querySelectorAll(".remove-response-option-btn")).forEach(function (btn) {
+            btn.addEventListener("click", function () {
+              var row = btn.closest(".response-option-row");
+              if (row) row.remove();
+            });
+          });
+        }
+        var typeSelect = form.querySelector('select[name="response_type"]');
+        if (!typeSelect) return;
+        typeSelect.addEventListener("change", function () {
+          syncResponseOptionsVisibility(form);
+        });
+        form.addEventListener("submit", function (event) {
+          if (!validateUniqueResponseOptions(form)) {
+            event.preventDefault();
+            var invalid = form.querySelector('input[name="response_options"]:invalid');
+            if (invalid) invalid.reportValidity();
+          }
+        });
+        syncResponseOptionsVisibility(form);
+      });
+
+      Array.from(document.querySelectorAll("[data-check-toggle]")).forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var mode = (btn.getAttribute("data-check-toggle") || "").trim();
+          var group = (btn.getAttribute("data-check-group") || "").trim();
+          if (!group) return;
+          Array.from(document.querySelectorAll('[data-check-group-input="' + group + '"]')).forEach(function (checkbox) {
+            checkbox.checked = mode === "all";
+          });
+        });
+      });
+
+      function reorderCardByPointer(container, draggedCard, clientX) {
+        var cards = Array.from(container.querySelectorAll(".name-order-card:not(.dragging)"));
+        var insertBefore = null;
+        cards.forEach(function (card) {
+          var rect = card.getBoundingClientRect();
+          var midpoint = rect.left + rect.width / 2;
+          if (clientX < midpoint && insertBefore === null) {
+            insertBefore = card;
+          }
+        });
+        if (insertBefore) {
+          container.insertBefore(draggedCard, insertBefore);
+        } else {
+          container.appendChild(draggedCard);
+        }
+      }
+
+      async function persistInterviewNameOrder(container) {
+        var locationNumber = (container.getAttribute("data-location-number") || "").trim();
+        var statusEl = document.getElementById("interview-name-order-status");
+        var cards = Array.from(container.querySelectorAll(".name-order-card"));
+        if (!locationNumber || cards.length === 0) return;
+        if (statusEl) {
+          statusEl.classList.remove("error", "success");
+          statusEl.textContent = "Saving order...";
+        }
+        var orderedIds = cards.map(function (card) {
+          return Number((card.getAttribute("data-name-id") || "").trim());
+        }).filter(function (id) { return Number.isFinite(id) && id > 0; });
+        var resp = await fetch("/admin/locations/" + encodeURIComponent(locationNumber) + "/candidate-interview-names/reorder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderedIds: orderedIds })
+        });
+        if (!resp.ok) {
+          if (statusEl) {
+            statusEl.classList.remove("success");
+            statusEl.classList.add("error");
+            statusEl.textContent = "Unable to save interview type order.";
+          }
+          return;
+        }
+        if (statusEl) {
+          statusEl.classList.remove("error");
+          statusEl.classList.add("success");
+          statusEl.textContent = "Interview type order saved.";
+        }
+      }
+
+      var nameOrderContainer = document.getElementById("interview-name-order");
+      if (nameOrderContainer) {
+        var draggedCard = null;
+        var savingOrder = false;
+        Array.from(nameOrderContainer.querySelectorAll(".name-order-card")).forEach(function (card) {
+          card.addEventListener("dragstart", function () {
+            draggedCard = card;
+            card.classList.add("dragging");
+          });
+          card.addEventListener("dragend", async function () {
+            card.classList.remove("dragging");
+            if (!draggedCard || savingOrder) {
+              draggedCard = null;
+              return;
+            }
+            draggedCard = null;
+            savingOrder = true;
+            try {
+              await persistInterviewNameOrder(nameOrderContainer);
+            } finally {
+              savingOrder = false;
+            }
+          });
+        });
+        nameOrderContainer.addEventListener("dragover", function (event) {
+          if (!draggedCard) return;
+          event.preventDefault();
+          reorderCardByPointer(nameOrderContainer, draggedCard, event.clientX);
+        });
+      }
     })();
   </script>
 </body>

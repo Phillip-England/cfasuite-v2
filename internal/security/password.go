@@ -17,8 +17,19 @@ const (
 )
 
 func HashPassword(password string) (string, error) {
-	if len(password) < 12 {
-		return "", errors.New("password must be at least 12 characters")
+	return hashSecret(password, 12)
+}
+
+func HashPIN(pin string) (string, error) {
+	return hashSecret(pin, 1)
+}
+
+func hashSecret(secret string, minLen int) (string, error) {
+	if len(secret) < minLen {
+		if minLen == 12 {
+			return "", errors.New("password must be at least 12 characters")
+		}
+		return "", errors.New("secret is too short")
 	}
 
 	salt := make([]byte, 16)
@@ -26,7 +37,7 @@ func HashPassword(password string) (string, error) {
 		return "", fmt.Errorf("generate salt: %w", err)
 	}
 
-	digest := deriveDigest(password, salt, iterations)
+	digest := deriveDigest(secret, salt, iterations)
 	encodedSalt := base64.RawStdEncoding.EncodeToString(salt)
 	encodedDigest := base64.RawStdEncoding.EncodeToString(digest)
 

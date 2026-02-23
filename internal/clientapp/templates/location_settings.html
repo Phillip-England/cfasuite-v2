@@ -61,6 +61,8 @@
     .status { font-size: 0.875rem; font-weight: 500; color: var(--muted-fg); }
     .status.ok { color: var(--success); }
     .status.error { color: var(--danger); }
+    .link-row { display: flex; gap: 0.5rem; align-items: center; }
+    .link-row input { flex: 1 1 auto; min-width: 0; }
     .danger-zone { margin-top: 1.5rem; border: 1px solid var(--danger); border-radius: 0.75rem; padding: 1rem; background: color-mix(in srgb, var(--card) 94%, var(--danger)); }
     .danger-zone h2 { font-size: 1rem; margin-bottom: 0.25rem; color: var(--danger); }
     .danger-zone p { margin-bottom: 0.75rem; }
@@ -72,13 +74,13 @@
 
   <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
     <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
-      <a href="/admin" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
+      <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
       <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
-        <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
         <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
         <a href="/admin/locations/{{ .Location.Number }}/settings" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Settings</a>
       </nav>
       <div class="flex items-center gap-2 shrink-0">
+        <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
         <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
           <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -90,7 +92,6 @@
       </div>
     </div>
     <div id="nav-mobile" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 bg-white dark:bg-zinc-950 flex-col gap-1">
-      <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
       <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
       <a href="/admin/locations/{{ .Location.Number }}/settings" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Settings</a>
     </div>
@@ -104,7 +105,7 @@
         <p class="text-muted" style="margin-bottom:1.25rem;">{{ .Location.Name }} ({{ .Location.Number }})</p>
 
         <div class="field">
-          <label for="employer_signature">Employer Representative Signature</label>
+          <label for="employer_signature">Owner/Operator</label>
           <input id="employer_signature" type="text" maxlength="120" value="{{ if .LocationSettings }}{{ .LocationSettings.EmployerRepSignature }}{{ end }}" placeholder="Example: Jane Smith, HR Manager">
           <p class="hint">This value is automatically applied to I-9 and W-4 signatures. Paperwork dates are automatically set to today.</p>
         </div>
@@ -132,17 +133,34 @@
         </div>
 
         <div class="field">
-          <label for="departments">Departments (One Per Line)</label>
-          <textarea id="departments" placeholder="INIT&#10;FOH&#10;BOH">{{ if .LocationSettings }}{{ range .LocationSettings.Departments }}{{ . }}
-{{ end }}{{ end }}</textarea>
-          <p class="hint">Department names are uppercased automatically. INIT always exists and cannot be removed.</p>
+          <label for="restaurant_username">Restaurant Login Username</label>
+          <input id="restaurant_username" type="text" maxlength="120" value="{{ if .LocationSettings }}{{ .LocationSettings.RestaurantUsername }}{{ end }}" placeholder="Set a username for this restaurant">
+          <p class="hint">This login can only access this location's data.</p>
+        </div>
+        <div class="field">
+          <label for="restaurant_password">Restaurant Login Password</label>
+          <input id="restaurant_password" type="password" maxlength="64" autocomplete="new-password" placeholder="Leave blank to keep current password">
+          <p class="hint">To disable restaurant login, clear the username and save.</p>
+        </div>
+        <div class="field">
+          <label for="team_login_link">Team Member Login Link (Hidden)</label>
+          <div class="link-row">
+            <input id="team_login_link" type="text" readonly value="{{ .TeamLoginLink }}" placeholder="Unavailable">
+            <button id="copy-team-login-link" class="btn btn-primary" type="button">Copy Link</button>
+          </div>
+          <p class="hint">Share this store-specific hidden link with team members. They can sign in with clock in PIN only.</p>
         </div>
 
         <div class="row">
           <button id="save-btn" class="btn btn-primary" type="button">Save Settings</button>
+          <form method="post" action="/admin/locations/{{ .Location.Number }}/settings/login-as-location" style="margin:0;">
+            <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+            <button class="btn btn-primary" type="submit">View As Location Portal</button>
+          </form>
           <div id="status" class="status">{{ if .SuccessMessage }}{{ .SuccessMessage }}{{ end }}{{ if .Error }}{{ .Error }}{{ end }}</div>
         </div>
 
+        {{ if and .CurrentUser (eq .CurrentUser.Role "admin") }}
         <section class="danger-zone">
           <h2>Delete Location</h2>
           <p class="text-muted">This permanently deletes this location and all associated data. This action cannot be undone.</p>
@@ -155,6 +173,7 @@
             <button id="delete-location-btn" class="btn btn-danger" type="button" disabled>Delete Location and All Data</button>
           </div>
         </section>
+        {{ end }}
       </div>
     </div>
   </div>
@@ -169,7 +188,10 @@
       const businessCityInput = document.getElementById("business_city");
       const businessStateInput = document.getElementById("business_state");
       const businessEINInput = document.getElementById("business_ein");
-      const departmentsInput = document.getElementById("departments");
+      const restaurantUsernameInput = document.getElementById("restaurant_username");
+      const restaurantPasswordInput = document.getElementById("restaurant_password");
+      const teamLoginLinkInput = document.getElementById("team_login_link");
+      const copyTeamLoginLinkBtn = document.getElementById("copy-team-login-link");
       const saveBtn = document.getElementById("save-btn");
       const deleteConfirmationInput = document.getElementById("delete_confirmation");
       const deleteLocationBtn = document.getElementById("delete-location-btn");
@@ -181,14 +203,26 @@
         status.className = "status" + (kind ? (" " + kind) : "");
       }
 
+      if (copyTeamLoginLinkBtn && teamLoginLinkInput) {
+        copyTeamLoginLinkBtn.addEventListener("click", async () => {
+          const value = (teamLoginLinkInput.value || "").trim();
+          if (!value) {
+            setStatus("Team login link unavailable.", "error");
+            return;
+          }
+          try {
+            await navigator.clipboard.writeText(value);
+            setStatus("Team login link copied.", "ok");
+          } catch (error) {
+            setStatus("Unable to copy link.", "error");
+          }
+        });
+      }
+
       saveBtn.addEventListener("click", async () => {
         setStatus("", "");
         saveBtn.disabled = true;
         try {
-          const departments = (departmentsInput?.value || "")
-            .split(/\r?\n|,/)
-            .map((value) => value.trim())
-            .filter((value) => value !== "");
           const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/settings`, {
             method: "PUT",
             headers: {
@@ -202,7 +236,8 @@
               businessCity: (businessCityInput?.value || "").trim(),
               businessState: (businessStateInput?.value || "").trim(),
               businessEin: (businessEINInput?.value || "").trim(),
-              departments
+              restaurantUsername: (restaurantUsernameInput?.value || "").trim(),
+              restaurantPassword: (restaurantPasswordInput?.value || "").trim()
             })
           });
           const result = await response.json().catch(() => ({}));
@@ -210,6 +245,9 @@
             throw new Error(result.error || "Unable to save settings.");
           }
           setStatus("Settings saved.", "ok");
+          if (restaurantPasswordInput) {
+            restaurantPasswordInput.value = "";
+          }
         } catch (error) {
           setStatus(error.message || "Unable to save settings.", "error");
         } finally {

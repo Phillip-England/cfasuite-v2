@@ -92,13 +92,13 @@
 
   <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
     <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
-      <a href="/admin" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
+      <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
       <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
-        <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
         <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
         <a href="/admin/locations/{{ .Location.Number }}/time-punch" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Time Punch</a>
       </nav>
       <div class="flex items-center gap-2 shrink-0">
+        <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
         <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
           <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -110,7 +110,6 @@
       </div>
     </div>
     <div id="nav-mobile" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 bg-white dark:bg-zinc-950 flex-col gap-1">
-      <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
       <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
       <a href="/admin/locations/{{ .Location.Number }}/time-punch" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Time Punch</a>
     </div>
@@ -130,19 +129,11 @@
 
         <div class="submenu" role="tablist" aria-label="Time punch sections">
           <button type="button" class="submenu-btn active" data-panel-target="create-punch" role="tab" aria-selected="true">Create Time Punch</button>
-          <button type="button" class="submenu-btn" data-panel-target="view-punches" role="tab" aria-selected="false">View Time Punches</button>
-          <button type="button" class="submenu-btn" data-panel-target="archived-punches" role="tab" aria-selected="false">Archived Punches</button>
+          <button type="button" class="submenu-btn" data-panel-target="view-punches" role="tab" aria-selected="false">In Process Time Punches</button>
+          <button type="button" class="submenu-btn" data-panel-target="completed-punches" role="tab" aria-selected="false">Completed Time Punches</button>
         </div>
 
         <section class="tab-panel" data-panel-name="create-punch">
-          <section class="link-box">
-            <label>Secret Employee Submission Link</label>
-            <div class="link-row">
-              <input id="punch-link" type="text" readonly value="{{ .TimePunchLink }}">
-              <button id="copy-btn" type="button" class="btn btn-secondary btn-sm">Copy Link</button>
-              <button id="open-btn" type="button" class="btn btn-secondary btn-sm">Open Form</button>
-            </div>
-          </section>
           <section class="panel" style="padding:1rem;">
             <h2 style="margin-bottom:.25rem;">Submit Time Punch (Admin Test)</h2>
             <p class="text-muted" style="margin-bottom:.75rem;">Use this to submit a time punch directly from this page.</p>
@@ -175,6 +166,10 @@
                 <label for="note">Note</label>
                 <input id="note" name="note" type="text" maxlength="255" placeholder="Optional note">
               </div>
+              <div style="display:flex;align-items:flex-start;gap:.5rem;">
+                <input id="forgot_break_clock_in_return" name="forgot_break_clock_in_return" type="checkbox" value="1" style="width:auto;margin-top:.2rem;">
+                <label for="forgot_break_clock_in_return" style="margin:0;text-transform:none;letter-spacing:0;">I forgot to clock back in from break</label>
+              </div>
               <div class="row" style="margin-top:.25rem;">
                 <button type="submit" class="btn btn-primary">Submit Time Punch</button>
               </div>
@@ -183,7 +178,7 @@
         </section>
 
         <section class="tab-panel" data-panel-name="view-punches" hidden>
-          <p class="text-muted" style="margin-bottom:.75rem;">Showing up to the 50 most recent active punches.</p>
+          <p class="text-muted" style="margin-bottom:.75rem;">Showing up to the 50 most recent in process time punches.</p>
           <div class="table-wrap">
             <table>
               <thead>
@@ -193,6 +188,7 @@
                   <th>Date</th>
                   <th>Time In</th>
                   <th>Time Out</th>
+                  <th>Break Return</th>
                   <th>Note</th>
                   <th>Action</th>
                 </tr>
@@ -206,35 +202,37 @@
                       <td>{{ .PunchDate }}</td>
                       <td>{{ .TimeIn }}</td>
                       <td>{{ .TimeOut }}</td>
+                      <td>{{ if .ForgotBreakClockInReturn }}Needs Break Return Fix{{ else }}Normal{{ end }}</td>
                       <td>{{ .Note }}</td>
                       <td>
-                        <form method="post" action="/admin/locations/{{ $.Location.Number }}/time-punch/{{ .ID }}/archive" onsubmit="return confirm('Archive this time punch entry?');">
+                        <form method="post" action="/admin/locations/{{ $.Location.Number }}/time-punch/{{ .ID }}/archive" onsubmit="return confirm('Mark this time punch as completed?');">
                           <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                          <button type="submit">Archive</button>
+                          <button type="submit">Mark Completed</button>
                         </form>
                       </td>
                     </tr>
                   {{ end }}
                 {{ else }}
-                  <tr><td colspan="7">No active time punches submitted yet.</td></tr>
+                  <tr><td colspan="8">No in process time punches submitted yet.</td></tr>
                 {{ end }}
               </tbody>
             </table>
           </div>
         </section>
 
-        <section class="tab-panel" data-panel-name="archived-punches" hidden>
-          <p class="text-muted" style="margin-bottom:.75rem;">Showing up to the 50 most recent archived punches.</p>
+        <section class="tab-panel" data-panel-name="completed-punches" hidden>
+          <p class="text-muted" style="margin-bottom:.75rem;">Showing up to the 50 most recent completed time punches.</p>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>Submitted At</th>
-                  <th>Archived At</th>
+                  <th>Completed At</th>
                   <th>Employee</th>
                   <th>Date</th>
                   <th>Time In</th>
                   <th>Time Out</th>
+                  <th>Break Return</th>
                   <th>Note</th>
                 </tr>
               </thead>
@@ -248,11 +246,12 @@
                       <td>{{ .PunchDate }}</td>
                       <td>{{ .TimeIn }}</td>
                       <td>{{ .TimeOut }}</td>
+                      <td>{{ if .ForgotBreakClockInReturn }}Needs Break Return Fix{{ else }}Normal{{ end }}</td>
                       <td>{{ .Note }}</td>
                     </tr>
                   {{ end }}
                 {{ else }}
-                  <tr><td colspan="7">No archived punches yet.</td></tr>
+                  <tr><td colspan="8">No completed time punches yet.</td></tr>
                 {{ end }}
               </tbody>
             </table>
@@ -289,24 +288,6 @@
       setActivePanel("create-punch", false);
     }
 
-    const copyBtn = document.getElementById("copy-btn");
-    const openBtn = document.getElementById("open-btn");
-    const linkInput = document.getElementById("punch-link");
-    if (copyBtn && linkInput) copyBtn.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(linkInput.value);
-        copyBtn.textContent = "Copied";
-        window.setTimeout(() => { copyBtn.textContent = "Copy Link"; }, 1200);
-      } catch (_) {
-        linkInput.select();
-        document.execCommand("copy");
-      }
-    });
-    if (openBtn && linkInput) openBtn.addEventListener("click", () => {
-      const target = (linkInput.value || "").trim();
-      if (!target) return;
-      window.location.href = target;
-    });
   </script>
   <script>
     (function () {

@@ -7,7 +7,7 @@
   <title>Time Punch Correction</title>
   <style>
     :root {
-      --bg: #f4f1ec;
+      --bg: #ffffff;
       --card: #ffffff;
       --line: #e2d5c4;
       --ink: #1f232a;
@@ -19,7 +19,7 @@
     body {
       margin: 0;
       padding: 14px;
-      background: radial-gradient(50rem 25rem at 110% -10%, #f1d9bf 0, transparent 52%), var(--bg);
+      background: var(--bg);
       color: var(--ink);
       font-family: "Manrope", "Segoe UI", sans-serif;
     }
@@ -155,7 +155,10 @@
 
 </head>
 <body class="min-h-screen pt-20 bg-white text-zinc-900 dark:bg-black dark:text-zinc-100 transition-colors duration-200">
-  <button id="theme-toggle" type="button" class="fixed top-3 right-3 z-[1200] rounded-full border border-zinc-300/80 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.08em] text-zinc-700 dark:text-zinc-200 shadow-sm backdrop-blur">Dark</button>
+  <button id="theme-toggle" type="button" aria-label="Toggle theme" class="fixed top-3 right-3 z-[1200] h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors backdrop-blur">
+    <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+  </button>
   <nav id="app-nav" class="fixed top-3 left-3 right-20 z-[1100]">
     <div class="mx-auto max-w-6xl rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur px-3 py-2">
       <div class="flex items-center justify-between gap-3">
@@ -168,6 +171,7 @@
         </button>
       </div>
       <div id="nav-links" class="mt-2 hidden flex-col gap-1 text-xs font-semibold md:mt-2 md:flex md:flex-row md:flex-wrap md:items-center md:gap-2">
+        <a href="/team" class="block px-2.5 py-1 rounded-md text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800">Back to Portal</a>
         <a href="/time-punch/{{ .Token }}" class="block px-2.5 py-1 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black">Time Punch Form</a>
       
       </div>
@@ -182,6 +186,13 @@
     {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
 
     <form method="post" action="/time-punch/{{ .Token }}">
+      {{ if .ResolvedTimePunchName }}
+      <div class="field">
+        <label class="label">Team Member</label>
+        <input type="text" value="{{ .ResolvedEmployeeName }}" readonly>
+        <input type="hidden" name="time_punch_name" value="{{ .ResolvedTimePunchName }}">
+      </div>
+      {{ else }}
       <div class="field">
         <label class="label" for="member_search">Find Team Member</label>
         <input id="member_search" type="text" data-member-search placeholder="Start typing your name">
@@ -199,6 +210,7 @@
           </select>
         </div>
       </div>
+      {{ end }}
 
       <div class="field">
         <label class="label" for="punch_date">Date</label>
@@ -220,6 +232,11 @@
         <label class="label" for="note">Note (Optional)</label>
         <textarea id="note" name="note" maxlength="255" rows="4" placeholder="Add a quick note about this correction (max 255 characters)."></textarea>
         <p class="search-note"><span id="note_count">0</span>/255</p>
+      </div>
+
+      <div class="field" style="display:flex;align-items:flex-start;gap:.55rem;">
+        <input id="forgot_break_clock_in_return" type="checkbox" name="forgot_break_clock_in_return" value="1" style="width:auto;margin-top:.2rem;">
+        <label class="label" for="forgot_break_clock_in_return" style="text-transform:none;letter-spacing:0;color:inherit;">I forgot to clock back in from break</label>
       </div>
 
       <button id="submit-btn" class="submit-btn" type="submit">Submit Correction</button>
@@ -322,7 +339,7 @@
       }
     })();
   </script>
-    <script>
+  <script>
     (function () {
       const storageKey = "cfasuite-theme";
       const root = document.documentElement;
@@ -330,26 +347,10 @@
       const navToggle = document.getElementById("nav-toggle");
       const navLinks = document.getElementById("nav-links");
 
-      function currentTheme() {
-        return root.classList.contains("dark") ? "dark" : "light";
-      }
-
-      function updateLabel() {
-        if (!toggle) return;
-        const next = currentTheme() === "dark" ? "light" : "dark";
-        toggle.textContent = next === "dark" ? "Dark" : "Light";
-        toggle.setAttribute("aria-label", "Switch to " + next + " mode");
-        toggle.title = "Switch to " + next + " mode";
-      }
-
-      updateLabel();
-
       if (toggle) {
         toggle.addEventListener("click", function () {
-          const next = currentTheme() === "dark" ? "light" : "dark";
-          root.classList.toggle("dark", next === "dark");
-          window.localStorage.setItem(storageKey, next);
-          updateLabel();
+          const isDark = root.classList.toggle("dark");
+          window.localStorage.setItem(storageKey, isDark ? "dark" : "light");
         });
       }
 

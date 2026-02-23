@@ -117,6 +117,25 @@
       color: var(--fg);
     }
 
+    label.required > .label-text::after {
+      content: " *";
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    label.required.required-complete > .label-text::after {
+      content: "";
+    }
+
+    label.required {
+      display: block;
+    }
+
+    label.required > input,
+    label.required > div {
+      margin-top: 0.375rem;
+    }
+
     input {
       width: 100%;
       border: 1px solid var(--border);
@@ -309,6 +328,7 @@
         <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Locations</a>
       </nav>
       <div class="flex items-center gap-2 shrink-0">
+        <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
         <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
           <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -324,8 +344,8 @@
     </div>
   </header>
 
-  <div class="pt-14 min-h-[calc(100vh-3.5rem)] flex items-center justify-center px-4 py-8">
-    <div class="w-full max-w-[800px]">
+  <div class="pt-14 min-h-[calc(100vh-3.5rem)] px-4 py-8">
+    <div class="mx-auto w-full max-w-[800px]">
 
       <section class="panel">
         <h1 class="panel-title">Chick-fil-A Locations</h1>
@@ -340,45 +360,52 @@
 
         <section class="tab-panel" data-panel-name="create" hidden>
           <form id="create-location-form">
+            <p class="meta" style="margin-top:0; padding-top:0; border-top:none;">All fields are required. Asterisks remain until each required field is complete.</p>
             <div class="grid-2">
-              <label>
-                Location Name
+              <label class="required">
+                <span class="label-text">Location Name</span>
                 <input id="name" name="name" type="text" placeholder="Example: Nashville Downtown" required>
               </label>
-              <label>
-                Location Number
+              <label class="required">
+                <span class="label-text">Location Number</span>
                 <input id="number" name="number" type="text" placeholder="Example: TN-1024" required>
               </label>
-              <label>
-                Location Email
-                <input id="email" name="email" type="email" placeholder="Example: location@example.com" required>
+              <label class="required">
+                <span class="label-text">Location Login Email</span>
+                <input id="email" name="email" type="email" placeholder="Auto-generated from location number" readonly required>
               </label>
-              <label>
-                Location Phone
-                <input id="phone" name="phone" type="tel" placeholder="Example: (555) 123-4567" required>
+              <label class="required">
+                <span class="label-text">Location Phone</span>
+                <div style="display:grid;grid-template-columns:96px auto 96px auto 1fr;gap:8px;align-items:center;">
+                  <input id="phone_1" name="phone_1" type="text" inputmode="numeric" maxlength="3" pattern="[0-9]{3}" placeholder="615" required>
+                  <span style="font-weight:700;color:var(--muted-fg);text-align:center;">-</span>
+                  <input id="phone_2" name="phone_2" type="text" inputmode="numeric" maxlength="3" pattern="[0-9]{3}" placeholder="555" required>
+                  <span style="font-weight:700;color:var(--muted-fg);text-align:center;">-</span>
+                  <input id="phone_3" name="phone_3" type="text" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="1234" required>
+                </div>
               </label>
-              <label>
-                Employer Representative Signature
+              <label class="required">
+                <span class="label-text">Owner/Operator</span>
                 <input id="employer_rep_signature" name="employer_rep_signature" type="text" maxlength="120" placeholder="Example: Jane Smith, HR Manager" required>
               </label>
-              <label>
-                Business or Organization Name
+              <label class="required">
+                <span class="label-text">Business or Organization Name</span>
                 <input id="business_name" name="business_name" type="text" placeholder="Example: Chick-fil-A Downtown Nashville LLC" required>
               </label>
-              <label>
-                Business Street Address
+              <label class="required">
+                <span class="label-text">Business Street Address</span>
                 <input id="business_street" name="business_street" type="text" placeholder="Example: 123 Main St" required>
               </label>
-              <label>
-                Business City
+              <label class="required">
+                <span class="label-text">Business City</span>
                 <input id="business_city" name="business_city" type="text" placeholder="Example: Nashville" required>
               </label>
-              <label>
-                Business State
+              <label class="required">
+                <span class="label-text">Business State</span>
                 <input id="business_state" name="business_state" type="text" placeholder="Example: TN" required>
               </label>
-              <label>
-                Business EIN
+              <label class="required">
+                <span class="label-text">Business EIN</span>
                 <div style="display:grid;grid-template-columns:96px auto 1fr;gap:8px;align-items:center;">
                   <input id="business_ein_1" name="business_ein_1" type="text" inputmode="numeric" maxlength="2" pattern="[0-9]{2}" placeholder="12" required>
                   <span style="font-weight:700;color:var(--muted-fg);text-align:center;">-</span>
@@ -389,8 +416,6 @@
 
             <button id="submit-btn" type="submit">Create Location</button>
           </form>
-
-          <p class="meta">Requests are secured with server-side session checks and CSRF verification.</p>
         </section>
 
         <section class="tab-panel" data-panel-name="view">
@@ -402,7 +427,7 @@
                   <tr>
                     <th>Name</th>
                     <th>Number</th>
-                    <th>Created</th>
+                    <th>Email</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -411,7 +436,7 @@
                       <tr>
                         <td><a class="location-link" href="/admin/locations/{{ .Number }}">{{ .Name }}</a></td>
                         <td>{{ .Number }}</td>
-                        <td>{{ .CreatedAt }}</td>
+                        <td>{{ if .Email }}{{ .Email }}{{ else }}-{{ end }}</td>
                       </tr>
                     {{ end }}
                   {{ else }}
@@ -451,6 +476,62 @@
     const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
     const submenuButtons = Array.from(document.querySelectorAll(".submenu-btn"));
     const tabPanels = Array.from(document.querySelectorAll(".tab-panel"));
+    const numberInput = document.getElementById("number");
+    const emailInput = document.getElementById("email");
+    const requiredInputs = Array.from(document.querySelectorAll("#create-location-form input[required]"));
+
+    function syncAutoEmail() {
+      if (!numberInput || !emailInput) return;
+      const number = (numberInput.value || "").trim().toLowerCase();
+      emailInput.value = number ? `${number}@chick-fil-a.com` : "";
+    }
+    if (numberInput && emailInput) {
+      numberInput.addEventListener("input", syncAutoEmail);
+      syncAutoEmail();
+    }
+
+    function setFieldState(input, isValid) {
+      if (!input) return;
+      const label = input.closest("label.required");
+      if (!label) return;
+      const labelRequiredInputs = Array.from(label.querySelectorAll("input[required]"));
+      const labelComplete = labelRequiredInputs.length > 0 && labelRequiredInputs.every((el) => isFieldValid(el));
+      label.classList.toggle("required-complete", labelComplete);
+    }
+
+    function isFieldValid(input) {
+      if (!input) return false;
+      const value = (input.value || "").trim();
+      if (value === "") return false;
+      if (input.id === "phone_1" || input.id === "phone_2") return value.length === 3;
+      if (input.id === "phone_3") return value.length === 4;
+      if (input.id === "business_ein_1") return value.length === 2;
+      if (input.id === "business_ein_2") return value.length === 7;
+      if (input.id === "email") return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+      return true;
+    }
+
+    function validateAllFields() {
+      let allValid = true;
+      requiredInputs.forEach((input) => {
+        const valid = isFieldValid(input);
+        setFieldState(input, valid);
+        if (!valid) allValid = false;
+      });
+      return allValid;
+    }
+
+    requiredInputs.forEach((input) => {
+      input.addEventListener("input", () => {
+        if (input.id === "number") syncAutoEmail();
+        setFieldState(input, isFieldValid(input));
+        if (input.id === "number" && emailInput) {
+          setFieldState(emailInput, isFieldValid(emailInput));
+        }
+      });
+      input.addEventListener("blur", () => setFieldState(input, isFieldValid(input)));
+      setFieldState(input, isFieldValid(input));
+    });
 
     function setActivePanel(panelName, pushHash = true) {
       tabPanels.forEach((panel) => {
@@ -486,19 +567,22 @@
       statusEl.className = "status";
       submitBtn.disabled = true;
 
-      const einPart1 = (document.getElementById("business_ein_1").value || "").replace(/\D+/g, "").slice(0, 2);
-      const einPart2 = (document.getElementById("business_ein_2").value || "").replace(/\D+/g, "").slice(0, 7);
-      if (einPart1.length !== 2 || einPart2.length !== 7) {
-        statusEl.textContent = "EIN must be 2 digits, dash, then 7 digits.";
+      if (!validateAllFields()) {
+        statusEl.textContent = "Please complete all required fields.";
         statusEl.classList.add("error");
         submitBtn.disabled = false;
         return;
       }
+      const einPart1 = (document.getElementById("business_ein_1").value || "").replace(/\D+/g, "").slice(0, 2);
+      const einPart2 = (document.getElementById("business_ein_2").value || "").replace(/\D+/g, "").slice(0, 7);
+      const phonePart1 = (document.getElementById("phone_1").value || "").replace(/\D+/g, "").slice(0, 3);
+      const phonePart2 = (document.getElementById("phone_2").value || "").replace(/\D+/g, "").slice(0, 3);
+      const phonePart3 = (document.getElementById("phone_3").value || "").replace(/\D+/g, "").slice(0, 4);
       const payload = {
         name: document.getElementById("name").value.trim(),
         number: document.getElementById("number").value.trim(),
         email: document.getElementById("email").value.trim(),
-        phone: document.getElementById("phone").value.trim(),
+        phone: `${phonePart1}-${phonePart2}-${phonePart3}`,
         employerRepSignature: document.getElementById("employer_rep_signature").value.trim(),
         businessName: document.getElementById("business_name").value.trim(),
         businessStreet: document.getElementById("business_street").value.trim(),
@@ -523,9 +607,16 @@
           throw new Error(message);
         }
 
-        statusEl.textContent = `Location ${payload.number} (${payload.name}) created successfully.`;
+        const restaurantUsername = (result.restaurantUsername || "").trim();
+        const restaurantPassword = (result.restaurantPassword || "").trim();
+        if (restaurantUsername && restaurantPassword) {
+          statusEl.textContent = `Location ${payload.number} (${payload.name}) created. Restaurant login: ${restaurantUsername} | Initial password: ${restaurantPassword}`;
+        } else {
+          statusEl.textContent = `Location ${payload.number} (${payload.name}) created successfully.`;
+        }
         statusEl.classList.add("ok");
         form.reset();
+        syncAutoEmail();
         window.setTimeout(() => { window.location.hash = 'view'; window.location.reload(); }, 250);
       } catch (error) {
         statusEl.textContent = error.message || "Unexpected error occurred.";
@@ -537,8 +628,11 @@
 
     const ein1 = document.getElementById("business_ein_1");
     const ein2 = document.getElementById("business_ein_2");
+    const phone1 = document.getElementById("phone_1");
+    const phone2 = document.getElementById("phone_2");
+    const phone3 = document.getElementById("phone_3");
+    const digitsOnly = (value, maxLen) => (value || "").replace(/\D+/g, "").slice(0, maxLen);
     if (ein1 && ein2) {
-      const digitsOnly = (value, maxLen) => (value || "").replace(/\D+/g, "").slice(0, maxLen);
       ein1.addEventListener("input", () => {
         ein1.value = digitsOnly(ein1.value, 2);
         if (ein1.value.length === 2) ein2.focus();
@@ -549,6 +643,32 @@
       ein2.addEventListener("keydown", (event) => {
         if (event.key === "Backspace" && ein2.value === "") {
           ein1.focus();
+        }
+      });
+    }
+    if (phone1 && phone2 && phone3) {
+      phone1.addEventListener("input", () => {
+        phone1.value = digitsOnly(phone1.value, 3);
+        if (phone1.value.length === 3) phone2.focus();
+        setFieldState(phone1, isFieldValid(phone1));
+      });
+      phone2.addEventListener("input", () => {
+        phone2.value = digitsOnly(phone2.value, 3);
+        if (phone2.value.length === 3) phone3.focus();
+        setFieldState(phone2, isFieldValid(phone2));
+      });
+      phone3.addEventListener("input", () => {
+        phone3.value = digitsOnly(phone3.value, 4);
+        setFieldState(phone3, isFieldValid(phone3));
+      });
+      phone2.addEventListener("keydown", (event) => {
+        if (event.key === "Backspace" && phone2.value === "") {
+          phone1.focus();
+        }
+      });
+      phone3.addEventListener("keydown", (event) => {
+        if (event.key === "Backspace" && phone3.value === "") {
+          phone2.focus();
         }
       });
     }

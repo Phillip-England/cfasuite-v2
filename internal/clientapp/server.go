@@ -6,9 +6,11 @@ import (
 	"embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"io"
 	"log"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -23,9 +25,66 @@ import (
 )
 
 const (
-	csrfHeaderName    = "X-CSRF-Token"
-	sessionCookieName = "cfasuite_session"
+	csrfHeaderName          = "X-CSRF-Token"
+	apiSessionCookie        = "cfasuite_session"
+	adminSessionCookie      = "cfasuite_session_admin"
+	restaurantSessionCookie = "cfasuite_session_restaurant"
+	teamSessionCookie       = "cfasuite_session_team"
+	uniformSystemKeyShoes   = "shoes"
 )
+
+var interviewQuestionStarterCatalog = []interviewQuestionStarter{
+	{
+		Key:          "why_chickfila",
+		Question:     "Why do you want to work at Chick-fil-A?",
+		ResponseType: "text",
+	},
+	{
+		Key:          "hospitality_meaning",
+		Question:     "What does great hospitality mean to you?",
+		ResponseType: "text",
+	},
+	{
+		Key:          "teamwork_example",
+		Question:     "Tell me about a time you helped a teammate succeed.",
+		ResponseType: "text",
+	},
+	{
+		Key:          "guest_recovery",
+		Question:     "Describe a time you helped a frustrated guest or customer.",
+		ResponseType: "text",
+	},
+	{
+		Key:          "fast_paced",
+		Question:     "How do you stay accurate and positive during a fast-paced rush?",
+		ResponseType: "text",
+	},
+	{
+		Key:          "feedback_application",
+		Question:     "Tell me about feedback you received and how you applied it.",
+		ResponseType: "text",
+	},
+	{
+		Key:          "dependable_team",
+		Question:     "What does being dependable look like on a team?",
+		ResponseType: "text",
+	},
+	{
+		Key:          "weekend_availability",
+		Question:     "Are you available to work weekends?",
+		ResponseType: "yes_no",
+	},
+	{
+		Key:          "open_close_availability",
+		Question:     "Are you available to open or close when needed?",
+		ResponseType: "yes_no",
+	},
+	{
+		Key:          "food_safety_importance",
+		Question:     "Why is food safety important in a restaurant environment?",
+		ResponseType: "text",
+	},
+}
 
 type Config struct {
 	Addr         string
@@ -35,12 +94,14 @@ type Config struct {
 }
 
 type pageData struct {
-	Error      string
-	CSRF       string
-	Page       int
-	Token      string
-	Search     string
-	ReturnPath string
+	Error                 string
+	CSRF                  string
+	Page                  int
+	Token                 string
+	Search                string
+	ReturnPath            string
+	ResolvedTimePunchName string
+	ResolvedEmployeeName  string
 
 	Locations  []locationView
 	HasPrev    bool
@@ -49,44 +110,56 @@ type pageData struct {
 	NextPage   int
 	TotalCount int
 
-	Location                 *locationView
-	Employee                 *employeeView
-	BusinessDay              *businessDayView
-	Employees                []employeeView
-	BusinessDays             []businessDayView
-	ArchivedEmployees        []employeeView
-	TimePunchEntries         []timePunchEntryView
-	ArchivedTimePunchEntries []timePunchEntryView
-	TimeOffRequests          []timeOffRequestView
-	ArchivedTimeOffRequests  []timeOffRequestView
-	UniformItems             []uniformItemView
-	UniformOrders            []uniformOrderView
-	ArchivedOrders           []uniformOrderView
-	UniformItem              *uniformItemView
-	Candidates               []candidateView
-	ArchivedCandidates       []candidateView
-	EmployeeScorecards       []candidateView
-	CandidateValues          []candidateValueView
-	InterviewNames           []candidateInterviewNameView
-	InterviewQuestions       []candidateInterviewQuestionView
-	InterviewLinks           []candidateInterviewLinkView
-	Candidate                *candidateView
-	Interview                *candidateInterviewView
-	InterviewLink            *candidateInterviewLinkView
-	EmployeeNames            []string
-	Departments              []string
-	SuccessMessage           string
-	UploadLink               string
-	EmployeePaperworkLink    string
-	LocationSettings         *locationSettingsView
-	TimePunchLink            string
-	TimeOffLink              string
-	UniformLink              string
-	EmployeeI9               *employeeI9View
-	EmployeeI9Documents      []employeeI9DocumentView
-	EmployeeW4               *employeeI9View
-	PaperworkSections        []paperworkSectionView
-	IsArchivedEmployee       bool
+	Location                  *locationView
+	Employee                  *employeeView
+	BusinessDay               *businessDayView
+	Employees                 []employeeView
+	ActiveEmployees           []employeeView
+	NewHireEmployees          []employeeView
+	BusinessDays              []businessDayView
+	ArchivedEmployees         []employeeView
+	TimePunchEntries          []timePunchEntryView
+	ArchivedTimePunchEntries  []timePunchEntryView
+	TimeOffRequests           []timeOffRequestView
+	ArchivedTimeOffRequests   []timeOffRequestView
+	UniformItems              []uniformItemView
+	UniformOrders             []uniformOrderView
+	ArchivedOrders            []uniformOrderView
+	UniformItem               *uniformItemView
+	Candidates                []candidateView
+	ArchivedCandidates        []candidateView
+	EmployeeScorecards        []candidateView
+	CandidateValues           []candidateValueView
+	InterviewNames            []candidateInterviewNameView
+	InterviewQuestions        []candidateInterviewQuestionView
+	InterviewQuestionStarters []interviewQuestionStarterView
+	InterviewLinks            []candidateInterviewLinkView
+	InterviewCalendar         []interviewCalendarEntryView
+	Candidate                 *candidateView
+	Interview                 *candidateInterviewView
+	InterviewLink             *candidateInterviewLinkView
+	EmployeeNames             []string
+	Departments               []string
+	LocationDepartments       []departmentView
+	LocationJobs              []jobView
+	SuccessMessage            string
+	UploadLink                string
+	EmployeePaperworkLink     string
+	LocationSettings          *locationSettingsView
+	TimePunchLink             string
+	TimeOffLink               string
+	UniformLink               string
+	TeamLoginLink             string
+	EmployeeI9                *employeeI9View
+	EmployeeI9Documents       []employeeI9DocumentView
+	EmployeeW4                *employeeI9View
+	PaperworkSections         []paperworkSectionView
+	IsArchivedEmployee        bool
+	CurrentUser               *authSessionView
+	EmployeePayAmountInput    string
+	EmployeeBirthMonthInput   string
+	EmployeeBirthDayInput     string
+	EmployeeBirthYearInput    string
 }
 
 type locationView struct {
@@ -98,13 +171,45 @@ type locationView struct {
 }
 
 type employeeView struct {
-	FirstName     string `json:"firstName"`
-	LastName      string `json:"lastName"`
-	TimePunchName string `json:"timePunchName"`
-	Department    string `json:"department"`
-	Birthday      string `json:"birthday"`
-	HasPhoto      bool   `json:"hasPhoto"`
-	ArchivedAt    string `json:"archivedAt"`
+	FirstName             string `json:"firstName"`
+	LastName              string `json:"lastName"`
+	TimePunchName         string `json:"timePunchName"`
+	Department            string `json:"department"`
+	DepartmentID          int64  `json:"departmentId"`
+	JobID                 int64  `json:"jobId"`
+	JobName               string `json:"jobName"`
+	PayType               string `json:"payType"`
+	PayAmountCents        int64  `json:"payAmountCents"`
+	Birthday              string `json:"birthday"`
+	Email                 string `json:"email"`
+	Phone                 string `json:"phone"`
+	Address               string `json:"address"`
+	AptNumber             string `json:"aptNumber"`
+	City                  string `json:"city"`
+	State                 string `json:"state"`
+	ZipCode               string `json:"zipCode"`
+	HasPhoto              bool   `json:"hasPhoto"`
+	HasClockInPIN         bool   `json:"hasClockInPin"`
+	HasCompletedPaperwork bool   `json:"hasCompletedPaperwork"`
+	ArchivedAt            string `json:"archivedAt"`
+}
+
+type departmentView struct {
+	ID             int64  `json:"id"`
+	LocationNumber string `json:"locationNumber"`
+	Name           string `json:"name"`
+	CreatedAt      string `json:"createdAt"`
+}
+
+type jobView struct {
+	ID              int64    `json:"id"`
+	LocationNumber  string   `json:"locationNumber"`
+	DepartmentID    int64    `json:"departmentId"`
+	DepartmentName  string   `json:"departmentName"`
+	DepartmentIDs   []int64  `json:"departmentIds"`
+	DepartmentNames []string `json:"departmentNames"`
+	Name            string   `json:"name"`
+	CreatedAt       string   `json:"createdAt"`
 }
 
 type employeeI9View struct {
@@ -143,6 +248,16 @@ type locationDetailResponse struct {
 type locationEmployeesResponse struct {
 	Count     int            `json:"count"`
 	Employees []employeeView `json:"employees"`
+}
+
+type locationDepartmentsResponse struct {
+	Count       int              `json:"count"`
+	Departments []departmentView `json:"departments"`
+}
+
+type locationJobsResponse struct {
+	Count int       `json:"count"`
+	Jobs  []jobView `json:"jobs"`
 }
 
 type employeeDetailResponse struct {
@@ -216,15 +331,25 @@ type authTokenResponse struct {
 	CSRFToken string `json:"csrfToken"`
 }
 
+type authSessionView struct {
+	ID             int64  `json:"id"`
+	Username       string `json:"username"`
+	IsAdmin        bool   `json:"isAdmin"`
+	Role           string `json:"role"`
+	LocationNumber string `json:"locationNumber"`
+	TimePunchName  string `json:"timePunchName"`
+}
+
 type timePunchEntryView struct {
-	ID            int64  `json:"id"`
-	TimePunchName string `json:"timePunchName"`
-	PunchDate     string `json:"punchDate"`
-	TimeIn        string `json:"timeIn"`
-	TimeOut       string `json:"timeOut"`
-	Note          string `json:"note"`
-	ArchivedAt    string `json:"archivedAt"`
-	CreatedAt     string `json:"createdAt"`
+	ID                       int64  `json:"id"`
+	TimePunchName            string `json:"timePunchName"`
+	PunchDate                string `json:"punchDate"`
+	TimeIn                   string `json:"timeIn"`
+	TimeOut                  string `json:"timeOut"`
+	Note                     string `json:"note"`
+	ForgotBreakClockInReturn bool   `json:"forgotBreakClockInReturn"`
+	ArchivedAt               string `json:"archivedAt"`
+	CreatedAt                string `json:"createdAt"`
 }
 
 type timePunchEntriesResponse struct {
@@ -280,14 +405,21 @@ type businessDayResponse struct {
 }
 
 type uniformItemView struct {
-	ID        int64              `json:"id"`
-	Name      string             `json:"name"`
-	Price     float64            `json:"price"`
-	Enabled   bool               `json:"enabled"`
-	ImageData string             `json:"imageData"`
-	ImageMime string             `json:"imageMime"`
-	Images    []uniformImageView `json:"images"`
-	Sizes     []string           `json:"sizes"`
+	ID         int64                  `json:"id"`
+	Name       string                 `json:"name"`
+	Price      float64                `json:"price"`
+	Enabled    bool                   `json:"enabled"`
+	SystemKey  string                 `json:"systemKey"`
+	ImageData  string                 `json:"imageData"`
+	ImageMime  string                 `json:"imageMime"`
+	Images     []uniformImageView     `json:"images"`
+	Sizes      []string               `json:"sizes"`
+	SizeFields []uniformSizeFieldView `json:"sizeFields"`
+}
+
+type uniformSizeFieldView struct {
+	Label   string   `json:"label"`
+	Options []string `json:"options"`
 }
 
 type uniformImageView struct {
@@ -308,6 +440,7 @@ type uniformOrderView struct {
 	TimePunchName string                 `json:"timePunchName"`
 	ItemsSummary  string                 `json:"itemsSummary"`
 	Lines         []uniformOrderLineView `json:"lines"`
+	Status        string                 `json:"status"`
 	Total         float64                `json:"total"`
 	CreatedAt     string                 `json:"createdAt"`
 	ArchivedAt    string                 `json:"archivedAt"`
@@ -318,7 +451,9 @@ type uniformOrderLineView struct {
 	OrderID     int64   `json:"orderId"`
 	ItemID      int64   `json:"itemId"`
 	ItemName    string  `json:"itemName"`
+	ItemNumber  string  `json:"itemNumber"`
 	SizeOption  string  `json:"sizeOption"`
+	ExternalURL string  `json:"externalUrl"`
 	Note        string  `json:"note"`
 	Quantity    int64   `json:"quantity"`
 	UnitPrice   float64 `json:"unitPrice"`
@@ -357,6 +492,7 @@ type locationSettingsView struct {
 	W4EmployerEIN        string   `json:"w4EmployerEin"`
 	W4EmployerAddress    string   `json:"w4EmployerAddress"`
 	Departments          []string `json:"departments"`
+	RestaurantUsername   string   `json:"restaurantUsername"`
 }
 
 type locationSettingsResponse struct {
@@ -404,15 +540,32 @@ type candidateInterviewNameView struct {
 }
 
 type candidateInterviewQuestionView struct {
-	ID               int64    `json:"id"`
-	LocationNumber   string   `json:"locationNumber"`
-	InterviewNameID  int64    `json:"interviewNameId"`
-	InterviewName    string   `json:"interviewName"`
-	InterviewNameIDs []int64  `json:"interviewNameIds"`
-	InterviewNames   []string `json:"interviewNames"`
-	Question         string   `json:"question"`
-	CreatedAt        string   `json:"createdAt"`
-	UpdatedAt        string   `json:"updatedAt"`
+	ID                  int64    `json:"id"`
+	LocationNumber      string   `json:"locationNumber"`
+	InterviewNameID     int64    `json:"interviewNameId"`
+	InterviewName       string   `json:"interviewName"`
+	InterviewNameIDs    []int64  `json:"interviewNameIds"`
+	InterviewNames      []string `json:"interviewNames"`
+	Question            string   `json:"question"`
+	ResponseType        string   `json:"responseType"`
+	ResponseKind        string   `json:"-"`
+	ResponseOptions     []string `json:"responseOptions"`
+	ResponseOptionsText string   `json:"-"`
+	CreatedAt           string   `json:"createdAt"`
+	UpdatedAt           string   `json:"updatedAt"`
+}
+
+type interviewQuestionStarter struct {
+	Key             string
+	Question        string
+	ResponseType    string
+	ResponseOptions []string
+}
+
+type interviewQuestionStarterView struct {
+	Key           string
+	Question      string
+	ResponseLabel string
 }
 
 type candidateInterviewLinkView struct {
@@ -421,8 +574,22 @@ type candidateInterviewLinkView struct {
 	CandidateID              int64  `json:"candidateId"`
 	InterviewerTimePunchName string `json:"interviewerTimePunchName"`
 	InterviewType            string `json:"interviewType"`
+	ScheduledAt              string `json:"scheduledAt"`
 	Link                     string `json:"link"`
 	ExpiresAt                string `json:"expiresAt"`
+	UsedAt                   string `json:"usedAt"`
+	CreatedAt                string `json:"createdAt"`
+}
+
+type interviewCalendarEntryView struct {
+	Token                    string `json:"token"`
+	LocationNumber           string `json:"locationNumber"`
+	CandidateID              int64  `json:"candidateId"`
+	CandidateFirstName       string `json:"candidateFirstName"`
+	CandidateLastName        string `json:"candidateLastName"`
+	InterviewerTimePunchName string `json:"interviewerTimePunchName"`
+	InterviewType            string `json:"interviewType"`
+	ScheduledAt              string `json:"scheduledAt"`
 	UsedAt                   string `json:"usedAt"`
 	CreatedAt                string `json:"createdAt"`
 }
@@ -440,6 +607,7 @@ type candidateView struct {
 	LocationNumber     string                   `json:"locationNumber"`
 	FirstName          string                   `json:"firstName"`
 	LastName           string                   `json:"lastName"`
+	Phone              string                   `json:"phone"`
 	Status             string                   `json:"status"`
 	HiredTimePunchName string                   `json:"hiredTimePunchName"`
 	CreatedAt          string                   `json:"createdAt"`
@@ -468,6 +636,11 @@ type candidateInterviewLinksResponse struct {
 	Links []candidateInterviewLinkView `json:"links"`
 }
 
+type interviewCalendarResponse struct {
+	Count    int                          `json:"count"`
+	Calendar []interviewCalendarEntryView `json:"calendar"`
+}
+
 type candidateInterviewLinkResponse struct {
 	Link candidateInterviewLinkView `json:"link"`
 }
@@ -493,7 +666,7 @@ type updateBusinessDayRequest struct {
 	LaborHours string `json:"laborHours"`
 }
 
-//go:embed templates/admin.html templates/login.html templates/location_apps.html templates/location.html templates/location_settings.html templates/archived_employees.html templates/time_punch.html templates/time_off.html templates/business_days.html templates/business_day.html templates/employee.html templates/uniforms.html templates/uniform_orders_archived.html templates/uniform_item.html templates/candidates.html templates/interview_process.html templates/candidate_detail.html templates/candidate_interview.html templates/candidate_interview_link.html templates/candidate_scorecard.html templates/public_photo_upload.html templates/public_employee_paperwork.html templates/public_candidate_interview.html templates/public_time_punch.html templates/public_time_off.html templates/public_uniform_order.html templates/public_uniform_order_item.html assets/app.css
+//go:embed templates/admin.html templates/login.html templates/team_login.html templates/team_portal.html templates/location_apps.html templates/location.html templates/location_settings.html templates/departments.html templates/archived_employees.html templates/time_punch.html templates/time_off.html templates/business_days.html templates/business_day.html templates/employee.html templates/uniforms.html templates/uniform_orders_archived.html templates/uniform_item.html templates/candidates.html templates/interview_process.html templates/candidate_detail.html templates/candidate_interview.html templates/candidate_interview_link.html templates/candidate_scorecard.html templates/public_photo_upload.html templates/public_employee_paperwork.html templates/public_candidate_interview.html templates/public_time_punch.html templates/public_time_off.html templates/public_uniform_order.html templates/public_uniform_order_item.html assets/app.css assets/upload-drop.js assets/shoe.svg
 var templatesFS embed.FS
 
 type server struct {
@@ -501,9 +674,12 @@ type server struct {
 	apiClient                  *http.Client
 	adminTmpl                  *template.Template
 	loginTmpl                  *template.Template
+	teamLoginTmpl              *template.Template
+	teamPortalTmpl             *template.Template
 	locationAppsTmpl           *template.Template
 	locationTmpl               *template.Template
 	locationSettingsTmpl       *template.Template
+	departmentsTmpl            *template.Template
 	archivedEmployeesTmpl      *template.Template
 	timePunchTmpl              *template.Template
 	timeOffTmpl                *template.Template
@@ -545,9 +721,12 @@ func Run(ctx context.Context, cfg Config) error {
 		apiClient:                  apiClient,
 		adminTmpl:                  template.Must(template.ParseFS(templatesFS, "templates/admin.html")),
 		loginTmpl:                  template.Must(template.ParseFS(templatesFS, "templates/login.html")),
+		teamLoginTmpl:              template.Must(template.ParseFS(templatesFS, "templates/team_login.html")),
+		teamPortalTmpl:             template.Must(template.ParseFS(templatesFS, "templates/team_portal.html")),
 		locationAppsTmpl:           template.Must(template.ParseFS(templatesFS, "templates/location_apps.html")),
 		locationTmpl:               template.Must(template.ParseFS(templatesFS, "templates/location.html")),
 		locationSettingsTmpl:       template.Must(template.ParseFS(templatesFS, "templates/location_settings.html")),
+		departmentsTmpl:            template.Must(template.ParseFS(templatesFS, "templates/departments.html")),
 		archivedEmployeesTmpl:      template.Must(template.ParseFS(templatesFS, "templates/archived_employees.html")),
 		timePunchTmpl:              template.Must(template.ParseFS(templatesFS, "templates/time_punch.html")),
 		timeOffTmpl:                template.Must(template.ParseFS(templatesFS, "templates/time_off.html")),
@@ -575,15 +754,22 @@ func Run(ctx context.Context, cfg Config) error {
 	mux := http.NewServeMux()
 	mux.Handle("/", http.HandlerFunc(s.loginRoute))
 	mux.Handle("/login", http.HandlerFunc(s.loginRoute))
+	mux.Handle("/logout", http.HandlerFunc(s.logoutRoute))
+	mux.Handle("/team-login", http.HandlerFunc(s.teamLoginRoute))
+	mux.Handle("/team-login/", http.HandlerFunc(s.teamLoginTokenRoute))
 	mux.Handle("/amin", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin", http.StatusFound)
 	}))
-	mux.Handle("/admin", middleware.Chain(http.HandlerFunc(s.adminPage), s.requireAdmin))
-	mux.Handle("/admin/locations", middleware.Chain(http.HandlerFunc(s.createLocationProxy), s.requireAdmin))
-	mux.Handle("/admin/locations/", middleware.Chain(http.HandlerFunc(s.locationRoutes), s.requireAdmin))
+	mux.Handle("/admin", middleware.Chain(http.HandlerFunc(s.adminPage), s.requireMasterAdmin))
+	mux.Handle("/team", middleware.Chain(http.HandlerFunc(s.teamPortalPage), s.requireTeam))
+	mux.Handle("/team/", middleware.Chain(http.HandlerFunc(s.teamRoutes), s.requireTeam))
+	mux.Handle("/admin/locations", middleware.Chain(http.HandlerFunc(s.createLocationProxy), s.requireMasterAdmin))
+	mux.Handle("/admin/locations/", middleware.Chain(http.HandlerFunc(s.locationRoutes), s.requireLocationPortal))
 	mux.Handle("/assets/app.css", http.HandlerFunc(s.appCSSFile))
-	mux.Handle("/assets/i9-template.pdf", middleware.Chain(http.HandlerFunc(s.i9TemplateFile), s.requireAdmin))
-	mux.Handle("/assets/w4-template.pdf", middleware.Chain(http.HandlerFunc(s.w4TemplateFile), s.requireAdmin))
+	mux.Handle("/assets/upload-drop.js", http.HandlerFunc(s.uploadDropFile))
+	mux.Handle("/assets/shoe.svg", http.HandlerFunc(s.shoeIconFile))
+	mux.Handle("/assets/i9-template.pdf", middleware.Chain(http.HandlerFunc(s.i9TemplateFile), s.requireLocationPortal))
+	mux.Handle("/assets/w4-template.pdf", middleware.Chain(http.HandlerFunc(s.w4TemplateFile), s.requireLocationPortal))
 	mux.Handle("/employee/photo-upload/", http.HandlerFunc(s.publicPhotoUploadRoutes))
 	mux.Handle("/employee/paperwork/", http.HandlerFunc(s.publicEmployeePaperworkRoutes))
 	mux.Handle("/interview/", http.HandlerFunc(s.publicInterviewRoutes))
@@ -638,8 +824,8 @@ func (s *server) loginPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if s.sessionIsValid(r) {
-		http.Redirect(w, r, "/admin", http.StatusFound)
+	if currentUser, err := s.fetchSessionUser(r); err == nil && currentUser != nil {
+		http.Redirect(w, r, redirectPathForUser(currentUser), http.StatusFound)
 		return
 	}
 
@@ -656,6 +842,58 @@ func (s *server) loginRoute(w http.ResponseWriter, r *http.Request) {
 		s.loginPage(w, r)
 	case http.MethodPost:
 		s.login(w, r)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *server) logoutRoute(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	sessionValues := []string{
+		sessionValueForRole(r, "admin"),
+		sessionValueForRole(r, "restaurant"),
+		sessionValueForRole(r, "team"),
+	}
+	for _, sessionValue := range sessionValues {
+		if strings.TrimSpace(sessionValue) == "" {
+			continue
+		}
+		csrfToken, err := s.fetchCSRFTokenWithSessionValue(r, sessionValue)
+		if err != nil || strings.TrimSpace(csrfToken) == "" {
+			continue
+		}
+		apiReq, reqErr := http.NewRequestWithContext(r.Context(), http.MethodPost, s.apiBaseURL+"/api/auth/logout", nil)
+		if reqErr != nil {
+			continue
+		}
+		copySessionCookieHeaderForValue(apiReq, sessionValue)
+		apiReq.Header.Set(csrfHeaderName, csrfToken)
+		if apiResp, doErr := s.apiClient.Do(apiReq); doErr == nil {
+			_ = apiResp.Body.Close()
+		}
+	}
+	expireSessionCookie(w)
+	http.Redirect(w, r, "/login", http.StatusFound)
+}
+
+func (s *server) teamLoginRoute(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/login", http.StatusFound)
+}
+
+func (s *server) teamLoginTokenRoute(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(strings.TrimPrefix(r.URL.Path, "/team-login/"))
+	if token == "" {
+		http.NotFound(w, r)
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		s.teamLoginPage(w, r, token)
+	case http.MethodPost:
+		s.teamLogin(w, r, token)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -697,10 +935,102 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for _, setCookie := range apiResp.Header.Values("Set-Cookie") {
-		w.Header().Add("Set-Cookie", setCookie)
+	sessionValue := extractAPISessionCookieValue(apiResp)
+	if strings.TrimSpace(sessionValue) == "" {
+		http.Redirect(w, r, "/?error=Authentication+service+unavailable", http.StatusFound)
+		return
 	}
+	user, err := s.fetchSessionUserWithSessionValue(r, sessionValue)
+	if err != nil || user == nil {
+		http.Redirect(w, r, "/?error=Unable+to+load+session", http.StatusFound)
+		return
+	}
+	role := sessionRoleFromUser(user)
+	cookieName := cookieNameForSessionRole(role)
+	if cookieName == "" {
+		http.Redirect(w, r, "/?error=Unable+to+resolve+session+role", http.StatusFound)
+		return
+	}
+	setScopedSessionCookie(w, cookieName, sessionValue)
+	expireSessionCookieByName(w, apiSessionCookie)
 	http.Redirect(w, r, "/admin", http.StatusFound)
+}
+
+func (s *server) teamLoginPage(w http.ResponseWriter, r *http.Request, token string) {
+	// Allow admin/restaurant users to open a team login link without being redirected.
+	// Only redirect when there is already an active team session.
+	if currentTeamUser, err := s.fetchSessionUserByRoles(r, []string{"team"}); err == nil && currentTeamUser != nil {
+		http.Redirect(w, r, "/team", http.StatusFound)
+		return
+	}
+	apiURL := s.apiBaseURL + "/api/public/time-punch/" + url.PathEscape(token)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		http.NotFound(w, r)
+		return
+	}
+	var payload publicTimePunchResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := renderHTMLTemplate(w, s.teamLoginTmpl, pageData{
+		Token: token,
+		Location: &locationView{
+			Number: payload.LocationNumber,
+			Name:   payload.LocationName,
+		},
+		Error: r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("team login template render failed: %v", err)
+	}
+}
+
+func (s *server) teamLogin(w http.ResponseWriter, r *http.Request, token string) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/team-login/"+url.PathEscape(token)+"?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	pin := strings.TrimSpace(r.FormValue("pin"))
+	bodyBytes, _ := json.Marshal(map[string]string{
+		"token": token,
+		"pin":   pin,
+	})
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, s.apiBaseURL+"/api/auth/team-login", bytes.NewReader(bodyBytes))
+	if err != nil {
+		http.Redirect(w, r, "/team-login/"+url.PathEscape(token)+"?error=Unable+to+authenticate", http.StatusFound)
+		return
+	}
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/team-login/"+url.PathEscape(token)+"?error=Authentication+service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		http.Redirect(w, r, "/team-login/"+url.PathEscape(token)+"?error=Invalid+clock+in+pin", http.StatusFound)
+		return
+	}
+	sessionValue := extractAPISessionCookieValue(apiResp)
+	if strings.TrimSpace(sessionValue) == "" {
+		http.Redirect(w, r, "/team-login/"+url.PathEscape(token)+"?error=Authentication+service+unavailable", http.StatusFound)
+		return
+	}
+	setScopedSessionCookie(w, teamSessionCookie, sessionValue)
+	expireSessionCookieByName(w, apiSessionCookie)
+	http.Redirect(w, r, "/team", http.StatusFound)
 }
 
 func (s *server) adminPage(w http.ResponseWriter, r *http.Request) {
@@ -736,6 +1066,389 @@ func (s *server) adminPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *server) teamPortalPage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	currentUser, err := s.fetchSessionUserByRoles(r, []string{"team"})
+	if err != nil || currentUser == nil {
+		http.Redirect(w, r, "/login?error=Session+expired", http.StatusFound)
+		return
+	}
+	if strings.TrimSpace(currentUser.LocationNumber) == "" {
+		http.Redirect(w, r, "/login?error=Team+member+is+not+assigned+to+a+location", http.StatusFound)
+		return
+	}
+	csrfToken, err := s.fetchCSRFTokenForRole(r, "team")
+	if err != nil || strings.TrimSpace(csrfToken) == "" {
+		http.Redirect(w, r, "/login?error=Session+expired", http.StatusFound)
+		return
+	}
+	location, err := s.fetchLocation(r, currentUser.LocationNumber)
+	if err != nil {
+		http.Redirect(w, r, "/login?error=Unable+to+load+location", http.StatusFound)
+		return
+	}
+	timePunchEntries, err := s.fetchLocationTimePunchEntries(r, currentUser.LocationNumber, false)
+	if err != nil {
+		http.Error(w, "unable to load your time punch requests", http.StatusBadGateway)
+		return
+	}
+	archivedTimePunchEntries, err := s.fetchLocationTimePunchEntries(r, currentUser.LocationNumber, true)
+	if err != nil {
+		http.Error(w, "unable to load your archived time punch requests", http.StatusBadGateway)
+		return
+	}
+	timeOffRequests, err := s.fetchLocationTimeOffRequests(r, currentUser.LocationNumber, false)
+	if err != nil {
+		http.Error(w, "unable to load your vacation requests", http.StatusBadGateway)
+		return
+	}
+	archivedTimeOffRequests, err := s.fetchLocationTimeOffRequests(r, currentUser.LocationNumber, true)
+	if err != nil {
+		http.Error(w, "unable to load your processed vacation requests", http.StatusBadGateway)
+		return
+	}
+	uniformOrders, err := s.fetchLocationUniformOrders(r, currentUser.LocationNumber, false)
+	if err != nil {
+		http.Error(w, "unable to load your uniform orders", http.StatusBadGateway)
+		return
+	}
+	archivedUniformOrders, err := s.fetchLocationUniformOrders(r, currentUser.LocationNumber, true)
+	if err != nil {
+		http.Error(w, "unable to load your archived uniform orders", http.StatusBadGateway)
+		return
+	}
+	uniformItems, err := s.fetchLocationUniformItems(r, currentUser.LocationNumber)
+	if err != nil {
+		http.Error(w, "unable to load uniform items", http.StatusBadGateway)
+		return
+	}
+	teamTimePunchName := strings.TrimSpace(currentUser.TimePunchName)
+	inProcessTimePunchEntries := filterEntriesByTeamMember(timePunchEntries, teamTimePunchName)
+	completedTimePunchEntries := filterEntriesByTeamMember(archivedTimePunchEntries, teamTimePunchName)
+	waitingTimeOffRequests := filterTimeOffByTeamMember(timeOffRequests, teamTimePunchName)
+	processedTimeOffRequests := filterTimeOffByTeamMember(archivedTimeOffRequests, teamTimePunchName)
+	filteredUniformOrders := append(
+		filterUniformOrdersByTeamMember(uniformOrders, teamTimePunchName),
+		filterUniformOrdersByTeamMember(archivedUniformOrders, teamTimePunchName)...,
+	)
+	if err := renderHTMLTemplate(w, s.teamPortalTmpl, pageData{
+		CSRF:                     csrfToken,
+		CurrentUser:              currentUser,
+		Location:                 location,
+		UniformItems:             uniformItems,
+		TimePunchEntries:         limitTimePunchEntries(inProcessTimePunchEntries, 50),
+		ArchivedTimePunchEntries: limitTimePunchEntries(completedTimePunchEntries, 50),
+		TimeOffRequests:          limitTimeOffRequests(waitingTimeOffRequests, 50),
+		ArchivedTimeOffRequests:  limitTimeOffRequests(processedTimeOffRequests, 50),
+		UniformOrders:            limitUniformOrders(filteredUniformOrders, 50),
+		SuccessMessage:           r.URL.Query().Get("message"),
+		Error:                    r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("team portal template render failed: %v", err)
+	}
+}
+
+func (s *server) teamRoutes(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimSpace(r.URL.Path)
+	if path == "/team/" && r.Method == http.MethodGet {
+		http.Redirect(w, r, "/team", http.StatusFound)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+	switch path {
+	case "/team/time-punch":
+		s.createTeamTimePunchProxy(w, r)
+	case "/team/time-off":
+		s.createTeamTimeOffProxy(w, r)
+	case "/team/uniform-order":
+		s.createTeamUniformOrderProxy(w, r)
+	default:
+		http.NotFound(w, r)
+	}
+}
+
+func (s *server) createTeamTimePunchProxy(w http.ResponseWriter, r *http.Request) {
+	currentUser, err := s.fetchSessionUserByRoles(r, []string{"team"})
+	if err != nil || currentUser == nil {
+		http.Redirect(w, r, "/login?error=Session+expired", http.StatusFound)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/team?error=Invalid+time+punch+form&app=time-punch&mode=create", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/team?error=Missing+csrf+token&app=time-punch&mode=create", http.StatusFound)
+		return
+	}
+	payload := map[string]any{
+		"timePunchName":            strings.TrimSpace(currentUser.TimePunchName),
+		"punchDate":                strings.TrimSpace(r.FormValue("punch_date")),
+		"timeIn":                   strings.TrimSpace(r.FormValue("time_in")),
+		"timeOut":                  strings.TrimSpace(r.FormValue("time_out")),
+		"note":                     strings.TrimSpace(r.FormValue("note")),
+		"forgotBreakClockInReturn": strings.TrimSpace(r.FormValue("forgot_break_clock_in_return")) != "",
+	}
+	body, _ := json.Marshal(payload)
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(currentUser.LocationNumber) + "/time-punch"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, "/team?error=Unable+to+submit+time+punch&app=time-punch&mode=create", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/team?error=Service+unavailable&app=time-punch&mode=create", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusCreated && apiResp.StatusCode != http.StatusOK {
+		msg := "unable to submit time punch"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/team?error="+url.QueryEscape(msg)+"&app=time-punch&mode=create", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/team?message="+url.QueryEscape("Time punch submitted")+"&app=time-punch&mode=view", http.StatusFound)
+}
+
+func (s *server) createTeamTimeOffProxy(w http.ResponseWriter, r *http.Request) {
+	currentUser, err := s.fetchSessionUserByRoles(r, []string{"team"})
+	if err != nil || currentUser == nil {
+		http.Redirect(w, r, "/login?error=Session+expired", http.StatusFound)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/team?error=Invalid+time+off+form&app=time-off&mode=create", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/team?error=Missing+csrf+token&app=time-off&mode=create", http.StatusFound)
+		return
+	}
+	startDate := strings.TrimSpace(r.FormValue("start_date"))
+	endDate := strings.TrimSpace(r.FormValue("end_date"))
+	if endDate == "" {
+		endDate = startDate
+	}
+	payload := map[string]string{
+		"timePunchName": strings.TrimSpace(currentUser.TimePunchName),
+		"startDate":     startDate,
+		"endDate":       endDate,
+	}
+	body, _ := json.Marshal(payload)
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(currentUser.LocationNumber) + "/time-off"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, "/team?error=Unable+to+submit+time+off+request&app=time-off&mode=create", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/team?error=Service+unavailable&app=time-off&mode=create", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusCreated && apiResp.StatusCode != http.StatusOK {
+		msg := "unable to submit vacation request"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/team?error="+url.QueryEscape(msg)+"&app=time-off&mode=create", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/team?message="+url.QueryEscape("Vacation request submitted")+"&app=time-off&mode=view", http.StatusFound)
+}
+
+func (s *server) createTeamUniformOrderProxy(w http.ResponseWriter, r *http.Request) {
+	currentUser, err := s.fetchSessionUserByRoles(r, []string{"team"})
+	if err != nil || currentUser == nil {
+		http.Redirect(w, r, "/login?error=Session+expired", http.StatusFound)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/team?error=Invalid+uniform+order+form&app=uniform&mode=create", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/team?error=Missing+csrf+token&app=uniform&mode=create", http.StatusFound)
+		return
+	}
+	orderType := strings.TrimSpace(strings.ToLower(r.FormValue("order_type")))
+	itemID := int64(0)
+	if orderType != uniformSystemKeyShoes {
+		parsedItemID, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("item_id")), 10, 64)
+		if err != nil || parsedItemID <= 0 {
+			http.Redirect(w, r, "/team?error=Invalid+uniform+item&app=uniform&mode=create", http.StatusFound)
+			return
+		}
+		itemID = parsedItemID
+	}
+	quantity, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("quantity")), 10, 64)
+	if err != nil || quantity <= 0 {
+		http.Redirect(w, r, "/team?error=Quantity+must+be+at+least+1&app=uniform&mode=create", http.StatusFound)
+		return
+	}
+	payload := map[string]any{
+		"timePunchName": strings.TrimSpace(currentUser.TimePunchName),
+		"items": []map[string]any{
+			{
+				"itemId":         itemID,
+				"size":           strings.TrimSpace(r.FormValue("size")),
+				"sizeSelections": parseFormSizeSelections(r.PostForm["size_field_label"], r.PostForm["size_field_value"]),
+				"orderType":      orderType,
+				"shoeItemNumber": strings.TrimSpace(r.FormValue("shoe_item_number")),
+				"shoePrice":      strings.TrimSpace(r.FormValue("shoe_price")),
+				"shoeUrl":        strings.TrimSpace(r.FormValue("shoe_url")),
+				"note":           strings.TrimSpace(r.FormValue("note")),
+				"quantity":       quantity,
+			},
+		},
+	}
+	body, _ := json.Marshal(payload)
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(currentUser.LocationNumber) + "/uniform-orders"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, "/team?error=Unable+to+submit+uniform+order&app=uniform&mode=create", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/team?error=Service+unavailable&app=uniform&mode=create", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusCreated && apiResp.StatusCode != http.StatusOK {
+		msg := "unable to submit uniform order"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/team?error="+url.QueryEscape(msg)+"&app=uniform&mode=create", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/team?message="+url.QueryEscape("Uniform order submitted")+"&app=uniform&mode=view", http.StatusFound)
+}
+
+func filterEntriesByTeamMember(entries []timePunchEntryView, timePunchName string) []timePunchEntryView {
+	target := strings.ToLower(strings.TrimSpace(timePunchName))
+	if target == "" {
+		return nil
+	}
+	filtered := make([]timePunchEntryView, 0, len(entries))
+	for _, entry := range entries {
+		if strings.ToLower(strings.TrimSpace(entry.TimePunchName)) == target {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
+}
+
+func filterTimeOffByTeamMember(requests []timeOffRequestView, timePunchName string) []timeOffRequestView {
+	target := strings.ToLower(strings.TrimSpace(timePunchName))
+	if target == "" {
+		return nil
+	}
+	filtered := make([]timeOffRequestView, 0, len(requests))
+	for _, request := range requests {
+		if strings.ToLower(strings.TrimSpace(request.TimePunchName)) == target {
+			filtered = append(filtered, request)
+		}
+	}
+	return filtered
+}
+
+func filterUniformOrdersByTeamMember(orders []uniformOrderView, timePunchName string) []uniformOrderView {
+	target := strings.ToLower(strings.TrimSpace(timePunchName))
+	if target == "" {
+		return nil
+	}
+	filtered := make([]uniformOrderView, 0, len(orders))
+	for _, order := range orders {
+		if strings.ToLower(strings.TrimSpace(order.TimePunchName)) == target {
+			filtered = append(filtered, order)
+		}
+	}
+	return filtered
+}
+
+func parseFormSizeSelections(labels, values []string) map[string]string {
+	selections := map[string]string{}
+	if len(labels) == 0 || len(values) == 0 {
+		return selections
+	}
+	limit := len(labels)
+	if len(values) < limit {
+		limit = len(values)
+	}
+	for i := 0; i < limit; i++ {
+		label := strings.TrimSpace(labels[i])
+		value := strings.TrimSpace(values[i])
+		if label == "" || value == "" {
+			continue
+		}
+		selections[label] = value
+	}
+	return selections
+}
+
+func limitTimeOffRequests(requests []timeOffRequestView, limit int) []timeOffRequestView {
+	if limit <= 0 || len(requests) <= limit {
+		return requests
+	}
+	return requests[:limit]
+}
+
+func limitUniformOrders(orders []uniformOrderView, limit int) []uniformOrderView {
+	if limit <= 0 || len(orders) <= limit {
+		return orders
+	}
+	return orders[:limit]
+}
+
+func uniformOrderStatus(order uniformOrderView) string {
+	orderTotalCents := int64(math.Round(order.Total * 100))
+	if orderTotalCents <= 0 {
+		return "Waiting to be Processed"
+	}
+	chargedBackCents := int64(0)
+	for _, line := range order.Lines {
+		chargedBackCents += int64(math.Round(line.ChargedBack * 100))
+	}
+	if chargedBackCents <= 0 {
+		return "Waiting to be Processed"
+	}
+	if chargedBackCents >= orderTotalCents {
+		return "Fully Charged"
+	}
+	return "Partially Charged"
+}
+
 func (s *server) i9TemplateFile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -763,6 +1476,36 @@ func (s *server) appCSSFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	w.Header().Set("Cache-Control", "private, max-age=300")
+	_, _ = w.Write(data)
+}
+
+func (s *server) uploadDropFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	data, err := templatesFS.ReadFile("assets/upload-drop.js")
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	w.Header().Set("Cache-Control", "private, max-age=300")
+	_, _ = w.Write(data)
+}
+
+func (s *server) shoeIconFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	data, err := templatesFS.ReadFile("assets/shoe.svg")
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "image/svg+xml")
 	w.Header().Set("Cache-Control", "private, max-age=300")
 	_, _ = w.Write(data)
 }
@@ -815,12 +1558,28 @@ func (s *server) locationDetailPage(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
+		if locationNumber, ok := parseLocationSettingsLoginAsLocationPath(r.URL.Path); ok {
+			s.loginAsLocationProxy(w, r, locationNumber)
+			return
+		}
+		if locationNumber, timePunchName, ok := parseLocationEmployeeTerminatePath(r.URL.Path); ok {
+			s.terminateEmployeeProxy(w, r, locationNumber, timePunchName)
+			return
+		}
 		if locationNumber, ok := parseLocationEmployeeCreatePath(r.URL.Path); ok {
 			s.createEmployeeProxy(w, r, locationNumber)
 			return
 		}
 		if locationNumber, timePunchName, ok := parseLocationEmployeeI9UploadPath(r.URL.Path); ok {
 			s.uploadEmployeeI9Proxy(w, r, locationNumber, timePunchName)
+			return
+		}
+		if locationNumber, timePunchName, ok := parseLocationEmployeeLoginAsTeamPath(r.URL.Path); ok {
+			s.loginAsEmployeeTeamMemberProxy(w, r, locationNumber, timePunchName)
+			return
+		}
+		if locationNumber, timePunchName, ok := parseLocationEmployeeDetailsUpdatePath(r.URL.Path); ok {
+			s.updateEmployeeDetailsProxy(w, r, locationNumber, timePunchName)
 			return
 		}
 		if locationNumber, timePunchName, ok := parseLocationEmployeeW4UploadPath(r.URL.Path); ok {
@@ -871,8 +1630,24 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 			s.createUniformItemProxy(w, r, locationNumber)
 			return
 		}
+		if locationNumber, ok := parseLocationUniformOrderCreatePath(r.URL.Path); ok {
+			s.createUniformOrderProxy(w, r, locationNumber)
+			return
+		}
 		if locationNumber, requestID, ok := parseLocationTimeOffArchivePostPath(r.URL.Path); ok {
 			s.archiveTimeOffRequestProxy(w, r, locationNumber, requestID)
+			return
+		}
+		if locationNumber, ok := parseLocationDepartmentCreatePath(r.URL.Path); ok {
+			s.createLocationDepartmentProxy(w, r, locationNumber)
+			return
+		}
+		if locationNumber, ok := parseLocationJobCreatePath(r.URL.Path); ok {
+			s.createLocationJobProxy(w, r, locationNumber)
+			return
+		}
+		if locationNumber, jobID, ok := parseLocationJobAssignDepartmentsPath(r.URL.Path); ok {
+			s.assignLocationJobDepartmentsProxy(w, r, locationNumber, jobID)
 			return
 		}
 		if locationNumber, ok := parseLocationTimeOffCreatePath(r.URL.Path); ok {
@@ -915,6 +1690,10 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 			s.createCandidateInterviewQuestionProxy(w, r, locationNumber)
 			return
 		}
+		if locationNumber, ok := parseLocationCandidateInterviewQuestionStartersCreatePath(r.URL.Path); ok {
+			s.createCandidateInterviewQuestionStartersProxy(w, r, locationNumber)
+			return
+		}
 		if locationNumber, candidateID, ok := parseLocationCandidateInterviewCreatePath(r.URL.Path); ok {
 			s.createCandidateInterviewProxy(w, r, locationNumber, candidateID)
 			return
@@ -935,6 +1714,10 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 			s.updateCandidateDecisionProxy(w, r, locationNumber, candidateID)
 			return
 		}
+		if locationNumber, candidateID, ok := parseLocationCandidateDeletePath(r.URL.Path); ok {
+			s.deleteCandidateProxy(w, r, locationNumber, candidateID)
+			return
+		}
 		if locationNumber, valueID, ok := parseLocationCandidateValueDeletePath(r.URL.Path); ok {
 			s.deleteCandidateValueProxy(w, r, locationNumber, valueID)
 			return
@@ -945,6 +1728,10 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 		}
 		if locationNumber, nameID, ok := parseLocationCandidateInterviewNamePriorityPath(r.URL.Path); ok {
 			s.updateCandidateInterviewNamePriorityProxy(w, r, locationNumber, nameID)
+			return
+		}
+		if locationNumber, ok := parseLocationCandidateInterviewNamesReorderPath(r.URL.Path); ok {
+			s.reorderCandidateInterviewNamesProxy(w, r, locationNumber)
 			return
 		}
 		if locationNumber, questionID, ok := parseLocationCandidateInterviewQuestionDeletePath(r.URL.Path); ok {
@@ -1004,6 +1791,14 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 		s.updateEmployeeDepartmentProxy(w, r)
 		return
 	}
+	if strings.Contains(r.URL.Path, "/employees/") && strings.HasSuffix(r.URL.Path, "/job") {
+		s.updateEmployeeJobProxy(w, r)
+		return
+	}
+	if strings.Contains(r.URL.Path, "/employees/") && strings.HasSuffix(r.URL.Path, "/clock-in-pin") {
+		s.updateEmployeeClockInPINProxy(w, r)
+		return
+	}
 	if strings.HasSuffix(r.URL.Path, "/employees/birthdates/import") {
 		s.importLocationBirthdatesProxy(w, r)
 		return
@@ -1051,6 +1846,10 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 		}
 		if locationNumber, ok := parseLocationSettingsPath(r.URL.Path); ok {
 			s.locationSettingsPage(w, r, locationNumber)
+			return
+		}
+		if locationNumber, ok := parseLocationDepartmentsPath(r.URL.Path); ok {
+			s.locationDepartmentsPage(w, r, locationNumber)
 			return
 		}
 		if locationNumber, businessDate, ok := parseLocationBusinessDayDetailPath(r.URL.Path); ok {
@@ -1113,19 +1912,42 @@ func (s *server) locationEmployeesPage(w http.ResponseWriter, r *http.Request, l
 		http.Error(w, "unable to load location employees", http.StatusBadGateway)
 		return
 	}
-	settings, err := s.fetchLocationSettings(r, locationNumber)
+	terminatedEmployees, err := s.fetchArchivedLocationEmployees(r, locationNumber)
 	if err != nil {
-		http.Error(w, "unable to load location settings", http.StatusBadGateway)
+		http.Error(w, "unable to load terminated employees", http.StatusBadGateway)
+		return
+	}
+	activeEmployees := make([]employeeView, 0, len(employees))
+	newHireEmployees := make([]employeeView, 0, len(employees))
+	for _, employee := range employees {
+		if employee.HasCompletedPaperwork {
+			activeEmployees = append(activeEmployees, employee)
+			continue
+		}
+		newHireEmployees = append(newHireEmployees, employee)
+	}
+	jobs, err := s.fetchLocationJobs(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load jobs", http.StatusBadGateway)
+		return
+	}
+	departments, err := s.fetchLocationDepartments(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load departments", http.StatusBadGateway)
 		return
 	}
 
 	if err := renderHTMLTemplate(w, s.locationTmpl, pageData{
-		Location:       location,
-		CSRF:           csrfToken,
-		Employees:      employees,
-		Departments:    normalizeDepartments(settings.Departments),
-		SuccessMessage: r.URL.Query().Get("message"),
-		Error:          r.URL.Query().Get("error"),
+		Location:            location,
+		CSRF:                csrfToken,
+		Employees:           employees,
+		ActiveEmployees:     activeEmployees,
+		NewHireEmployees:    newHireEmployees,
+		ArchivedEmployees:   terminatedEmployees,
+		LocationDepartments: departments,
+		LocationJobs:        jobs,
+		SuccessMessage:      r.URL.Query().Get("message"),
+		Error:               r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("location template render failed: %v", err)
@@ -1148,15 +1970,60 @@ func (s *server) locationSettingsPage(w http.ResponseWriter, r *http.Request, lo
 		http.Error(w, "unable to load location settings", http.StatusBadGateway)
 		return
 	}
+	currentUser, _ := s.fetchSessionUserByRoles(r, []string{"admin", "restaurant"})
+	teamLoginLink := ""
+	if token, err := s.fetchLocationTimePunchToken(r, locationNumber); err == nil && strings.TrimSpace(token) != "" {
+		scheme := "http"
+		if r.TLS != nil {
+			scheme = "https"
+		}
+		teamLoginLink = scheme + "://" + r.Host + "/team-login/" + url.PathEscape(token)
+	}
 	if err := renderHTMLTemplate(w, s.locationSettingsTmpl, pageData{
 		Location:         location,
 		CSRF:             csrfToken,
 		LocationSettings: settings,
+		TeamLoginLink:    teamLoginLink,
+		CurrentUser:      currentUser,
 		SuccessMessage:   r.URL.Query().Get("message"),
 		Error:            r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("location settings template render failed: %v", err)
+	}
+}
+
+func (s *server) locationDepartmentsPage(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	location, err := s.fetchLocation(r, locationNumber)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil {
+		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
+		return
+	}
+	departments, err := s.fetchLocationDepartments(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load departments", http.StatusBadGateway)
+		return
+	}
+	jobs, err := s.fetchLocationJobs(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load jobs", http.StatusBadGateway)
+		return
+	}
+	if err := renderHTMLTemplate(w, s.departmentsTmpl, pageData{
+		Location:            location,
+		CSRF:                csrfToken,
+		LocationDepartments: departments,
+		LocationJobs:        jobs,
+		SuccessMessage:      r.URL.Query().Get("message"),
+		Error:               r.URL.Query().Get("error"),
+	}); err != nil {
+		http.Error(w, "template render failed", http.StatusInternalServerError)
+		log.Printf("departments template render failed: %v", err)
 	}
 }
 
@@ -1182,11 +2049,17 @@ func (s *server) locationCandidatesPage(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, "unable to load archived candidates", http.StatusBadGateway)
 		return
 	}
+	calendarEntries, err := s.fetchLocationInterviewCalendar(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load interview calendar", http.StatusBadGateway)
+		return
+	}
 	if err := renderHTMLTemplate(w, s.candidatesTmpl, pageData{
 		Location:           location,
 		CSRF:               csrfToken,
 		Candidates:         candidates,
 		ArchivedCandidates: archived,
+		InterviewCalendar:  calendarEntries,
 		Search:             archiveSearch,
 		SuccessMessage:     r.URL.Query().Get("message"),
 		Error:              r.URL.Query().Get("error"),
@@ -1223,13 +2096,14 @@ func (s *server) locationInterviewProcessPage(w http.ResponseWriter, r *http.Req
 		return
 	}
 	if err := renderHTMLTemplate(w, s.interviewProcessTmpl, pageData{
-		Location:           location,
-		CSRF:               csrfToken,
-		CandidateValues:    values,
-		InterviewNames:     interviewNames,
-		InterviewQuestions: interviewQuestions,
-		SuccessMessage:     r.URL.Query().Get("message"),
-		Error:              r.URL.Query().Get("error"),
+		Location:                  location,
+		CSRF:                      csrfToken,
+		CandidateValues:           values,
+		InterviewNames:            interviewNames,
+		InterviewQuestions:        interviewQuestions,
+		InterviewQuestionStarters: interviewQuestionStarterCatalogViews(),
+		SuccessMessage:            r.URL.Query().Get("message"),
+		Error:                     r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("interview process template render failed: %v", err)
@@ -1288,21 +2162,96 @@ func (s *server) candidateDetailPage(w http.ResponseWriter, r *http.Request, loc
 		http.Error(w, "unable to load interviewers", http.StatusBadGateway)
 		return
 	}
+	if len(interviewers) == 0 {
+		settings, settingsErr := s.fetchLocationSettings(r, locationNumber)
+		if settingsErr != nil {
+			http.Error(w, "unable to load interviewer fallback", http.StatusBadGateway)
+			return
+		}
+		ownerOperator := strings.TrimSpace(settings.EmployerRepSignature)
+		if ownerOperator == "" {
+			ownerOperator = "Owner/Operator"
+		}
+		interviewers = append(interviewers, employeeView{
+			FirstName:     ownerOperator,
+			LastName:      "",
+			TimePunchName: ownerOperator,
+		})
+	}
 	interviewLinks, err := s.fetchCandidateInterviewLinks(r, locationNumber, candidateID)
 	if err != nil {
 		http.Error(w, "unable to load interview links", http.StatusBadGateway)
 		return
 	}
+	// Defensive fallback: include calendar-backed interview sessions for this candidate.
+	// This keeps the candidate "View Interviews" list in sync with the calendar view.
+	calendarEntries, calendarErr := s.fetchLocationInterviewCalendar(r, locationNumber)
+	if calendarErr == nil {
+		seen := make(map[string]struct{}, len(interviewLinks))
+		for i := range interviewLinks {
+			token := strings.TrimSpace(interviewLinks[i].Token)
+			if token == "" {
+				continue
+			}
+			seen[token] = struct{}{}
+		}
+		for i := range calendarEntries {
+			if calendarEntries[i].CandidateID != candidateID {
+				continue
+			}
+			token := strings.TrimSpace(calendarEntries[i].Token)
+			if token == "" {
+				continue
+			}
+			if _, exists := seen[token]; exists {
+				continue
+			}
+			fallback := candidateInterviewLinkView{
+				Token:                    token,
+				LocationNumber:           locationNumber,
+				CandidateID:              candidateID,
+				InterviewerTimePunchName: calendarEntries[i].InterviewerTimePunchName,
+				InterviewType:            calendarEntries[i].InterviewType,
+				ScheduledAt:              calendarEntries[i].ScheduledAt,
+				Link:                     "/interview/" + token,
+				UsedAt:                   calendarEntries[i].UsedAt,
+				CreatedAt:                calendarEntries[i].CreatedAt,
+			}
+			normalizeCandidateInterviewLinkView(&fallback)
+			interviewLinks = append(interviewLinks, fallback)
+			seen[token] = struct{}{}
+		}
+		sort.Slice(interviewLinks, func(i, j int) bool {
+			left := strings.TrimSpace(interviewLinks[i].ScheduledAt)
+			right := strings.TrimSpace(interviewLinks[j].ScheduledAt)
+			if left == right {
+				return strings.TrimSpace(interviewLinks[i].CreatedAt) > strings.TrimSpace(interviewLinks[j].CreatedAt)
+			}
+			return left > right
+		})
+	}
+	jobs, err := s.fetchLocationJobs(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load jobs", http.StatusBadGateway)
+		return
+	}
+	departments, err := s.fetchLocationDepartments(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load departments", http.StatusBadGateway)
+		return
+	}
 	if err := renderHTMLTemplate(w, s.candidateDetailTmpl, pageData{
-		Location:        location,
-		CSRF:            csrfToken,
-		Candidate:       candidate,
-		CandidateValues: values,
-		InterviewNames:  interviewNames,
-		InterviewLinks:  interviewLinks,
-		Employees:       interviewers,
-		SuccessMessage:  r.URL.Query().Get("message"),
-		Error:           r.URL.Query().Get("error"),
+		Location:            location,
+		CSRF:                csrfToken,
+		Candidate:           candidate,
+		CandidateValues:     values,
+		InterviewNames:      interviewNames,
+		InterviewLinks:      interviewLinks,
+		Employees:           interviewers,
+		LocationDepartments: departments,
+		LocationJobs:        jobs,
+		SuccessMessage:      r.URL.Query().Get("message"),
+		Error:               r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("candidate detail template render failed: %v", err)
@@ -1389,6 +2338,15 @@ func (s *server) createCandidateProxy(w http.ResponseWriter, r *http.Request, lo
 	payload := map[string]string{
 		"firstName": strings.TrimSpace(r.FormValue("first_name")),
 		"lastName":  strings.TrimSpace(r.FormValue("last_name")),
+		"phone":     strings.TrimSpace(r.FormValue("phone")),
+	}
+	if strings.TrimSpace(payload["phone"]) == "" {
+		phonePart1 := strings.TrimSpace(r.FormValue("phone_1"))
+		phonePart2 := strings.TrimSpace(r.FormValue("phone_2"))
+		phonePart3 := strings.TrimSpace(r.FormValue("phone_3"))
+		if phonePart1 != "" || phonePart2 != "" || phonePart3 != "" {
+			payload["phone"] = phonePart1 + "-" + phonePart2 + "-" + phonePart3
+		}
 	}
 	body, _ := json.Marshal(payload)
 	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidates", bytes.NewReader(body))
@@ -1516,10 +2474,14 @@ func (s *server) createCandidateInterviewQuestionProxy(w http.ResponseWriter, r 
 	}
 	interviewNameIDs := parseInterviewTypeIDs(r.Form["interview_name_ids"])
 	interviewNameID, _ := strconv.ParseInt(strings.TrimSpace(r.FormValue("interview_name_id")), 10, 64)
+	responseType := strings.ToLower(strings.TrimSpace(r.FormValue("response_type")))
+	responseType, responseOptions := normalizeQuestionResponsePayload(responseType, r.Form["response_options"])
 	payload := map[string]any{
 		"interviewNameId":  interviewNameID,
 		"interviewNameIds": interviewNameIDs,
 		"question":         strings.TrimSpace(r.FormValue("question")),
+		"responseType":     responseType,
+		"responseOptions":  responseOptions,
 	}
 	body, _ := json.Marshal(payload)
 	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidate-interview-questions", bytes.NewReader(body))
@@ -1549,10 +2511,183 @@ func (s *server) createCandidateInterviewQuestionProxy(w http.ResponseWriter, r 
 	http.Redirect(w, r, basePath+"?message="+url.QueryEscape("Interview question created")+"&process=questions", http.StatusFound)
 }
 
-func (s *server) updateCandidateValueProxy(w http.ResponseWriter, r *http.Request, locationNumber string, valueID int64) {
-	csrfToken := strings.TrimSpace(r.Header.Get(csrfHeaderName))
+func (s *server) createCandidateInterviewQuestionStartersProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	basePath := "/admin/locations/" + url.PathEscape(locationNumber) + "/interview-process"
+	redirectPath := basePath + "?process=questions&question_panel=starter"
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, redirectPath+"&error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
 	if csrfToken == "" {
-		http.Error(w, `{"error":"csrf token is required"}`, http.StatusForbidden)
+		http.Redirect(w, r, redirectPath+"&error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	interviewNameIDs := parseInterviewTypeIDs(r.Form["interview_name_ids"])
+	if len(interviewNameIDs) == 0 {
+		http.Redirect(w, r, redirectPath+"&error=Select+at+least+one+interview+type", http.StatusFound)
+		return
+	}
+	selected := uniqueTrimmedValues(r.Form["starter_key"])
+	if len(selected) == 0 {
+		http.Redirect(w, r, redirectPath+"&error=Select+at+least+one+starter+question", http.StatusFound)
+		return
+	}
+
+	catalog := interviewQuestionStarterCatalogByKey()
+	existingQuestions, err := s.fetchLocationCandidateInterviewQuestions(r, locationNumber)
+	if err != nil {
+		http.Redirect(w, r, redirectPath+"&error=Unable+to+load+existing+questions", http.StatusFound)
+		return
+	}
+	existingByQuestion := make(map[string]candidateInterviewQuestionView, len(existingQuestions))
+	for _, question := range existingQuestions {
+		normalized := normalizeStarterQuestionMatch(question.Question)
+		if normalized == "" {
+			continue
+		}
+		existingByQuestion[normalized] = question
+	}
+
+	added := 0
+	updated := 0
+	skipped := 0
+	for _, key := range selected {
+		starter, ok := catalog[key]
+		if !ok {
+			continue
+		}
+		normalizedQuestion := normalizeStarterQuestionMatch(starter.Question)
+		if normalizedQuestion == "" {
+			continue
+		}
+		if existing, exists := existingByQuestion[normalizedQuestion]; exists {
+			mergedInterviewTypeIDs := mergeInterviewTypeIDs(existing.InterviewNameIDs, interviewNameIDs)
+			if int64SlicesEqual(existing.InterviewNameIDs, mergedInterviewTypeIDs) {
+				skipped++
+				continue
+			}
+			payload := map[string]any{
+				"interviewNameIds": mergedInterviewTypeIDs,
+			}
+			body, _ := json.Marshal(payload)
+			apiReq, err := http.NewRequestWithContext(
+				r.Context(),
+				http.MethodPut,
+				s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidate-interview-questions/"+strconv.FormatInt(existing.ID, 10),
+				bytes.NewReader(body),
+			)
+			if err != nil {
+				http.Redirect(w, r, redirectPath+"&error=Unable+to+update+existing+questions", http.StatusFound)
+				return
+			}
+			copySessionCookieHeader(r, apiReq)
+			apiReq.Header.Set("Content-Type", "application/json")
+			apiReq.Header.Set(csrfHeaderName, csrfToken)
+			apiResp, err := s.apiClient.Do(apiReq)
+			if err != nil {
+				http.Redirect(w, r, redirectPath+"&error=Service+unavailable", http.StatusFound)
+				return
+			}
+			respBody, _ := io.ReadAll(apiResp.Body)
+			apiResp.Body.Close()
+			if apiResp.StatusCode != http.StatusOK {
+				msg := "unable to update existing interview questions"
+				var errPayload map[string]string
+				if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+					msg = errPayload["error"]
+				}
+				http.Redirect(w, r, redirectPath+"&error="+url.QueryEscape(msg), http.StatusFound)
+				return
+			}
+			existing.InterviewNameIDs = mergedInterviewTypeIDs
+			existingByQuestion[normalizedQuestion] = existing
+			updated++
+			continue
+		}
+		responseType, responseOptions := normalizeQuestionResponsePayload(starter.ResponseType, starter.ResponseOptions)
+		payload := map[string]any{
+			"interviewNameId":  int64(0),
+			"interviewNameIds": interviewNameIDs,
+			"question":         starter.Question,
+			"responseType":     responseType,
+			"responseOptions":  responseOptions,
+		}
+		body, _ := json.Marshal(payload)
+		apiReq, err := http.NewRequestWithContext(
+			r.Context(),
+			http.MethodPost,
+			s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidate-interview-questions",
+			bytes.NewReader(body),
+		)
+		if err != nil {
+			http.Redirect(w, r, redirectPath+"&error=Unable+to+create+starter+questions", http.StatusFound)
+			return
+		}
+		copySessionCookieHeader(r, apiReq)
+		apiReq.Header.Set("Content-Type", "application/json")
+		apiReq.Header.Set(csrfHeaderName, csrfToken)
+		apiResp, err := s.apiClient.Do(apiReq)
+		if err != nil {
+			http.Redirect(w, r, redirectPath+"&error=Service+unavailable", http.StatusFound)
+			return
+		}
+		respBody, _ := io.ReadAll(apiResp.Body)
+		apiResp.Body.Close()
+		if apiResp.StatusCode != http.StatusCreated && apiResp.StatusCode != http.StatusOK {
+			msg := "unable to create starter interview questions"
+			var errPayload map[string]string
+			if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+				msg = errPayload["error"]
+			}
+			http.Redirect(w, r, redirectPath+"&error="+url.QueryEscape(msg), http.StatusFound)
+			return
+		}
+		existingByQuestion[normalizedQuestion] = candidateInterviewQuestionView{
+			Question:         starter.Question,
+			InterviewNameIDs: interviewNameIDs,
+		}
+		added++
+	}
+
+	if added == 0 && updated == 0 {
+		if skipped > 0 {
+			http.Redirect(w, r, redirectPath+"&message="+url.QueryEscape("All selected questions already match the selected interview types"), http.StatusFound)
+			return
+		}
+		http.Redirect(w, r, redirectPath+"&error="+url.QueryEscape("No valid starter questions were selected"), http.StatusFound)
+		return
+	}
+	messageParts := make([]string, 0, 3)
+	if added > 0 {
+		part := "added " + strconv.Itoa(added) + " question"
+		if added != 1 {
+			part += "s"
+		}
+		messageParts = append(messageParts, part)
+	}
+	if updated > 0 {
+		part := "updated " + strconv.Itoa(updated) + " existing question"
+		if updated != 1 {
+			part += "s"
+		}
+		messageParts = append(messageParts, part)
+	}
+	if skipped > 0 {
+		part := "skipped " + strconv.Itoa(skipped) + " already assigned"
+		messageParts = append(messageParts, part)
+	}
+	message := strings.Join(messageParts, "; ")
+	if message == "" {
+		message = "Interview questions updated"
+	}
+	http.Redirect(w, r, redirectPath+"&message="+url.QueryEscape(message), http.StatusFound)
+}
+
+func (s *server) updateCandidateValueProxy(w http.ResponseWriter, r *http.Request, locationNumber string, valueID int64) {
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil || strings.TrimSpace(csrfToken) == "" {
+		http.Error(w, `{"error":"session expired"}`, http.StatusUnauthorized)
 		return
 	}
 	body, err := io.ReadAll(r.Body)
@@ -1698,6 +2833,78 @@ func (s *server) updateCandidateInterviewNamePriorityProxy(w http.ResponseWriter
 	http.Redirect(w, r, basePath+"?message="+url.QueryEscape("Interview type priority updated")+"&process=names", http.StatusFound)
 }
 
+func (s *server) reorderCandidateInterviewNamesProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil || strings.TrimSpace(csrfToken) == "" {
+		http.Error(w, `{"error":"session expired"}`, http.StatusUnauthorized)
+		return
+	}
+	var req struct {
+		OrderedIDs []int64 `json:"orderedIds"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+	if len(req.OrderedIDs) == 0 {
+		http.Error(w, `{"error":"orderedIds is required"}`, http.StatusBadRequest)
+		return
+	}
+	seen := make(map[int64]struct{}, len(req.OrderedIDs))
+	for _, id := range req.OrderedIDs {
+		if id <= 0 {
+			http.Error(w, `{"error":"orderedIds must contain valid ids"}`, http.StatusBadRequest)
+			return
+		}
+		if _, exists := seen[id]; exists {
+			http.Error(w, `{"error":"orderedIds must be unique"}`, http.StatusBadRequest)
+			return
+		}
+		seen[id] = struct{}{}
+	}
+	for idx, id := range req.OrderedIDs {
+		payloadBody, _ := json.Marshal(map[string]any{"priority": idx + 1})
+		apiReq, err := http.NewRequestWithContext(
+			r.Context(),
+			http.MethodPut,
+			s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidate-interview-names/"+strconv.FormatInt(id, 10),
+			bytes.NewReader(payloadBody),
+		)
+		if err != nil {
+			http.Error(w, `{"error":"upstream request failed"}`, http.StatusInternalServerError)
+			return
+		}
+		copySessionCookieHeader(r, apiReq)
+		apiReq.Header.Set("Content-Type", "application/json")
+		apiReq.Header.Set(csrfHeaderName, csrfToken)
+		apiResp, err := s.apiClient.Do(apiReq)
+		if err != nil {
+			http.Error(w, `{"error":"upstream service unavailable"}`, http.StatusBadGateway)
+			return
+		}
+		respBody, _ := io.ReadAll(apiResp.Body)
+		apiResp.Body.Close()
+		if apiResp.StatusCode != http.StatusOK {
+			msg := "unable to update interview type order"
+			var errPayload map[string]string
+			if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+				msg = errPayload["error"]
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(apiResp.StatusCode)
+			_, _ = w.Write([]byte(`{"error":` + strconv.Quote(msg) + `}`))
+			return
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"message":"Interview type order updated"}`))
+}
+
 func (s *server) deleteCandidateInterviewQuestionProxy(w http.ResponseWriter, r *http.Request, locationNumber string, questionID int64) {
 	basePath := "/admin/locations/" + url.PathEscape(locationNumber) + "/interview-process"
 	if err := r.ParseForm(); err != nil {
@@ -1748,9 +2955,13 @@ func (s *server) assignCandidateInterviewQuestionProxy(w http.ResponseWriter, r 
 	}
 	interviewNameIDs := parseInterviewTypeIDs(r.Form["interview_name_ids"])
 	interviewNameID, _ := strconv.ParseInt(strings.TrimSpace(r.FormValue("interview_name_id")), 10, 64)
+	responseType := strings.ToLower(strings.TrimSpace(r.FormValue("response_type")))
+	responseType, responseOptions := normalizeQuestionResponsePayload(responseType, r.Form["response_options"])
 	payload := map[string]any{
 		"interviewNameId":  interviewNameID,
 		"interviewNameIds": interviewNameIDs,
+		"responseType":     responseType,
+		"responseOptions":  responseOptions,
 	}
 	question := strings.TrimSpace(r.FormValue("question"))
 	if question != "" {
@@ -1788,7 +2999,7 @@ func (s *server) createCandidateInterviewProxy(w http.ResponseWriter, r *http.Re
 	http.Redirect(
 		w,
 		r,
-		"/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error="+url.QueryEscape("Interviews can only be completed through generated links")+"#create-interviews",
+		"/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error="+url.QueryEscape("Interviews can only be completed through generated links")+"#view-interviews",
 		http.StatusFound,
 	)
 }
@@ -1848,17 +3059,44 @@ func (s *server) createCandidateInterviewLinkProxy(w http.ResponseWriter, r *htt
 
 func (s *server) createCandidateInterviewSessionProxy(w http.ResponseWriter, r *http.Request, locationNumber string, candidateID int64) {
 	if err := r.ParseForm(); err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Invalid+form+submission#create-interviews", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Invalid+form+submission#view-interviews", http.StatusFound)
 		return
 	}
 	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
 	if csrfToken == "" {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Missing+csrf+token#create-interviews", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Missing+csrf+token#view-interviews", http.StatusFound)
 		return
+	}
+	scheduledAt := strings.TrimSpace(r.FormValue("scheduled_at"))
+	if scheduledAt == "" {
+		scheduledDate := strings.TrimSpace(r.FormValue("scheduled_date"))
+		scheduledHour := strings.TrimSpace(r.FormValue("scheduled_hour"))
+		scheduledMinute := strings.TrimSpace(r.FormValue("scheduled_minute"))
+		scheduledAMPM := strings.ToUpper(strings.TrimSpace(r.FormValue("scheduled_ampm")))
+		if scheduledDate == "" || scheduledHour == "" || scheduledMinute == "" || (scheduledAMPM != "AM" && scheduledAMPM != "PM") {
+			http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error="+url.QueryEscape("Interview date and time are required")+"#view-interviews", http.StatusFound)
+			return
+		}
+		hourNum, err := strconv.Atoi(scheduledHour)
+		if err != nil || hourNum < 1 || hourNum > 12 {
+			http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error="+url.QueryEscape("Interview hour is invalid")+"#view-interviews", http.StatusFound)
+			return
+		}
+		minuteNum, err := strconv.Atoi(scheduledMinute)
+		if err != nil || minuteNum < 0 || minuteNum > 59 {
+			http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error="+url.QueryEscape("Interview minute is invalid")+"#view-interviews", http.StatusFound)
+			return
+		}
+		hour24 := hourNum % 12
+		if scheduledAMPM == "PM" {
+			hour24 += 12
+		}
+		scheduledAt = fmt.Sprintf("%s %02d:%02d", scheduledDate, hour24, minuteNum)
 	}
 	body, _ := json.Marshal(map[string]string{
 		"interviewerTimePunchName": strings.TrimSpace(r.FormValue("interviewer_time_punch_name")),
 		"interviewType":            strings.TrimSpace(r.FormValue("interview_type")),
+		"scheduledAt":              scheduledAt,
 	})
 	apiReq, err := http.NewRequestWithContext(
 		r.Context(),
@@ -1867,7 +3105,7 @@ func (s *server) createCandidateInterviewSessionProxy(w http.ResponseWriter, r *
 		bytes.NewReader(body),
 	)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Unable+to+create+interview#create-interviews", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Unable+to+create+interview#view-interviews", http.StatusFound)
 		return
 	}
 	copySessionCookieHeader(r, apiReq)
@@ -1875,7 +3113,7 @@ func (s *server) createCandidateInterviewSessionProxy(w http.ResponseWriter, r *
 	apiReq.Header.Set(csrfHeaderName, csrfToken)
 	apiResp, err := s.apiClient.Do(apiReq)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Service+unavailable#create-interviews", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Service+unavailable#view-interviews", http.StatusFound)
 		return
 	}
 	defer apiResp.Body.Close()
@@ -1886,12 +3124,12 @@ func (s *server) createCandidateInterviewSessionProxy(w http.ResponseWriter, r *
 		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
 			msg = errPayload["error"]
 		}
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error="+url.QueryEscape(msg)+"#create-interviews", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error="+url.QueryEscape(msg)+"#view-interviews", http.StatusFound)
 		return
 	}
 	var payload interviewLinkResponse
 	if err := json.Unmarshal(respBody, &payload); err != nil || strings.TrimSpace(payload.Token) == "" {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Unable+to+read+interview+link#create-interviews", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"?error=Unable+to+read+interview+link#view-interviews", http.StatusFound)
 		return
 	}
 	http.Redirect(
@@ -1953,7 +3191,21 @@ func (s *server) updateCandidateDecisionProxy(w http.ResponseWriter, r *http.Req
 		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Missing+csrf+token", http.StatusFound)
 		return
 	}
-	payload := map[string]string{"decision": strings.TrimSpace(r.FormValue("decision"))}
+	jobID := parsePositiveInt(strings.TrimSpace(r.FormValue("job_id")), 0)
+	departmentID := parsePositiveInt(strings.TrimSpace(r.FormValue("department_id")), 0)
+	payload := map[string]any{
+		"decision": strings.TrimSpace(r.FormValue("decision")),
+	}
+	if departmentID > 0 {
+		payload["departmentId"] = departmentID
+	}
+	if jobID > 0 {
+		payload["jobId"] = jobID
+	}
+	if strings.EqualFold(strings.TrimSpace(r.FormValue("decision")), "hire") {
+		payload["payType"] = strings.TrimSpace(r.FormValue("pay_type"))
+		payload["payAmount"] = strings.TrimSpace(r.FormValue("pay_amount"))
+	}
 	body, _ := json.Marshal(payload)
 	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10), bytes.NewReader(body))
 	if err != nil {
@@ -1980,6 +3232,47 @@ func (s *server) updateCandidateDecisionProxy(w http.ResponseWriter, r *http.Req
 		return
 	}
 	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?message="+url.QueryEscape("Candidate decision saved"), http.StatusFound)
+}
+
+func (s *server) deleteCandidateProxy(w http.ResponseWriter, r *http.Request, locationNumber string, candidateID int64) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodDelete,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10),
+		nil,
+	)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Unable+to+delete+candidate", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to delete candidate"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?message="+url.QueryEscape("Candidate deleted"), http.StatusFound)
 }
 
 func (s *server) publicPhotoUploadRoutes(w http.ResponseWriter, r *http.Request) {
@@ -2040,14 +3333,7 @@ func (s *server) publicTimePunchRoutes(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	switch r.Method {
-	case http.MethodGet:
-		s.publicTimePunchPage(w, r, token)
-	case http.MethodPost:
-		s.publicTimePunchSubmit(w, r, token)
-	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-	}
+	s.redirectLegacyTeamFormToPortal(w, r, token)
 }
 
 func (s *server) publicTimeOffRoutes(w http.ResponseWriter, r *http.Request) {
@@ -2057,14 +3343,7 @@ func (s *server) publicTimeOffRoutes(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	switch r.Method {
-	case http.MethodGet:
-		s.publicTimeOffPage(w, r, token)
-	case http.MethodPost:
-		s.publicTimeOffSubmit(w, r, token)
-	default:
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-	}
+	s.redirectLegacyTeamFormToPortal(w, r, token)
 }
 
 func (s *server) publicUniformOrderRoutes(w http.ResponseWriter, r *http.Request) {
@@ -2081,32 +3360,21 @@ func (s *server) publicUniformOrderRoutes(w http.ResponseWriter, r *http.Request
 	}
 
 	if len(parts) == 1 {
-		if r.Method != http.MethodGet {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		s.publicUniformOrderPage(w, r, token)
+		s.redirectLegacyTeamFormToPortal(w, r, token)
 		return
 	}
 
 	if len(parts) == 3 && parts[1] == "item" {
-		itemID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
-		if err != nil || itemID <= 0 {
-			http.NotFound(w, r)
-			return
-		}
-		switch r.Method {
-		case http.MethodGet:
-			s.publicUniformOrderItemPage(w, r, token, itemID)
-		case http.MethodPost:
-			s.publicUniformOrderItemSubmit(w, r, token, itemID)
-		default:
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		}
+		s.redirectLegacyTeamFormToPortal(w, r, token)
 		return
 	}
 
 	http.NotFound(w, r)
+}
+
+func (s *server) redirectLegacyTeamFormToPortal(w http.ResponseWriter, r *http.Request, token string) {
+	target := "/team-login/" + url.PathEscape(token) + "?message=" + url.QueryEscape("Sign in to access team apps.")
+	http.Redirect(w, r, target, http.StatusFound)
 }
 
 func (s *server) employeeDetailPage(w http.ResponseWriter, r *http.Request, locationNumber, timePunchName string) {
@@ -2135,9 +3403,14 @@ func (s *server) employeeDetailPage(w http.ResponseWriter, r *http.Request, loca
 		http.Error(w, "unable to load employee w4 records", http.StatusBadGateway)
 		return
 	}
-	settings, err := s.fetchLocationSettings(r, locationNumber)
+	jobs, err := s.fetchLocationJobs(r, locationNumber)
 	if err != nil {
-		http.Error(w, "unable to load location settings", http.StatusBadGateway)
+		http.Error(w, "unable to load location jobs", http.StatusBadGateway)
+		return
+	}
+	departments, err := s.fetchLocationDepartments(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load location departments", http.StatusBadGateway)
 		return
 	}
 	scorecards, err := s.fetchEmployeeCandidateScorecards(r, locationNumber, timePunchName)
@@ -2149,21 +3422,27 @@ func (s *server) employeeDetailPage(w http.ResponseWriter, r *http.Request, loca
 		{Type: "i9", Label: "I-9", HasDocuments: true, Form: i9, Documents: docs},
 		{Type: "w4", Label: "W-4", HasDocuments: false, Form: w4, Documents: nil},
 	}
+	birthMonth, birthDay, birthYear := splitBirthdayInput(employee.Birthday)
 
 	if err := renderHTMLTemplate(w, s.employeeTmpl, pageData{
-		CSRF:                  csrfToken,
-		Location:              location,
-		Employee:              employee,
-		EmployeePaperworkLink: employeePaperworkLink(r, locationNumber, timePunchName),
-		Departments:           normalizeDepartments(settings.Departments),
-		EmployeeI9:            i9,
-		EmployeeI9Documents:   docs,
-		EmployeeW4:            w4,
-		EmployeeScorecards:    scorecards,
-		PaperworkSections:     paperworkSections,
-		IsArchivedEmployee:    false,
-		SuccessMessage:        r.URL.Query().Get("message"),
-		Error:                 r.URL.Query().Get("error"),
+		CSRF:                    csrfToken,
+		Location:                location,
+		Employee:                employee,
+		EmployeePayAmountInput:  formatPayAmountInput(employee.PayAmountCents),
+		EmployeeBirthMonthInput: birthMonth,
+		EmployeeBirthDayInput:   birthDay,
+		EmployeeBirthYearInput:  birthYear,
+		EmployeePaperworkLink:   employeePaperworkLink(r, locationNumber, timePunchName),
+		LocationJobs:            jobs,
+		LocationDepartments:     departments,
+		EmployeeI9:              i9,
+		EmployeeI9Documents:     docs,
+		EmployeeW4:              w4,
+		EmployeeScorecards:      scorecards,
+		PaperworkSections:       paperworkSections,
+		IsArchivedEmployee:      false,
+		SuccessMessage:          r.URL.Query().Get("message"),
+		Error:                   r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("employee template render failed: %v", err)
@@ -2224,11 +3503,6 @@ func (s *server) archivedEmployeeDetailPage(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "unable to load archived employee w4 records", http.StatusBadGateway)
 		return
 	}
-	settings, err := s.fetchLocationSettings(r, locationNumber)
-	if err != nil {
-		http.Error(w, "unable to load location settings", http.StatusBadGateway)
-		return
-	}
 	scorecards, err := s.fetchEmployeeCandidateScorecards(r, locationNumber, timePunchName)
 	if err != nil {
 		http.Error(w, "unable to load employee scorecards", http.StatusBadGateway)
@@ -2238,19 +3512,23 @@ func (s *server) archivedEmployeeDetailPage(w http.ResponseWriter, r *http.Reque
 		{Type: "i9", Label: "I-9", HasDocuments: true, Form: i9, Documents: docs},
 		{Type: "w4", Label: "W-4", HasDocuments: false, Form: w4, Documents: nil},
 	}
+	birthMonth, birthDay, birthYear := splitBirthdayInput(employee.Birthday)
 	if err := renderHTMLTemplate(w, s.employeeTmpl, pageData{
-		CSRF:                csrfToken,
-		Location:            location,
-		Employee:            employee,
-		Departments:         normalizeDepartments(settings.Departments),
-		EmployeeI9:          i9,
-		EmployeeI9Documents: docs,
-		EmployeeW4:          w4,
-		EmployeeScorecards:  scorecards,
-		PaperworkSections:   paperworkSections,
-		IsArchivedEmployee:  true,
-		SuccessMessage:      r.URL.Query().Get("message"),
-		Error:               r.URL.Query().Get("error"),
+		CSRF:                    csrfToken,
+		Location:                location,
+		Employee:                employee,
+		EmployeePayAmountInput:  formatPayAmountInput(employee.PayAmountCents),
+		EmployeeBirthMonthInput: birthMonth,
+		EmployeeBirthDayInput:   birthDay,
+		EmployeeBirthYearInput:  birthYear,
+		EmployeeI9:              i9,
+		EmployeeI9Documents:     docs,
+		EmployeeW4:              w4,
+		EmployeeScorecards:      scorecards,
+		PaperworkSections:       paperworkSections,
+		IsArchivedEmployee:      true,
+		SuccessMessage:          r.URL.Query().Get("message"),
+		Error:                   r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("archived employee template render failed: %v", err)
@@ -2463,23 +3741,12 @@ func (s *server) locationTimePunchPage(w http.ResponseWriter, r *http.Request, l
 	}
 	entries = limitTimePunchEntries(entries, 50)
 	archivedEntries = limitTimePunchEntries(archivedEntries, 50)
-	token, err := s.fetchLocationTimePunchToken(r, locationNumber)
-	if err != nil {
-		http.Error(w, "unable to load time punch link", http.StatusBadGateway)
-		return
-	}
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	publicLink := scheme + "://" + r.Host + "/time-punch/" + url.PathEscape(token)
 	if err := renderHTMLTemplate(w, s.timePunchTmpl, pageData{
 		Location:                 location,
 		CSRF:                     csrfToken,
 		Employees:                employees,
 		TimePunchEntries:         entries,
 		ArchivedTimePunchEntries: archivedEntries,
-		TimePunchLink:            publicLink,
 		SuccessMessage:           r.URL.Query().Get("message"),
 		Error:                    r.URL.Query().Get("error"),
 	}); err != nil {
@@ -2501,7 +3768,7 @@ func (s *server) locationTimeOffPage(w http.ResponseWriter, r *http.Request, loc
 	}
 	requests, err := s.fetchLocationTimeOffRequests(r, locationNumber, false)
 	if err != nil {
-		http.Error(w, "unable to load time off requests", http.StatusBadGateway)
+		http.Error(w, "unable to load vacation requests", http.StatusBadGateway)
 		return
 	}
 	employees, err := s.fetchLocationEmployees(r, locationNumber)
@@ -2511,26 +3778,15 @@ func (s *server) locationTimeOffPage(w http.ResponseWriter, r *http.Request, loc
 	}
 	archivedRequests, err := s.fetchLocationTimeOffRequests(r, locationNumber, true)
 	if err != nil {
-		http.Error(w, "unable to load archived time off requests", http.StatusBadGateway)
+		http.Error(w, "unable to load processed vacation requests", http.StatusBadGateway)
 		return
 	}
-	token, err := s.fetchLocationTimeOffToken(r, locationNumber)
-	if err != nil {
-		http.Error(w, "unable to load time off link", http.StatusBadGateway)
-		return
-	}
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	publicLink := scheme + "://" + r.Host + "/time-off/" + url.PathEscape(token)
 	if err := renderHTMLTemplate(w, s.timeOffTmpl, pageData{
 		Location:                location,
 		CSRF:                    csrfToken,
 		Employees:               employees,
 		TimeOffRequests:         requests,
 		ArchivedTimeOffRequests: archivedRequests,
-		TimeOffLink:             publicLink,
 		SuccessMessage:          r.URL.Query().Get("message"),
 		Error:                   r.URL.Query().Get("error"),
 	}); err != nil {
@@ -2555,27 +3811,22 @@ func (s *server) locationUniformsPage(w http.ResponseWriter, r *http.Request, lo
 		http.Error(w, "unable to load uniform items", http.StatusBadGateway)
 		return
 	}
+	employees, err := s.fetchLocationEmployees(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load location employees", http.StatusBadGateway)
+		return
+	}
 	orders, err := s.fetchLocationUniformOrders(r, locationNumber, false)
 	if err != nil {
 		http.Error(w, "unable to load uniform orders", http.StatusBadGateway)
 		return
 	}
-	token, err := s.fetchLocationUniformToken(r, locationNumber)
-	if err != nil {
-		http.Error(w, "unable to load uniform order link", http.StatusBadGateway)
-		return
-	}
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	publicLink := scheme + "://" + r.Host + "/uniform-order/" + url.PathEscape(token)
 	if err := renderHTMLTemplate(w, s.uniformsTmpl, pageData{
 		Location:       location,
 		CSRF:           csrfToken,
+		Employees:      employees,
 		UniformItems:   items,
 		UniformOrders:  orders,
-		UniformLink:    publicLink,
 		SuccessMessage: r.URL.Query().Get("message"),
 		Error:          r.URL.Query().Get("error"),
 	}); err != nil {
@@ -2734,6 +3985,7 @@ func (s *server) createUniformItemProxy(w http.ResponseWriter, r *http.Request, 
 	_ = writer.WriteField("name", strings.TrimSpace(r.FormValue("name")))
 	_ = writer.WriteField("price", strings.TrimSpace(r.FormValue("price")))
 	_ = writer.WriteField("sizes", strings.TrimSpace(r.FormValue("sizes")))
+	_ = writer.WriteField("size_fields", strings.TrimSpace(r.FormValue("size_fields")))
 	for _, key := range []string{"crop_x", "crop_y", "crop_size"} {
 		if value := strings.TrimSpace(r.FormValue(key)); value != "" {
 			_ = writer.WriteField(key, value)
@@ -2781,6 +4033,82 @@ func (s *server) createUniformItemProxy(w http.ResponseWriter, r *http.Request, 
 	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?message="+url.QueryEscape("Uniform item created"), http.StatusFound)
 }
 
+func (s *server) createUniformOrderProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Invalid+form+submission#order-uniform", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Missing+csrf+token#order-uniform", http.StatusFound)
+		return
+	}
+
+	orderType := strings.TrimSpace(strings.ToLower(r.FormValue("order_type")))
+	itemID := int64(0)
+	if orderType != uniformSystemKeyShoes {
+		parsedItemID, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("item_id")), 10, 64)
+		if err != nil || parsedItemID <= 0 {
+			http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Invalid+uniform+item#order-uniform", http.StatusFound)
+			return
+		}
+		itemID = parsedItemID
+	}
+	quantity, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("quantity")), 10, 64)
+	if err != nil || quantity <= 0 {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Quantity+must+be+at+least+1#order-uniform", http.StatusFound)
+		return
+	}
+
+	orderPayload := map[string]any{
+		"timePunchName": strings.TrimSpace(r.FormValue("time_punch_name")),
+		"items": []map[string]any{
+			{
+				"itemId":         itemID,
+				"size":           strings.TrimSpace(r.FormValue("size")),
+				"sizeSelections": parseFormSizeSelections(r.PostForm["size_field_label"], r.PostForm["size_field_value"]),
+				"orderType":      orderType,
+				"shoeItemNumber": strings.TrimSpace(r.FormValue("shoe_item_number")),
+				"shoePrice":      strings.TrimSpace(r.FormValue("shoe_price")),
+				"shoeUrl":        strings.TrimSpace(r.FormValue("shoe_url")),
+				"note":           strings.TrimSpace(r.FormValue("note")),
+				"quantity":       quantity,
+			},
+		},
+	}
+	body, _ := json.Marshal(orderPayload)
+	orderReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodPost,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/uniform-orders",
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Unable+to+create+uniform+order#order-uniform", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, orderReq)
+	orderReq.Header.Set("Content-Type", "application/json")
+	orderReq.Header.Set(csrfHeaderName, csrfToken)
+	orderResp, err := s.apiClient.Do(orderReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Service+unavailable#order-uniform", http.StatusFound)
+		return
+	}
+	defer orderResp.Body.Close()
+	orderRespBody, _ := io.ReadAll(orderResp.Body)
+	if orderResp.StatusCode != http.StatusCreated && orderResp.StatusCode != http.StatusOK {
+		msg := "unable to submit uniform order"
+		var errPayload map[string]string
+		if err := json.Unmarshal(orderRespBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error="+url.QueryEscape(msg)+"#order-uniform", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?message="+url.QueryEscape("Uniform order submitted")+"#submitted-requests", http.StatusFound)
+}
+
 func (s *server) updateUniformItemProxy(w http.ResponseWriter, r *http.Request, locationNumber string, itemID int64) {
 	if err := r.ParseForm(); err != nil {
 		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/uniforms?error=Invalid+form+submission", http.StatusFound)
@@ -2796,9 +4124,10 @@ func (s *server) updateUniformItemProxy(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	payload := map[string]any{
-		"name":  strings.TrimSpace(r.FormValue("name")),
-		"price": strings.TrimSpace(r.FormValue("price")),
-		"sizes": strings.TrimSpace(r.FormValue("sizes")),
+		"name":       strings.TrimSpace(r.FormValue("name")),
+		"price":      strings.TrimSpace(r.FormValue("price")),
+		"sizes":      strings.TrimSpace(r.FormValue("sizes")),
+		"sizeFields": strings.TrimSpace(r.FormValue("size_fields")),
 	}
 	body, _ := json.Marshal(payload)
 
@@ -3353,7 +4682,7 @@ func (s *server) archiveLocationTimePunchEntryProxy(w http.ResponseWriter, r *ht
 	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/time-punch/" + strconv.FormatInt(entryID, 10) + "/archive"
 	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, apiURL, nil)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error=Unable+to+archive+entry#view-punches", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error=Unable+to+complete+entry#view-punches", http.StatusFound)
 		return
 	}
 	copySessionCookieHeader(r, apiReq)
@@ -3366,7 +4695,7 @@ func (s *server) archiveLocationTimePunchEntryProxy(w http.ResponseWriter, r *ht
 	defer apiResp.Body.Close()
 	respBody, _ := io.ReadAll(apiResp.Body)
 	if apiResp.StatusCode != http.StatusOK {
-		msg := "unable to archive time punch entry"
+		msg := "unable to complete time punch entry"
 		var payload map[string]string
 		if err := json.Unmarshal(respBody, &payload); err == nil && strings.TrimSpace(payload["error"]) != "" {
 			msg = payload["error"]
@@ -3374,7 +4703,7 @@ func (s *server) archiveLocationTimePunchEntryProxy(w http.ResponseWriter, r *ht
 		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error="+url.QueryEscape(msg)+"#view-punches", http.StatusFound)
 		return
 	}
-	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?message="+url.QueryEscape("Time punch entry archived")+"#view-punches", http.StatusFound)
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?message="+url.QueryEscape("Time punch entry marked completed")+"#completed-punches", http.StatusFound)
 }
 
 func (s *server) createLocationTimePunchEntryProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
@@ -3387,12 +4716,13 @@ func (s *server) createLocationTimePunchEntryProxy(w http.ResponseWriter, r *htt
 		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-punch?error=Missing+csrf+token#create-punch", http.StatusFound)
 		return
 	}
-	payload := map[string]string{
-		"timePunchName": strings.TrimSpace(r.FormValue("time_punch_name")),
-		"punchDate":     strings.TrimSpace(r.FormValue("punch_date")),
-		"timeIn":        strings.TrimSpace(r.FormValue("time_in")),
-		"timeOut":       strings.TrimSpace(r.FormValue("time_out")),
-		"note":          strings.TrimSpace(r.FormValue("note")),
+	payload := map[string]any{
+		"timePunchName":            strings.TrimSpace(r.FormValue("time_punch_name")),
+		"punchDate":                strings.TrimSpace(r.FormValue("punch_date")),
+		"timeIn":                   strings.TrimSpace(r.FormValue("time_in")),
+		"timeOut":                  strings.TrimSpace(r.FormValue("time_out")),
+		"note":                     strings.TrimSpace(r.FormValue("note")),
+		"forgotBreakClockInReturn": strings.TrimSpace(r.FormValue("forgot_break_clock_in_return")) != "",
 	}
 	body, _ := json.Marshal(payload)
 	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/time-punch"
@@ -3436,7 +4766,7 @@ func (s *server) archiveTimeOffRequestProxy(w http.ResponseWriter, r *http.Reque
 	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/time-off/" + strconv.FormatInt(requestID, 10)
 	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, apiURL, nil)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Unable+to+archive+request#view-requests", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error=Unable+to+process+request#view-requests", http.StatusFound)
 		return
 	}
 	copySessionCookieHeader(r, apiReq)
@@ -3449,7 +4779,7 @@ func (s *server) archiveTimeOffRequestProxy(w http.ResponseWriter, r *http.Reque
 	defer apiResp.Body.Close()
 	respBody, _ := io.ReadAll(apiResp.Body)
 	if apiResp.StatusCode != http.StatusOK {
-		msg := "unable to archive time off request"
+		msg := "unable to process vacation request"
 		var errPayload map[string]string
 		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
 			msg = errPayload["error"]
@@ -3457,7 +4787,7 @@ func (s *server) archiveTimeOffRequestProxy(w http.ResponseWriter, r *http.Reque
 		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error="+url.QueryEscape(msg)+"#view-requests", http.StatusFound)
 		return
 	}
-	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?message="+url.QueryEscape("Time off request archived")+"#view-requests", http.StatusFound)
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?message="+url.QueryEscape("Vacation request processed")+"#processed-requests", http.StatusFound)
 }
 
 func (s *server) createLocationTimeOffRequestProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
@@ -3493,7 +4823,7 @@ func (s *server) createLocationTimeOffRequestProxy(w http.ResponseWriter, r *htt
 	defer apiResp.Body.Close()
 	respBody, _ := io.ReadAll(apiResp.Body)
 	if apiResp.StatusCode != http.StatusCreated && apiResp.StatusCode != http.StatusOK {
-		msg := "unable to create time off request"
+		msg := "unable to create vacation request"
 		var errPayload map[string]string
 		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
 			msg = errPayload["error"]
@@ -3501,7 +4831,144 @@ func (s *server) createLocationTimeOffRequestProxy(w http.ResponseWriter, r *htt
 		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?error="+url.QueryEscape(msg)+"#create-request", http.StatusFound)
 		return
 	}
-	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?message="+url.QueryEscape("Time off request submitted")+"#view-requests", http.StatusFound)
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/time-off?message="+url.QueryEscape("Vacation request submitted")+"#view-requests", http.StatusFound)
+}
+
+func (s *server) createLocationDepartmentProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?error=Invalid+form+submission#create-department", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?error=Missing+csrf+token#create-department", http.StatusFound)
+		return
+	}
+	payload := map[string]string{
+		"name": strings.TrimSpace(r.FormValue("name")),
+	}
+	body, _ := json.Marshal(payload)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/departments", bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?error=Unable+to+create+department#create-department", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?error=Service+unavailable#create-department", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusCreated && apiResp.StatusCode != http.StatusOK {
+		msg := "unable to create department"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?error="+url.QueryEscape(msg)+"#create-department", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?message="+url.QueryEscape("Department created")+"#view-departments", http.StatusFound)
+}
+
+func (s *server) createLocationJobProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?error=Invalid+form+submission#create-job", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?error=Missing+csrf+token#create-job", http.StatusFound)
+		return
+	}
+	payload := map[string]any{
+		"name": strings.TrimSpace(r.FormValue("name")),
+	}
+	body, _ := json.Marshal(payload)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/jobs", bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?error=Unable+to+create+job#create-job", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?error=Service+unavailable#create-job", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusCreated && apiResp.StatusCode != http.StatusOK {
+		msg := "unable to create job"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?error="+url.QueryEscape(msg)+"#create-job", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?message="+url.QueryEscape("Job created")+"#view-jobs", http.StatusFound)
+}
+
+func (s *server) assignLocationJobDepartmentsProxy(w http.ResponseWriter, r *http.Request, locationNumber string, jobID int64) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?error=Invalid+form+submission#view-jobs", http.StatusFound)
+		return
+	}
+	csrfToken, err := s.fetchCSRFToken(r)
+	if err != nil || strings.TrimSpace(csrfToken) == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?error=Session+expired#view-jobs", http.StatusFound)
+		return
+	}
+	departmentIDs := make([]int64, 0, len(r.Form["department_ids"]))
+	for _, raw := range r.Form["department_ids"] {
+		id := parsePositiveInt(strings.TrimSpace(raw), 0)
+		if id > 0 {
+			departmentIDs = append(departmentIDs, int64(id))
+		}
+	}
+	payload := map[string]any{"departmentIds": departmentIDs}
+	body, _ := json.Marshal(payload)
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodPut,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/jobs/"+strconv.FormatInt(jobID, 10)+"/departments",
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?error=Unable+to+assign+departments#view-jobs", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?error=Service+unavailable#view-jobs", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to assign departments"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		} else if trimmed := strings.TrimSpace(string(respBody)); trimmed != "" {
+			msg = trimmed
+		} else {
+			msg = "unable to assign departments (status " + strconv.Itoa(apiResp.StatusCode) + ")"
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?error="+url.QueryEscape(msg)+"#view-jobs", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/departments?message="+url.QueryEscape("Job departments updated")+"#view-jobs", http.StatusFound)
 }
 
 func (s *server) importLocationEmployeesProxy(w http.ResponseWriter, r *http.Request) {
@@ -3524,19 +4991,19 @@ func (s *server) importLocationEmployeesProxy(w http.ResponseWriter, r *http.Req
 	}
 
 	if err := r.ParseMultipartForm(20 << 20); err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Invalid+upload", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Invalid+upload#bulk-import", http.StatusFound)
 		return
 	}
 	file, header, err := r.FormFile("bio_file")
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Employee+Bio+Reader+file+is+required", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Employee+Bio+Reader+file+is+required#bulk-import", http.StatusFound)
 		return
 	}
 	defer file.Close()
 
 	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
 	if csrfToken == "" {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Missing+csrf+token", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Missing+csrf+token#bulk-import", http.StatusFound)
 		return
 	}
 
@@ -3544,22 +5011,22 @@ func (s *server) importLocationEmployeesProxy(w http.ResponseWriter, r *http.Req
 	writer := multipart.NewWriter(&body)
 	part, err := writer.CreateFormFile("bio_file", header.Filename)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+prepare+upload", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+prepare+upload#bulk-import", http.StatusFound)
 		return
 	}
 	if _, err := io.Copy(part, file); err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+read+upload", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+read+upload#bulk-import", http.StatusFound)
 		return
 	}
 	if err := writer.Close(); err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+finalize+upload", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+finalize+upload#bulk-import", http.StatusFound)
 		return
 	}
 
 	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/import"
 	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, &body)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+send+upload", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+send+upload#bulk-import", http.StatusFound)
 		return
 	}
 	copySessionCookieHeader(r, apiReq)
@@ -3568,7 +5035,7 @@ func (s *server) importLocationEmployeesProxy(w http.ResponseWriter, r *http.Req
 
 	apiResp, err := s.apiClient.Do(apiReq)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Import+service+unavailable", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Import+service+unavailable#bulk-import", http.StatusFound)
 		return
 	}
 	defer apiResp.Body.Close()
@@ -3582,11 +5049,11 @@ func (s *server) importLocationEmployeesProxy(w http.ResponseWriter, r *http.Req
 				msg = payload["error"]
 			}
 		}
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error="+url.QueryEscape(msg), http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error="+url.QueryEscape(msg)+"#bulk-import", http.StatusFound)
 		return
 	}
 
-	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?message="+url.QueryEscape("Bio reader imported successfully"), http.StatusFound)
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?message="+url.QueryEscape("Bio reader imported successfully")+"#bulk-import", http.StatusFound)
 }
 
 func (s *server) importLocationBirthdatesProxy(w http.ResponseWriter, r *http.Request) {
@@ -3609,19 +5076,19 @@ func (s *server) importLocationBirthdatesProxy(w http.ResponseWriter, r *http.Re
 	}
 
 	if err := r.ParseMultipartForm(20 << 20); err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Invalid+upload", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Invalid+upload#bulk-import", http.StatusFound)
 		return
 	}
 	file, header, err := r.FormFile("birthdate_file")
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Birthday+report+file+is+required", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Birthday+report+file+is+required#bulk-import", http.StatusFound)
 		return
 	}
 	defer file.Close()
 
 	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
 	if csrfToken == "" {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Missing+csrf+token", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Missing+csrf+token#bulk-import", http.StatusFound)
 		return
 	}
 
@@ -3629,22 +5096,22 @@ func (s *server) importLocationBirthdatesProxy(w http.ResponseWriter, r *http.Re
 	writer := multipart.NewWriter(&body)
 	part, err := writer.CreateFormFile("birthdate_file", header.Filename)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+prepare+upload", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+prepare+upload#bulk-import", http.StatusFound)
 		return
 	}
 	if _, err := io.Copy(part, file); err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+read+upload", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+read+upload#bulk-import", http.StatusFound)
 		return
 	}
 	if err := writer.Close(); err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+finalize+upload", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+finalize+upload#bulk-import", http.StatusFound)
 		return
 	}
 
 	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/birthdates/import"
 	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, &body)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+send+upload", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Unable+to+send+upload#bulk-import", http.StatusFound)
 		return
 	}
 	copySessionCookieHeader(r, apiReq)
@@ -3653,7 +5120,7 @@ func (s *server) importLocationBirthdatesProxy(w http.ResponseWriter, r *http.Re
 
 	apiResp, err := s.apiClient.Do(apiReq)
 	if err != nil {
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Import+service+unavailable", http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error=Import+service+unavailable#bulk-import", http.StatusFound)
 		return
 	}
 	defer apiResp.Body.Close()
@@ -3667,11 +5134,11 @@ func (s *server) importLocationBirthdatesProxy(w http.ResponseWriter, r *http.Re
 				msg = payload["error"]
 			}
 		}
-		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error="+url.QueryEscape(msg), http.StatusFound)
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?error="+url.QueryEscape(msg)+"#bulk-import", http.StatusFound)
 		return
 	}
 
-	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?message="+url.QueryEscape("Birthday report imported successfully"), http.StatusFound)
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?message="+url.QueryEscape("Birthday report imported successfully")+"#bulk-import", http.StatusFound)
 }
 
 func (s *server) createEmployeeProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
@@ -3686,7 +5153,7 @@ func (s *server) createEmployeeProxy(w http.ResponseWriter, r *http.Request, loc
 	}
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
-	for _, key := range []string{"first_name", "last_name", "department", "birthday"} {
+	for _, key := range []string{"first_name", "last_name", "department_id", "job_id", "pay_type", "pay_amount"} {
 		_ = writer.WriteField(key, strings.TrimSpace(r.FormValue(key)))
 	}
 	for _, fileField := range []string{"i9_file", "w4_file"} {
@@ -3747,6 +5214,226 @@ func (s *server) createEmployeeProxy(w http.ResponseWriter, r *http.Request, loc
 		return
 	}
 	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees?message="+url.QueryEscape("Employee created"), http.StatusFound)
+}
+
+func (s *server) updateEmployeeDetailsProxy(w http.ResponseWriter, r *http.Request, locationNumber, timePunchName string) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error="+url.QueryEscape("Invalid employee update form")+"#employee-edit", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error="+url.QueryEscape("Missing csrf token")+"#employee-edit", http.StatusFound)
+		return
+	}
+	birthMonth := strings.TrimSpace(r.FormValue("birthday_month"))
+	birthDay := strings.TrimSpace(r.FormValue("birthday_day"))
+	birthYear := strings.TrimSpace(r.FormValue("birthday_year"))
+	birthday := ""
+	if birthMonth != "" || birthDay != "" || birthYear != "" {
+		if birthMonth == "" || birthDay == "" || birthYear == "" {
+			http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error="+url.QueryEscape("Birthday must include month, day, and year")+"#employee-edit", http.StatusFound)
+			return
+		}
+		monthNum, err := strconv.Atoi(birthMonth)
+		if err != nil || monthNum < 1 || monthNum > 12 {
+			http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error="+url.QueryEscape("Birthday month is invalid")+"#employee-edit", http.StatusFound)
+			return
+		}
+		dayNum, err := strconv.Atoi(birthDay)
+		if err != nil || dayNum < 1 || dayNum > 31 {
+			http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error="+url.QueryEscape("Birthday day is invalid")+"#employee-edit", http.StatusFound)
+			return
+		}
+		yearNum, err := strconv.Atoi(birthYear)
+		if err != nil || yearNum < 1900 || yearNum > 2100 {
+			http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error="+url.QueryEscape("Birthday year is invalid")+"#employee-edit", http.StatusFound)
+			return
+		}
+		birthday = fmt.Sprintf("%02d/%02d/%04d", monthNum, dayNum, yearNum)
+	}
+
+	payload := map[string]string{
+		"firstName": strings.TrimSpace(r.FormValue("first_name")),
+		"lastName":  strings.TrimSpace(r.FormValue("last_name")),
+		"birthday":  birthday,
+		"email":     strings.TrimSpace(r.FormValue("email")),
+		"phone":     strings.TrimSpace(r.FormValue("phone")),
+		"address":   strings.TrimSpace(r.FormValue("address")),
+		"aptNumber": strings.TrimSpace(r.FormValue("apt_number")),
+		"city":      strings.TrimSpace(r.FormValue("city")),
+		"state":     strings.TrimSpace(r.FormValue("state")),
+		"zipCode":   strings.TrimSpace(r.FormValue("zip_code")),
+		"payType":   strings.TrimSpace(r.FormValue("pay_type")),
+		"payAmount": strings.TrimSpace(r.FormValue("pay_amount")),
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error="+url.QueryEscape("Unable to prepare employee update")+"#employee-edit", http.StatusFound)
+		return
+	}
+
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/" + url.PathEscape(timePunchName) + "/details"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, apiURL, bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error="+url.QueryEscape("Unable to update employee")+"#employee-edit", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error="+url.QueryEscape("Service unavailable")+"#employee-edit", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to update employee"
+		var response map[string]string
+		if err := json.Unmarshal(respBody, &response); err == nil && strings.TrimSpace(response["error"]) != "" {
+			msg = response["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error="+url.QueryEscape(msg)+"#employee-edit", http.StatusFound)
+		return
+	}
+
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?message="+url.QueryEscape("Employee details updated")+"#employee-edit", http.StatusFound)
+}
+
+func (s *server) loginAsEmployeeTeamMemberProxy(w http.ResponseWriter, r *http.Request, locationNumber, timePunchName string) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	payload := map[string]string{
+		"locationNumber": strings.TrimSpace(locationNumber),
+		"timePunchName":  strings.TrimSpace(timePunchName),
+	}
+	body, _ := json.Marshal(payload)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, s.apiBaseURL+"/api/auth/team-impersonate", bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Unable+to+start+team+session", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to start team member session"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	sessionValue := extractAPISessionCookieValue(apiResp)
+	if strings.TrimSpace(sessionValue) == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Unable+to+load+team+session", http.StatusFound)
+		return
+	}
+	setScopedSessionCookie(w, teamSessionCookie, sessionValue)
+	http.Redirect(w, r, "/team?message="+url.QueryEscape("Logged in as "+timePunchName), http.StatusFound)
+}
+
+func (s *server) terminateEmployeeProxy(w http.ResponseWriter, r *http.Request, locationNumber, timePunchName string) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/" + url.PathEscape(timePunchName) + "/terminate"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, apiURL, nil)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Unable+to+terminate+employee", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to terminate employee"
+		var response map[string]string
+		if err := json.Unmarshal(respBody, &response); err == nil && strings.TrimSpace(response["error"]) != "" {
+			msg = response["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/"+url.PathEscape(timePunchName)+"?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/employees/archived?message="+url.QueryEscape("Employee terminated"), http.StatusFound)
+}
+
+func (s *server) loginAsLocationProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/settings?error=Invalid+form+submission", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/settings?error=Missing+csrf+token", http.StatusFound)
+		return
+	}
+	payload := map[string]string{
+		"locationNumber": strings.TrimSpace(locationNumber),
+	}
+	body, _ := json.Marshal(payload)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPost, s.apiBaseURL+"/api/auth/restaurant-impersonate", bytes.NewReader(body))
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/settings?error=Unable+to+start+location+session", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/settings?error=Service+unavailable", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to start location session"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/settings?error="+url.QueryEscape(msg), http.StatusFound)
+		return
+	}
+	sessionValue := extractAPISessionCookieValue(apiResp)
+	if strings.TrimSpace(sessionValue) == "" {
+		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/settings?error=Unable+to+load+location+session", http.StatusFound)
+		return
+	}
+	setScopedSessionCookie(w, restaurantSessionCookie, sessionValue)
+	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"?message="+url.QueryEscape("Viewing as location portal"), http.StatusFound)
 }
 
 func (s *server) createLocationProxy(w http.ResponseWriter, r *http.Request) {
@@ -3877,6 +5564,12 @@ func (s *server) updateLocationSettingsProxy(w http.ResponseWriter, r *http.Requ
 }
 
 func (s *server) deleteLocationProxy(w http.ResponseWriter, r *http.Request) {
+	currentUser, err := s.fetchSessionUserByRoles(r, []string{"admin"})
+	if err != nil || currentUser == nil {
+		http.Error(w, `{"error":"admin access required"}`, http.StatusForbidden)
+		return
+	}
+
 	locationNumber, ok := locationNumberFromAdminPath(r.URL.Path)
 	if !ok {
 		http.NotFound(w, r)
@@ -3980,6 +5673,127 @@ func (s *server) updateEmployeeDepartmentProxy(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(apiResp.StatusCode)
+	_, _ = w.Write(respBody)
+}
+
+func (s *server) updateEmployeeJobProxy(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	trimmed := strings.TrimPrefix(r.URL.Path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "employees" || parts[3] != "job" {
+		http.NotFound(w, r)
+		return
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		http.NotFound(w, r)
+		return
+	}
+	timePunchName, err := url.PathUnescape(parts[2])
+	if err != nil || strings.TrimSpace(timePunchName) == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	csrfToken := strings.TrimSpace(r.Header.Get(csrfHeaderName))
+	if csrfToken == "" {
+		http.Error(w, `{"error":"csrf token is required"}`, http.StatusForbidden)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/" + url.PathEscape(timePunchName) + "/job"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, apiURL, bytes.NewReader(body))
+	if err != nil {
+		http.Error(w, `{"error":"upstream request failed"}`, http.StatusInternalServerError)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, `{"error":"upstream service unavailable"}`, http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+
+	respBody, err := io.ReadAll(apiResp.Body)
+	if err != nil {
+		http.Error(w, `{"error":"upstream response failed"}`, http.StatusBadGateway)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(apiResp.StatusCode)
+	_, _ = w.Write(respBody)
+}
+
+func (s *server) updateEmployeeClockInPINProxy(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	trimmed := strings.TrimPrefix(r.URL.Path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "employees" || parts[3] != "clock-in-pin" {
+		http.NotFound(w, r)
+		return
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		http.NotFound(w, r)
+		return
+	}
+	timePunchName, err := url.PathUnescape(parts[2])
+	if err != nil || strings.TrimSpace(timePunchName) == "" {
+		http.NotFound(w, r)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.Header.Get(csrfHeaderName))
+	if csrfToken == "" {
+		http.Error(w, `{"error":"csrf token is required"}`, http.StatusForbidden)
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+	apiURL := s.apiBaseURL + "/api/admin/locations/" + url.PathEscape(locationNumber) + "/employees/" + url.PathEscape(timePunchName) + "/clock-in-pin"
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, apiURL, bytes.NewReader(body))
+	if err != nil {
+		http.Error(w, `{"error":"upstream request failed"}`, http.StatusInternalServerError)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, `{"error":"upstream service unavailable"}`, http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, err := io.ReadAll(apiResp.Body)
+	if err != nil {
+		http.Error(w, `{"error":"upstream response failed"}`, http.StatusBadGateway)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(apiResp.StatusCode)
 	_, _ = w.Write(respBody)
@@ -4710,33 +6524,20 @@ func shouldRenderPaperworkSubmittedFromQuery(r *http.Request) bool {
 }
 
 func (s *server) publicTimePunchPage(w http.ResponseWriter, r *http.Request, token string) {
-	apiURL := s.apiBaseURL + "/api/public/time-punch/" + url.PathEscape(token)
-	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil)
+	payload, err := s.fetchPublicTimePunchData(r, token)
 	if err != nil {
-		http.Error(w, "request failed", http.StatusInternalServerError)
-		return
-	}
-	apiResp, err := s.apiClient.Do(apiReq)
-	if err != nil {
-		http.Error(w, "service unavailable", http.StatusBadGateway)
-		return
-	}
-	defer apiResp.Body.Close()
-	if apiResp.StatusCode != http.StatusOK {
 		http.NotFound(w, r)
 		return
 	}
-	var payload publicTimePunchResponse
-	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
-		http.Error(w, "invalid response", http.StatusBadGateway)
-		return
-	}
+	resolvedTimePunchName, resolvedEmployeeName := s.resolvePublicFormTeamMember(r, payload.LocationNumber, payload.Employees)
 	if err := renderHTMLTemplate(w, s.publicTimePunchTmpl, pageData{
-		Token:          token,
-		Location:       &locationView{Number: payload.LocationNumber, Name: payload.LocationName},
-		Employees:      payload.Employees,
-		SuccessMessage: r.URL.Query().Get("message"),
-		Error:          r.URL.Query().Get("error"),
+		Token:                 token,
+		Location:              &locationView{Number: payload.LocationNumber, Name: payload.LocationName},
+		Employees:             payload.Employees,
+		ResolvedTimePunchName: resolvedTimePunchName,
+		ResolvedEmployeeName:  resolvedEmployeeName,
+		SuccessMessage:        r.URL.Query().Get("message"),
+		Error:                 r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("public time punch template render failed: %v", err)
@@ -4748,12 +6549,19 @@ func (s *server) publicTimePunchSubmit(w http.ResponseWriter, r *http.Request, t
 		http.Redirect(w, r, "/time-punch/"+url.PathEscape(token)+"?error=Invalid+form+submission", http.StatusFound)
 		return
 	}
-	payload := map[string]string{
-		"timePunchName": strings.TrimSpace(r.FormValue("time_punch_name")),
-		"punchDate":     strings.TrimSpace(r.FormValue("punch_date")),
-		"timeIn":        strings.TrimSpace(r.FormValue("time_in")),
-		"timeOut":       strings.TrimSpace(r.FormValue("time_out")),
-		"note":          strings.TrimSpace(r.FormValue("note")),
+	timePunchName := strings.TrimSpace(r.FormValue("time_punch_name"))
+	if payload, err := s.fetchPublicTimePunchData(r, token); err == nil {
+		if resolved, _ := s.resolvePublicFormTeamMember(r, payload.LocationNumber, payload.Employees); strings.TrimSpace(resolved) != "" {
+			timePunchName = resolved
+		}
+	}
+	payload := map[string]any{
+		"timePunchName":            timePunchName,
+		"punchDate":                strings.TrimSpace(r.FormValue("punch_date")),
+		"timeIn":                   strings.TrimSpace(r.FormValue("time_in")),
+		"timeOut":                  strings.TrimSpace(r.FormValue("time_out")),
+		"note":                     strings.TrimSpace(r.FormValue("note")),
+		"forgotBreakClockInReturn": strings.TrimSpace(r.FormValue("forgot_break_clock_in_return")) != "",
 	}
 	body, _ := json.Marshal(payload)
 	apiURL := s.apiBaseURL + "/api/public/time-punch/" + url.PathEscape(token)
@@ -4783,33 +6591,20 @@ func (s *server) publicTimePunchSubmit(w http.ResponseWriter, r *http.Request, t
 }
 
 func (s *server) publicTimeOffPage(w http.ResponseWriter, r *http.Request, token string) {
-	apiURL := s.apiBaseURL + "/api/public/time-off/" + url.PathEscape(token)
-	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil)
+	payload, err := s.fetchPublicTimeOffData(r, token)
 	if err != nil {
-		http.Error(w, "request failed", http.StatusInternalServerError)
-		return
-	}
-	apiResp, err := s.apiClient.Do(apiReq)
-	if err != nil {
-		http.Error(w, "service unavailable", http.StatusBadGateway)
-		return
-	}
-	defer apiResp.Body.Close()
-	if apiResp.StatusCode != http.StatusOK {
 		http.NotFound(w, r)
 		return
 	}
-	var payload publicTimeOffResponse
-	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
-		http.Error(w, "invalid response", http.StatusBadGateway)
-		return
-	}
+	resolvedTimePunchName, resolvedEmployeeName := s.resolvePublicFormTeamMember(r, payload.LocationNumber, payload.Employees)
 	if err := renderHTMLTemplate(w, s.publicTimeOffTmpl, pageData{
-		Token:          token,
-		Location:       &locationView{Number: payload.LocationNumber, Name: payload.LocationName},
-		Employees:      payload.Employees,
-		SuccessMessage: r.URL.Query().Get("message"),
-		Error:          r.URL.Query().Get("error"),
+		Token:                 token,
+		Location:              &locationView{Number: payload.LocationNumber, Name: payload.LocationName},
+		Employees:             payload.Employees,
+		ResolvedTimePunchName: resolvedTimePunchName,
+		ResolvedEmployeeName:  resolvedEmployeeName,
+		SuccessMessage:        r.URL.Query().Get("message"),
+		Error:                 r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("public time off template render failed: %v", err)
@@ -4826,8 +6621,14 @@ func (s *server) publicTimeOffSubmit(w http.ResponseWriter, r *http.Request, tok
 	if endDate == "" {
 		endDate = startDate
 	}
+	timePunchName := strings.TrimSpace(r.FormValue("time_punch_name"))
+	if payload, err := s.fetchPublicTimeOffData(r, token); err == nil {
+		if resolved, _ := s.resolvePublicFormTeamMember(r, payload.LocationNumber, payload.Employees); strings.TrimSpace(resolved) != "" {
+			timePunchName = resolved
+		}
+	}
 	payload := map[string]string{
-		"timePunchName": strings.TrimSpace(r.FormValue("time_punch_name")),
+		"timePunchName": timePunchName,
 		"startDate":     startDate,
 		"endDate":       endDate,
 	}
@@ -4847,7 +6648,7 @@ func (s *server) publicTimeOffSubmit(w http.ResponseWriter, r *http.Request, tok
 	defer apiResp.Body.Close()
 	respBody, _ := io.ReadAll(apiResp.Body)
 	if apiResp.StatusCode != http.StatusOK {
-		msg := "unable to submit time off request"
+		msg := "unable to submit vacation request"
 		var errPayload map[string]string
 		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
 			msg = errPayload["error"]
@@ -4855,7 +6656,7 @@ func (s *server) publicTimeOffSubmit(w http.ResponseWriter, r *http.Request, tok
 		http.Redirect(w, r, "/time-off/"+url.PathEscape(token)+"?error="+url.QueryEscape(msg), http.StatusFound)
 		return
 	}
-	http.Redirect(w, r, "/time-off/"+url.PathEscape(token)+"?message="+url.QueryEscape("Time off request submitted"), http.StatusFound)
+	http.Redirect(w, r, "/time-off/"+url.PathEscape(token)+"?message="+url.QueryEscape("Vacation request submitted"), http.StatusFound)
 }
 
 func (s *server) publicUniformOrderPage(w http.ResponseWriter, r *http.Request, token string) {
@@ -4893,13 +6694,16 @@ func (s *server) publicUniformOrderItemPage(w http.ResponseWriter, r *http.Reque
 		http.NotFound(w, r)
 		return
 	}
+	resolvedTimePunchName, resolvedEmployeeName := s.resolvePublicFormTeamMember(r, payload.LocationNumber, payload.Employees)
 	if err := renderHTMLTemplate(w, s.publicUniformItemTmpl, pageData{
-		Token:          token,
-		Location:       &locationView{Number: payload.LocationNumber, Name: payload.LocationName},
-		Employees:      payload.Employees,
-		UniformItem:    selected,
-		SuccessMessage: r.URL.Query().Get("message"),
-		Error:          r.URL.Query().Get("error"),
+		Token:                 token,
+		Location:              &locationView{Number: payload.LocationNumber, Name: payload.LocationName},
+		Employees:             payload.Employees,
+		UniformItem:           selected,
+		ResolvedTimePunchName: resolvedTimePunchName,
+		ResolvedEmployeeName:  resolvedEmployeeName,
+		SuccessMessage:        r.URL.Query().Get("message"),
+		Error:                 r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("public uniform order item template render failed: %v", err)
@@ -4916,16 +6720,43 @@ func (s *server) publicUniformOrderItemSubmit(w http.ResponseWriter, r *http.Req
 		http.Redirect(w, r, "/uniform-order/"+url.PathEscape(token)+"/item/"+strconv.FormatInt(itemID, 10)+"?error=Quantity+must+be+at+least+1", http.StatusFound)
 		return
 	}
+	timePunchName := strings.TrimSpace(r.FormValue("time_punch_name"))
+	var selectedItem *uniformItemView
+	if orderPayload, err := s.fetchPublicUniformOrderData(r, token); err == nil {
+		if resolved, _ := s.resolvePublicFormTeamMember(r, orderPayload.LocationNumber, orderPayload.Employees); strings.TrimSpace(resolved) != "" {
+			timePunchName = resolved
+		}
+		for i := range orderPayload.Items {
+			if orderPayload.Items[i].ID == itemID {
+				selectedItem = &orderPayload.Items[i]
+				break
+			}
+		}
+	}
+	lineItem := map[string]any{
+		"itemId":   itemID,
+		"size":     strings.TrimSpace(r.FormValue("size")),
+		"note":     strings.TrimSpace(r.FormValue("note")),
+		"quantity": quantity,
+	}
+	if selectedItem != nil && strings.EqualFold(strings.TrimSpace(selectedItem.SystemKey), uniformSystemKeyShoes) {
+		shoeItemNumber := strings.TrimSpace(r.FormValue("shoe_item_number"))
+		if shoeItemNumber == "" {
+			http.Redirect(w, r, "/uniform-order/"+url.PathEscape(token)+"/item/"+strconv.FormatInt(itemID, 10)+"?error=Shoe+item+number+is+required", http.StatusFound)
+			return
+		}
+		lineItem = map[string]any{
+			"itemId":         int64(0),
+			"orderType":      uniformSystemKeyShoes,
+			"shoeItemNumber": shoeItemNumber,
+			"shoePrice":      fmt.Sprintf("%.2f", selectedItem.Price),
+			"note":           strings.TrimSpace(r.FormValue("note")),
+			"quantity":       quantity,
+		}
+	}
 	payload := map[string]any{
-		"timePunchName": strings.TrimSpace(r.FormValue("time_punch_name")),
-		"items": []map[string]any{
-			{
-				"itemId":   itemID,
-				"size":     strings.TrimSpace(r.FormValue("size")),
-				"note":     strings.TrimSpace(r.FormValue("note")),
-				"quantity": quantity,
-			},
-		},
+		"timePunchName": timePunchName,
+		"items":         []map[string]any{lineItem},
 	}
 	body, _ := json.Marshal(payload)
 	apiURL := s.apiBaseURL + "/api/public/uniform-order/" + url.PathEscape(token)
@@ -4973,6 +6804,74 @@ func (s *server) fetchPublicUniformOrderData(r *http.Request, token string) (pub
 		return publicUniformOrderResponse{}, err
 	}
 	return payload, nil
+}
+
+func (s *server) fetchPublicTimePunchData(r *http.Request, token string) (publicTimePunchResponse, error) {
+	apiURL := s.apiBaseURL + "/api/public/time-punch/" + url.PathEscape(token)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil)
+	if err != nil {
+		return publicTimePunchResponse{}, err
+	}
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return publicTimePunchResponse{}, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return publicTimePunchResponse{}, errors.New("invalid token")
+	}
+	var payload publicTimePunchResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return publicTimePunchResponse{}, err
+	}
+	return payload, nil
+}
+
+func (s *server) fetchPublicTimeOffData(r *http.Request, token string) (publicTimeOffResponse, error) {
+	apiURL := s.apiBaseURL + "/api/public/time-off/" + url.PathEscape(token)
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, nil)
+	if err != nil {
+		return publicTimeOffResponse{}, err
+	}
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return publicTimeOffResponse{}, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return publicTimeOffResponse{}, errors.New("invalid token")
+	}
+	var payload publicTimeOffResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return publicTimeOffResponse{}, err
+	}
+	return payload, nil
+}
+
+func (s *server) resolvePublicFormTeamMember(r *http.Request, locationNumber string, employees []employeeView) (string, string) {
+	currentUser, err := s.fetchSessionUserByRoles(r, []string{"team"})
+	if err != nil || currentUser == nil {
+		return "", ""
+	}
+	if !strings.EqualFold(strings.TrimSpace(currentUser.LocationNumber), strings.TrimSpace(locationNumber)) {
+		return "", ""
+	}
+	currentTPN := strings.TrimSpace(currentUser.TimePunchName)
+	if currentTPN == "" {
+		return "", ""
+	}
+	for _, employee := range employees {
+		employeeTPN := strings.TrimSpace(employee.TimePunchName)
+		if !strings.EqualFold(employeeTPN, currentTPN) {
+			continue
+		}
+		displayName := strings.TrimSpace(employee.FirstName + " " + employee.LastName)
+		if displayName == "" {
+			displayName = employeeTPN
+		}
+		return employeeTPN, displayName
+	}
+	return "", ""
 }
 
 func (s *server) publicPhotoUploadSubmit(w http.ResponseWriter, r *http.Request, token string) {
@@ -5124,9 +7023,51 @@ func shouldRenderPhotoUploadSubmittedFromQuery(r *http.Request) bool {
 	return strings.Contains(msg, "photo uploaded")
 }
 
-func (s *server) requireAdmin(next http.Handler) http.Handler {
+func (s *server) requireMasterAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !s.sessionIsValid(r) {
+		currentUser, err := s.fetchSessionUserByRoles(r, []string{"admin"})
+		if err != nil || currentUser == nil {
+			if locationUser, locationErr := s.fetchSessionUserByRoles(r, []string{"restaurant"}); locationErr == nil && locationUser != nil {
+				locationNumber := strings.TrimSpace(locationUser.LocationNumber)
+				if locationNumber != "" {
+					http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber), http.StatusFound)
+					return
+				}
+			}
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *server) requireLocationPortal(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		currentUser, err := s.fetchSessionUserByRoles(r, []string{"admin", "restaurant"})
+		if err != nil || currentUser == nil {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+		if strings.EqualFold(strings.TrimSpace(currentUser.Role), "restaurant") {
+			locationNumber := strings.TrimSpace(currentUser.LocationNumber)
+			if locationNumber == "" {
+				http.Redirect(w, r, "/login?error=Location+session+is+not+assigned", http.StatusFound)
+				return
+			}
+			requestedLocation, ok := locationNumberFromAdminLocationPath(r.URL.Path)
+			if !ok || !strings.EqualFold(strings.TrimSpace(requestedLocation), locationNumber) {
+				http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"?error="+url.QueryEscape("location access denied"), http.StatusFound)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *server) requireTeam(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		currentUser, err := s.fetchSessionUserByRoles(r, []string{"team"})
+		if err != nil || currentUser == nil {
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
@@ -5135,27 +7076,103 @@ func (s *server) requireAdmin(next http.Handler) http.Handler {
 }
 
 func (s *server) sessionIsValid(r *http.Request) bool {
+	_, err := s.fetchSessionUser(r)
+	return err == nil
+}
+
+func (s *server) fetchSessionUser(r *http.Request) (*authSessionView, error) {
+	return s.fetchSessionUserByRoles(r, []string{"admin", "restaurant", "team"})
+}
+
+func (s *server) fetchSessionUserByRoles(r *http.Request, roles []string) (*authSessionView, error) {
+	for _, role := range roles {
+		sessionValue := sessionValueForRole(r, role)
+		if sessionValue == "" {
+			continue
+		}
+		user, err := s.fetchSessionUserWithSessionValue(r, sessionValue)
+		if err == nil {
+			return user, nil
+		}
+	}
+	return nil, errors.New("unauthorized")
+}
+
+func (s *server) fetchSessionUserWithSessionValue(r *http.Request, sessionValue string) (*authSessionView, error) {
 	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, s.apiBaseURL+"/api/auth/me", nil)
 	if err != nil {
-		return false
+		return nil, err
 	}
-	copySessionCookieHeader(r, apiReq)
+	copySessionCookieHeaderForValue(apiReq, sessionValue)
 
 	apiResp, err := s.apiClient.Do(apiReq)
 	if err != nil {
-		return false
+		return nil, err
 	}
 	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("unauthorized")
+	}
+	var payload authSessionView
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	payload.Role = strings.ToLower(strings.TrimSpace(payload.Role))
+	return &payload, nil
+}
 
-	return apiResp.StatusCode == http.StatusOK
+func redirectPathForUser(user *authSessionView) string {
+	if user == nil {
+		return "/login"
+	}
+	switch strings.ToLower(strings.TrimSpace(user.Role)) {
+	case "team":
+		return "/team"
+	case "restaurant":
+		locationNumber := strings.TrimSpace(user.LocationNumber)
+		if locationNumber != "" {
+			return "/admin/locations/" + url.PathEscape(locationNumber)
+		}
+		return "/login"
+	}
+	return "/admin"
+}
+
+func locationNumberFromAdminLocationPath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	if trimmed == "" {
+		return "", false
+	}
+	parts := strings.Split(trimmed, "/")
+	if len(parts) == 0 || strings.TrimSpace(parts[0]) == "" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
 }
 
 func (s *server) fetchCSRFToken(r *http.Request) (string, error) {
+	sessionValue := chooseAPISessionValue(r)
+	return s.fetchCSRFTokenWithSessionValue(r, sessionValue)
+}
+
+func (s *server) fetchCSRFTokenForRole(r *http.Request, role string) (string, error) {
+	return s.fetchCSRFTokenWithSessionValue(r, sessionValueForRole(r, role))
+}
+
+func (s *server) fetchCSRFTokenWithSessionValue(r *http.Request, sessionValue string) (string, error) {
+	if strings.TrimSpace(sessionValue) == "" {
+		return "", errors.New("unauthorized")
+	}
 	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, s.apiBaseURL+"/api/auth/csrf", nil)
 	if err != nil {
 		return "", err
 	}
-	copySessionCookieHeader(r, apiReq)
+	copySessionCookieHeaderForValue(apiReq, sessionValue)
 
 	apiResp, err := s.apiClient.Do(apiReq)
 	if err != nil {
@@ -5175,6 +7192,18 @@ func (s *server) fetchCSRFToken(r *http.Request) (string, error) {
 		return "", errors.New("missing csrf token")
 	}
 	return payload.CSRFToken, nil
+}
+
+func sessionValueForRole(r *http.Request, role string) string {
+	cookieName := cookieNameForSessionRole(role)
+	if cookieName == "" {
+		return ""
+	}
+	cookie, err := r.Cookie(cookieName)
+	if err != nil || strings.TrimSpace(cookie.Value) == "" {
+		return ""
+	}
+	return strings.TrimSpace(cookie.Value)
 }
 
 func (s *server) fetchLocationsPage(r *http.Request, page, perPage int) (*locationsListResponse, error) {
@@ -5321,6 +7350,64 @@ func (s *server) fetchLocationEmployees(r *http.Request, number string) ([]emplo
 	return payload.Employees, nil
 }
 
+func (s *server) fetchLocationDepartments(r *http.Request, number string) ([]departmentView, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number)+"/departments",
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to fetch departments")
+	}
+	var payload locationDepartmentsResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	for i := range payload.Departments {
+		payload.Departments[i].CreatedAt = formatDateTimeDisplay(payload.Departments[i].CreatedAt)
+	}
+	return payload.Departments, nil
+}
+
+func (s *server) fetchLocationJobs(r *http.Request, number string) ([]jobView, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number)+"/jobs",
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to fetch jobs")
+	}
+	var payload locationJobsResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	for i := range payload.Jobs {
+		payload.Jobs[i].CreatedAt = formatDateTimeDisplay(payload.Jobs[i].CreatedAt)
+	}
+	return payload.Jobs, nil
+}
+
 func (s *server) fetchLocationCandidateValues(r *http.Request, number string) ([]candidateValueView, error) {
 	apiReq, err := http.NewRequestWithContext(
 		r.Context(),
@@ -5435,6 +7522,32 @@ func (s *server) fetchCandidateInterviewLinks(r *http.Request, number string, ca
 		normalizeCandidateInterviewLinkView(&payload.Links[i])
 	}
 	return payload.Links, nil
+}
+
+func (s *server) fetchLocationInterviewCalendar(r *http.Request, number string) ([]interviewCalendarEntryView, error) {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodGet,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(number)+"/candidate-interview-calendar",
+		nil,
+	)
+	if err != nil {
+		return nil, err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return nil, err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to fetch interview calendar")
+	}
+	var payload interviewCalendarResponse
+	if err := json.NewDecoder(apiResp.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	return payload.Calendar, nil
 }
 
 func (s *server) fetchCandidateInterviewLink(r *http.Request, number string, candidateID int64, token string) (*candidateInterviewLinkView, error) {
@@ -5613,7 +7726,11 @@ func (s *server) fetchLocationTimePunchEntries(r *http.Request, number string, a
 		payload.Entries[i].TimeIn = formatPunchClockDisplay(payload.Entries[i].TimeIn)
 		payload.Entries[i].TimeOut = formatPunchClockDisplay(payload.Entries[i].TimeOut)
 		payload.Entries[i].CreatedAt = formatDateTimeDisplay(payload.Entries[i].CreatedAt)
-		payload.Entries[i].ArchivedAt = formatDateTimeDisplay(payload.Entries[i].ArchivedAt)
+		if archived {
+			payload.Entries[i].ArchivedAt = formatDateTimeDisplay(payload.Entries[i].ArchivedAt)
+		} else {
+			payload.Entries[i].ArchivedAt = ""
+		}
 	}
 	return payload.Entries, nil
 }
@@ -5805,6 +7922,7 @@ func (s *server) fetchLocationUniformOrders(r *http.Request, number string, arch
 		for j := range payload.Orders[i].Lines {
 			payload.Orders[i].Lines[j].PurchasedAt = formatDateTimeDisplay(payload.Orders[i].Lines[j].PurchasedAt)
 		}
+		payload.Orders[i].Status = uniformOrderStatus(payload.Orders[i])
 	}
 	return payload.Orders, nil
 }
@@ -6001,14 +8119,51 @@ func normalizeCandidateInterviewNameView(name *candidateInterviewNameView) {
 }
 
 func normalizeCandidateInterviewQuestionView(question *candidateInterviewQuestionView) {
+	question.ResponseType = strings.ToLower(strings.TrimSpace(question.ResponseType))
+	if question.ResponseType == "" {
+		question.ResponseType = "text"
+	}
+	question.ResponseKind = question.ResponseType
+	normalizedOptions := make([]string, 0, len(question.ResponseOptions))
+	seen := make(map[string]struct{}, len(question.ResponseOptions))
+	for _, raw := range question.ResponseOptions {
+		option := strings.TrimSpace(raw)
+		if option == "" {
+			continue
+		}
+		key := strings.ToLower(option)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		normalizedOptions = append(normalizedOptions, option)
+	}
+	question.ResponseOptions = normalizedOptions
+	if question.ResponseType == "multiple_choice" && len(normalizedOptions) == 2 {
+		first := strings.ToLower(strings.TrimSpace(normalizedOptions[0]))
+		second := strings.ToLower(strings.TrimSpace(normalizedOptions[1]))
+		if first == "yes" && second == "no" {
+			question.ResponseKind = "yes_no"
+		} else if first == "true" && second == "false" {
+			question.ResponseKind = "true_false"
+		}
+	}
+	question.ResponseOptionsText = strings.Join(normalizedOptions, "\n")
 	question.CreatedAt = formatDateTimeDisplay(question.CreatedAt)
 	question.UpdatedAt = formatDateTimeDisplay(question.UpdatedAt)
 }
 
 func normalizeCandidateInterviewLinkView(link *candidateInterviewLinkView) {
+	link.ScheduledAt = formatDateTimeDisplay(link.ScheduledAt)
 	link.CreatedAt = formatDateTimeDisplay(link.CreatedAt)
 	link.ExpiresAt = formatDateTimeDisplay(link.ExpiresAt)
 	link.UsedAt = formatDateTimeDisplay(link.UsedAt)
+}
+
+func normalizeInterviewCalendarEntryView(entry *interviewCalendarEntryView) {
+	entry.ScheduledAt = formatDateTimeDisplay(entry.ScheduledAt)
+	entry.CreatedAt = formatDateTimeDisplay(entry.CreatedAt)
+	entry.UsedAt = formatDateTimeDisplay(entry.UsedAt)
 }
 
 func normalizeCandidateInterviewView(interview *candidateInterviewView) {
@@ -6114,13 +8269,119 @@ func formatPunchClockDisplay(value string) string {
 	return trimmed
 }
 
-func copySessionCookieHeader(from *http.Request, to *http.Request) {
-	for _, c := range from.Cookies() {
-		if c.Name == sessionCookieName {
-			to.Header.Set("Cookie", c.Name+"="+c.Value)
-			return
+func sessionRoleFromUser(user *authSessionView) string {
+	if user == nil {
+		return ""
+	}
+	role := strings.ToLower(strings.TrimSpace(user.Role))
+	switch role {
+	case "admin":
+		return "admin"
+	case "restaurant":
+		return "restaurant"
+	case "team":
+		return "team"
+	default:
+		return ""
+	}
+}
+
+func cookieNameForSessionRole(role string) string {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "admin":
+		return adminSessionCookie
+	case "restaurant":
+		return restaurantSessionCookie
+	case "team":
+		return teamSessionCookie
+	default:
+		return ""
+	}
+}
+
+func chooseAPISessionValue(from *http.Request) string {
+	path := from.URL.Path
+	if strings.HasPrefix(path, "/team") || strings.HasPrefix(path, "/team-login") {
+		if cookie, err := from.Cookie(teamSessionCookie); err == nil && strings.TrimSpace(cookie.Value) != "" {
+			return strings.TrimSpace(cookie.Value)
 		}
 	}
+	if strings.HasPrefix(path, "/admin") || strings.HasPrefix(path, "/logout") || strings.HasPrefix(path, "/login") || path == "/" {
+		if cookie, err := from.Cookie(adminSessionCookie); err == nil && strings.TrimSpace(cookie.Value) != "" {
+			return strings.TrimSpace(cookie.Value)
+		}
+		if cookie, err := from.Cookie(restaurantSessionCookie); err == nil && strings.TrimSpace(cookie.Value) != "" {
+			return strings.TrimSpace(cookie.Value)
+		}
+		if cookie, err := from.Cookie(teamSessionCookie); err == nil && strings.TrimSpace(cookie.Value) != "" {
+			return strings.TrimSpace(cookie.Value)
+		}
+	}
+	if cookie, err := from.Cookie(adminSessionCookie); err == nil && strings.TrimSpace(cookie.Value) != "" {
+		return strings.TrimSpace(cookie.Value)
+	}
+	if cookie, err := from.Cookie(restaurantSessionCookie); err == nil && strings.TrimSpace(cookie.Value) != "" {
+		return strings.TrimSpace(cookie.Value)
+	}
+	if cookie, err := from.Cookie(teamSessionCookie); err == nil && strings.TrimSpace(cookie.Value) != "" {
+		return strings.TrimSpace(cookie.Value)
+	}
+	return ""
+}
+
+func copySessionCookieHeader(from *http.Request, to *http.Request) {
+	sessionValue := chooseAPISessionValue(from)
+	if sessionValue == "" {
+		return
+	}
+	to.Header.Set("Cookie", apiSessionCookie+"="+sessionValue)
+}
+
+func copySessionCookieHeaderForValue(to *http.Request, sessionValue string) {
+	sessionValue = strings.TrimSpace(sessionValue)
+	if sessionValue == "" {
+		return
+	}
+	to.Header.Set("Cookie", apiSessionCookie+"="+sessionValue)
+}
+
+func extractAPISessionCookieValue(resp *http.Response) string {
+	if resp == nil {
+		return ""
+	}
+	for _, c := range resp.Cookies() {
+		if c.Name == apiSessionCookie && strings.TrimSpace(c.Value) != "" {
+			return strings.TrimSpace(c.Value)
+		}
+	}
+	return ""
+}
+
+func setScopedSessionCookie(w http.ResponseWriter, cookieName, value string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     cookieName,
+		Value:    value,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
+}
+
+func expireSessionCookieByName(w http.ResponseWriter, cookieName string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     cookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func expireSessionCookie(w http.ResponseWriter) {
+	expireSessionCookieByName(w, adminSessionCookie)
+	expireSessionCookieByName(w, restaurantSessionCookie)
+	expireSessionCookieByName(w, teamSessionCookie)
 }
 
 func renderHTMLTemplate(w http.ResponseWriter, tmpl *template.Template, data pageData) error {
@@ -6334,6 +8595,20 @@ func parseLocationCandidateInterviewQuestionsCreatePath(path string) (string, bo
 	return locationNumber, true
 }
 
+func parseLocationCandidateInterviewQuestionStartersCreatePath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 || parts[1] != "candidate-interview-questions" || parts[2] != "starters" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
 func parseLocationCandidateValueUpdatePath(path string) (string, int64, bool) {
 	trimmed := strings.TrimPrefix(path, "/admin/locations/")
 	trimmed = strings.Trim(trimmed, "/")
@@ -6406,6 +8681,20 @@ func parseLocationCandidateInterviewNamePriorityPath(path string) (string, int64
 	return locationNumber, nameID, true
 }
 
+func parseLocationCandidateInterviewNamesReorderPath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 || parts[1] != "candidate-interview-names" || parts[2] != "reorder" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
 func parseLocationCandidateInterviewQuestionDeletePath(path string) (string, int64, bool) {
 	trimmed := strings.TrimPrefix(path, "/admin/locations/")
 	trimmed = strings.Trim(trimmed, "/")
@@ -6458,6 +8747,139 @@ func parseInterviewTypeIDs(values []string) []int64 {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
 	return out
+}
+
+func mergeInterviewTypeIDs(existing, incoming []int64) []int64 {
+	seen := make(map[int64]struct{}, len(existing)+len(incoming))
+	out := make([]int64, 0, len(existing)+len(incoming))
+	for _, id := range existing {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	for _, id := range incoming {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
+}
+
+func int64SlicesEqual(a, b []int64) bool {
+	left := make([]int64, 0, len(a))
+	right := make([]int64, 0, len(b))
+	left = append(left, a...)
+	right = append(right, b...)
+	sort.Slice(left, func(i, j int) bool { return left[i] < left[j] })
+	sort.Slice(right, func(i, j int) bool { return right[i] < right[j] })
+	if len(left) != len(right) {
+		return false
+	}
+	for idx := range left {
+		if left[idx] != right[idx] {
+			return false
+		}
+	}
+	return true
+}
+
+func parseQuestionResponseOptionsValues(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, raw := range values {
+		option := strings.TrimSpace(raw)
+		if option == "" {
+			continue
+		}
+		out = append(out, option)
+	}
+	return out
+}
+
+func normalizeQuestionResponsePayload(rawType string, rawOptions []string) (string, []string) {
+	responseType := strings.ToLower(strings.TrimSpace(rawType))
+	switch responseType {
+	case "yes_no":
+		return "multiple_choice", []string{"Yes", "No"}
+	case "true_false":
+		return "multiple_choice", []string{"True", "False"}
+	case "multiple_choice":
+		return responseType, parseQuestionResponseOptionsValues(rawOptions)
+	case "number":
+		return responseType, []string{}
+	default:
+		return "text", []string{}
+	}
+}
+
+func interviewQuestionStarterCatalogViews() []interviewQuestionStarterView {
+	views := make([]interviewQuestionStarterView, 0, len(interviewQuestionStarterCatalog))
+	for _, starter := range interviewQuestionStarterCatalog {
+		views = append(views, interviewQuestionStarterView{
+			Key:           starter.Key,
+			Question:      starter.Question,
+			ResponseLabel: interviewQuestionResponseTypeLabel(starter.ResponseType),
+		})
+	}
+	return views
+}
+
+func interviewQuestionStarterCatalogByKey() map[string]interviewQuestionStarter {
+	byKey := make(map[string]interviewQuestionStarter, len(interviewQuestionStarterCatalog))
+	for _, starter := range interviewQuestionStarterCatalog {
+		key := strings.TrimSpace(starter.Key)
+		if key == "" {
+			continue
+		}
+		byKey[key] = starter
+	}
+	return byKey
+}
+
+func interviewQuestionResponseTypeLabel(responseType string) string {
+	switch strings.ToLower(strings.TrimSpace(responseType)) {
+	case "yes_no":
+		return "Yes / No"
+	case "true_false":
+		return "True / False"
+	case "multiple_choice":
+		return "Multiple Choice"
+	case "number":
+		return "Number"
+	default:
+		return "Text"
+	}
+}
+
+func uniqueTrimmedValues(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, raw := range values {
+		trimmed := strings.TrimSpace(raw)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	return out
+}
+
+func normalizeStarterQuestionMatch(value string) string {
+	return strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(value)), " "))
 }
 
 func parseLocationCandidateInterviewCreatePath(path string) (string, int64, bool) {
@@ -6519,6 +8941,24 @@ func parseLocationCandidateDecisionPath(path string) (string, int64, bool) {
 	trimmed = strings.Trim(trimmed, "/")
 	parts := strings.Split(trimmed, "/")
 	if len(parts) != 4 || parts[1] != "candidates" || parts[3] != "decision" {
+		return "", 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, false
+	}
+	candidateID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || candidateID <= 0 {
+		return "", 0, false
+	}
+	return locationNumber, candidateID, true
+}
+
+func parseLocationCandidateDeletePath(path string) (string, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "candidates" || parts[3] != "delete" {
 		return "", 0, false
 	}
 	locationNumber, err := url.PathUnescape(parts[0])
@@ -6676,6 +9116,20 @@ func parseLocationSettingsPath(path string) (string, bool) {
 	return locationNumber, true
 }
 
+func parseLocationSettingsLoginAsLocationPath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 || parts[1] != "settings" || parts[2] != "login-as-location" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
 func parseLocationTimeOffPath(path string) (string, bool) {
 	trimmed := strings.TrimPrefix(path, "/admin/locations/")
 	trimmed = strings.Trim(trimmed, "/")
@@ -6809,6 +9263,80 @@ func parseLocationTimeOffCreatePath(path string) (string, bool) {
 	trimmed = strings.Trim(trimmed, "/")
 	parts := strings.Split(trimmed, "/")
 	if len(parts) != 3 || parts[1] != "time-off" || parts[2] != "create" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
+func parseLocationDepartmentsPath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 2 || parts[1] != "departments" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
+func parseLocationDepartmentCreatePath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 || parts[1] != "departments" || parts[2] != "create" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
+func parseLocationJobCreatePath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 || parts[1] != "jobs" || parts[2] != "create" {
+		return "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", false
+	}
+	return locationNumber, true
+}
+
+func parseLocationJobAssignDepartmentsPath(path string) (string, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 5 || parts[1] != "jobs" || parts[3] != "departments" || parts[4] != "assign" {
+		return "", 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, false
+	}
+	jobID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || jobID <= 0 {
+		return "", 0, false
+	}
+	return locationNumber, jobID, true
+}
+
+func parseLocationUniformOrderCreatePath(path string) (string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 || parts[1] != "uniform-orders" || parts[2] != "create" {
 		return "", false
 	}
 	locationNumber, err := url.PathUnescape(parts[0])
@@ -7073,12 +9601,85 @@ func encodePathTail(pathTail string) string {
 	return strings.Join(encoded, "/")
 }
 
+func formatPayAmountInput(cents int64) string {
+	if cents <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("%.2f", float64(cents)/100.0)
+}
+
+func splitBirthdayInput(raw string) (string, string, string) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return "", "", ""
+	}
+	layouts := []string{
+		"01/02/2006",
+		"1/2/2006",
+		"2006-01-02",
+		"01-02-2006",
+		"1-2-2006",
+		"2006/01/02",
+	}
+	for _, layout := range layouts {
+		if parsed, err := time.Parse(layout, value); err == nil {
+			return parsed.Format("01"), parsed.Format("02"), parsed.Format("2006")
+		}
+	}
+	replacer := strings.NewReplacer("-", "/", ".", "/", " ", "/")
+	parts := strings.Split(replacer.Replace(value), "/")
+	if len(parts) == 3 {
+		a := strings.TrimSpace(parts[0])
+		b := strings.TrimSpace(parts[1])
+		c := strings.TrimSpace(parts[2])
+		if len(a) == 4 {
+			return padTwo(b), padTwo(c), a
+		}
+		return padTwo(a), padTwo(b), c
+	}
+	return "", "", ""
+}
+
+func padTwo(v string) string {
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil || n < 0 {
+		return strings.TrimSpace(v)
+	}
+	return fmt.Sprintf("%02d", n)
+}
+
 func parseLocationEmployeeI9UploadPath(path string) (string, string, bool) {
 	return parseLocationEmployeeActionPath(path, "i9")
 }
 
+func parseLocationEmployeeDetailsUpdatePath(path string) (string, string, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 5 || parts[1] != "employees" || parts[3] != "details" || parts[4] != "update" {
+		return "", "", false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", "", false
+	}
+	timePunchName, err := url.PathUnescape(parts[2])
+	if err != nil || strings.TrimSpace(timePunchName) == "" {
+		return "", "", false
+	}
+	return locationNumber, timePunchName, true
+}
+
 func parseLocationEmployeeW4UploadPath(path string) (string, string, bool) {
 	return parseLocationEmployeeActionPath(path, "w4")
+}
+
+func parseLocationEmployeeLoginAsTeamPath(path string) (string, string, bool) {
+	return parseLocationEmployeeActionPath(path, "login-as-team")
+}
+
+func parseLocationEmployeeTerminatePath(path string) (string, string, bool) {
+	return parseLocationEmployeeActionPath(path, "terminate")
 }
 
 func parseLocationEmployeeI9DocumentUploadPath(path string) (string, string, bool) {

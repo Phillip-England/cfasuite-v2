@@ -5,160 +5,125 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/assets/app.css">
   <title>Order Uniform Item</title>
+  <script>
+    (function () {
+      var stored = localStorage.getItem("cfasuite-theme");
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    })();
+  </script>
   <style>
     :root {
-      --bg: #f4f1ec;
+      --bg: #ffffff;
       --card: #ffffff;
-      --line: #e2d5c4;
-      --ink: #1f232a;
-      --muted: #68707b;
-      --accent: #b2472a;
-      --accent-dark: #913820;
+      --line: #e4e4e7;
+      --ink: #09090b;
+      --muted: #71717a;
+      --accent: #004f71;
+      --accent-strong: #003a55;
+      --ok: #166534;
+      --danger: #b91c1c;
+      --shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+    html.dark {
+      --bg: #000000;
+      --card: #09090b;
+      --line: #27272a;
+      --ink: #f4f4f5;
+      --muted: #a1a1aa;
+      --accent: #004f71;
+      --accent-strong: #2f8fb8;
+      --ok: #4ade80;
+      --danger: #f87171;
+      --shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      padding: 18px;
-      background: radial-gradient(55rem 30rem at 110% -10%, #f1d9bf 0, transparent 52%), var(--bg);
+      padding: 16px;
+      background: var(--bg);
       color: var(--ink);
       font-family: "Manrope", "Segoe UI", sans-serif;
     }
     .wrap {
+      width: 100%;
       max-width: 760px;
       margin: 0 auto;
-      background: var(--card);
       border: 1px solid var(--line);
-      border-radius: 16px;
+      border-radius: 14px;
+      background: var(--card);
+      box-shadow: var(--shadow);
       padding: 16px;
-      box-shadow: 0 14px 30px rgba(33, 28, 23, 0.08);
+    }
+    .top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 4px;
+      flex-wrap: wrap;
     }
     .back {
       text-decoration: none;
-      color: #34414d;
+      color: var(--muted);
       font-weight: 700;
       font-size: 0.86rem;
     }
     h1 {
       margin: 8px 0 4px;
-      font-size: clamp(1.2rem, 5vw, 1.45rem);
-      line-height: 1.14;
+      font-size: clamp(1.2rem, 5vw, 1.5rem);
+      line-height: 1.15;
     }
     .sub {
-      margin: 0 0 14px;
+      margin: 0 0 12px;
       color: var(--muted);
       font-size: 0.9rem;
     }
     .msg { margin: 0 0 10px; font-weight: 700; font-size: 0.9rem; }
-    .msg.error { color: #9f1e1e; }
-    .msg.ok { color: #186243; }
-
+    .msg.error { color: var(--danger); }
+    .msg.ok { color: var(--ok); }
     .item {
       display: grid;
-      gap: 12px;
+      gap: 10px;
       margin-bottom: 14px;
+      align-items: center;
     }
-    .gallery {
-      width: 100%;
-      max-width: 200px;
-    }
-    .gallery img {
-      width: 100%;
-      aspect-ratio: 1/1;
-      max-width: 200px;
-      max-height: 200px;
+    .item img {
+      width: 108px;
+      height: 108px;
       border-radius: 12px;
       object-fit: cover;
-      border: 1px solid #d8c9b7;
-      display: block;
-      background: #fff;
+      border: 1px solid var(--line);
+      background: #f4f4f5;
     }
-    .gallery img.is-hidden { display: none; }
-    .gallery-controls {
-      margin-top: 6px;
-      display: flex;
-      gap: 6px;
-    }
-    .gallery-controls button {
-      flex: 1;
-      border: 1px solid #d8c9b7;
-      border-radius: 8px;
-      background: #fff;
-      color: #3d251c;
-      font: 700 0.78rem/1 "Manrope", sans-serif;
-      padding: 6px 8px;
-      cursor: pointer;
-    }
-    .gallery-thumbs {
-      margin-top: 10px;
-      display: flex;
-      gap: 8px;
-      align-items: end;
-      flex-wrap: wrap;
-    }
-    .thumb-btn {
-      border: 0;
-      padding: 0;
-      background: transparent;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: flex-end;
-      justify-content: center;
-    }
-    .thumb {
-      width: 42px;
-      height: 42px;
-      border-radius: 8px;
-      border: 1px solid #d8c9b7;
-      object-fit: cover;
-      background: #fff;
-      opacity: 0.74;
-      transition: transform 120ms ease, opacity 120ms ease, border-color 120ms ease, width 120ms ease, height 120ms ease;
-    }
-    .thumb-btn:hover .thumb,
-    .thumb-btn:focus-visible .thumb {
-      opacity: 1;
-      transform: translateY(-1px);
-      border-color: #b98a67;
-    }
-    .thumb-btn:focus-visible {
-      outline: none;
-    }
-    .thumb.is-active {
-      width: 56px;
-      height: 56px;
-      opacity: 1;
-      border-width: 2px;
-      border-color: #b2472a;
-      transform: translateY(-1px);
-    }
-    .name {
+    .item-name {
       margin: 0;
-      font-size: 1.06rem;
+      font-size: 1.02rem;
       font-weight: 800;
     }
-    .price {
+    .item-price {
       margin: 2px 0 0;
+      font-size: 0.88rem;
       color: var(--muted);
       font-weight: 700;
-      font-size: 0.9rem;
     }
-
     form { display: grid; gap: 12px; }
     .field { display: grid; gap: 6px; }
     label {
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       font-weight: 800;
       letter-spacing: 0.04em;
       text-transform: uppercase;
-      color: #404854;
+      color: var(--muted);
     }
     input, select, textarea {
       width: 100%;
-      border: 1px solid #d7c9b6;
+      border: 1px solid var(--line);
       border-radius: 10px;
       padding: 10px 11px;
       font: 600 0.94rem/1.2 "Manrope", sans-serif;
-      background: #fffefc;
+      background: var(--card);
       color: var(--ink);
     }
     textarea {
@@ -171,10 +136,28 @@
       font-size: 0.78rem;
       font-weight: 600;
     }
-    .member-select-wrap {
-      position: relative;
+    .total-box {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 11px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
     }
-
+    .total-box .label {
+      margin: 0;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+    .total-box .amount {
+      margin: 0;
+      font-size: 1.02rem;
+      font-family: "Space Grotesk", "Manrope", sans-serif;
+    }
     .submit {
       border: 0;
       border-radius: 10px;
@@ -184,141 +167,49 @@
       font: 800 0.95rem/1 "Manrope", sans-serif;
       cursor: pointer;
     }
-    .submit:hover { background: var(--accent-dark); }
-    .total-box {
-      border: 1px solid #e0d2be;
-      background: #fff8f1;
-      border-radius: 10px;
-      padding: 10px 11px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      font-weight: 800;
-      color: #2b313a;
-    }
-    .total-box .label {
-      margin: 0;
-      font-size: 0.82rem;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: #5a6470;
-    }
-    .total-box .amount {
-      margin: 0;
-      font-size: 1.02rem;
-      font-family: "Space Grotesk", "Manrope", sans-serif;
-    }
-
-    @media (min-width: 760px) {
+    .submit:hover { background: var(--accent-strong); }
+    @media (min-width: 640px) {
       .item {
-        grid-template-columns: 200px 1fr;
-        align-items: start;
+        grid-template-columns: 108px minmax(0, 1fr);
       }
     }
-</style>
-  <script>
-    (function () {
-      const stored = localStorage.getItem("cfasuite-theme");
-      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-      const theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
-      document.documentElement.classList.toggle("dark", theme === "dark");
-    })();
-  </script>
-
-  <style>
-    :root {
-      --bg: #ffffff;
-      --surface: #ffffff;
-      --paper: #ffffff;
-      --ink: #0f172a;
-      --muted: #52525b;
-      --line: #e4e4e7;
-      --brand: #004f71;
-      --brand-dark: #003a55;
-      --accent: #004f71;
-      --shadow: 0 16px 34px rgba(15, 23, 42, 0.10);
-    }
-
-    html.dark {
-      --bg: #000000;
-      --surface: #09090b;
-      --paper: #09090b;
-      --ink: #f4f4f5;
-      --muted: #a1a1aa;
-      --line: #27272a;
-      --brand: #004f71;
-      --brand-dark: #2f8fb8;
-      --accent: #004f71;
-      --shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
-    }
-
-    html.dark input,
-    html.dark select,
-    html.dark textarea,
-    html.dark table,
-    html.dark .card,
-    html.dark .panel {
-      background-color: #09090b !important;
-      color: var(--ink) !important;
-      border-color: var(--line) !important;
-    }
   </style>
-
 </head>
-<body class="min-h-screen pt-20 bg-white text-zinc-900 dark:bg-black dark:text-zinc-100 transition-colors duration-200">
-  <button id="theme-toggle" type="button" class="fixed top-3 right-3 z-[1200] rounded-full border border-zinc-300/80 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.08em] text-zinc-700 dark:text-zinc-200 shadow-sm backdrop-blur">Dark</button>
-  <nav id="app-nav" class="fixed top-3 left-3 right-20 z-[1100]">
-    <div class="mx-auto max-w-6xl rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur px-3 py-2">
-      <div class="flex items-center justify-between gap-3">
-        <div class="text-sm font-extrabold tracking-[0.06em] uppercase text-zinc-800 dark:text-zinc-100">CFA Suite</div>
-        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" class="md:hidden inline-flex items-center justify-center rounded-md border border-zinc-300 dark:border-zinc-700 p-2 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-          <span class="sr-only">Toggle navigation</span>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-            <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16" />
-          </svg>
-        </button>
-      </div>
-      <div id="nav-links" class="mt-2 hidden flex-col gap-1 text-xs font-semibold md:mt-2 md:flex md:flex-row md:flex-wrap md:items-center md:gap-2">
-        <a href="/uniform-order/{{ .Token }}" class="block px-2.5 py-1 rounded-md text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800">Uniform Catalog</a>
-        <a href="/uniform-order/{{ .Token }}/item/{{ .UniformItem.ID }}" class="block px-2.5 py-1 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black">Item</a>
-      
-      </div>
-    </div>
-  </nav>
-
-
+<body>
+  <button id="theme-toggle" type="button" aria-label="Toggle theme" class="fixed top-3 right-3 z-[1200] h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors backdrop-blur">
+    <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+  </button>
   <section class="wrap">
-    <a class="back" href="/uniform-order/{{ .Token }}">Back to Items</a>
+    <div class="top-row">
+      <a class="back" href="/team">&#8592; Back to Portal</a>
+      <a class="back" href="/uniform-order/{{ .Token }}">Back to Items</a>
+    </div>
     <h1>Order {{ .UniformItem.Name }}</h1>
     <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})</p>
     {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
     {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
 
     <div class="item">
-      <div class="gallery" data-gallery>
-        {{ if .UniformItem.Images }}
-          {{ range $idx, $img := .UniformItem.Images }}
-            <img class="gallery-image{{ if ne $idx 0 }} is-hidden{{ end }}" src="data:{{ $img.ImageMime }};base64,{{ $img.ImageData }}" alt="{{ $.UniformItem.Name }}">
-          {{ end }}
-          {{ if gt (len .UniformItem.Images) 1 }}
-            <div class="gallery-controls">
-              <button type="button" class="gallery-prev">Prev</button>
-              <button type="button" class="gallery-next">Next</button>
-            </div>
-            <div class="gallery-thumbs" data-gallery-thumbs></div>
-          {{ end }}
-        {{ else }}
-          <img class="gallery-image" src="data:{{ .UniformItem.ImageMime }};base64,{{ .UniformItem.ImageData }}" alt="{{ .UniformItem.Name }}">
-        {{ end }}
-      </div>
+      {{ if .UniformItem.Images }}
+        <img src="data:{{ (index .UniformItem.Images 0).ImageMime }};base64,{{ (index .UniformItem.Images 0).ImageData }}" alt="{{ .UniformItem.Name }}">
+      {{ else }}
+        <img src="data:{{ .UniformItem.ImageMime }};base64,{{ .UniformItem.ImageData }}" alt="{{ .UniformItem.Name }}">
+      {{ end }}
       <div>
-        <p class="name">{{ .UniformItem.Name }}</p>
-        <p class="price">${{ printf "%.2f" .UniformItem.Price }}</p>
+        <p class="item-name">{{ .UniformItem.Name }}</p>
+        <p class="item-price">${{ printf "%.2f" .UniformItem.Price }}</p>
       </div>
     </div>
 
     <form method="post" action="/uniform-order/{{ .Token }}/item/{{ .UniformItem.ID }}">
+      {{ if .ResolvedTimePunchName }}
+      <div class="field">
+        <label>Team Member</label>
+        <input type="text" value="{{ .ResolvedEmployeeName }}" readonly>
+        <input type="hidden" name="time_punch_name" value="{{ .ResolvedTimePunchName }}">
+      </div>
+      {{ else }}
       <div class="field">
         <label for="member_search">Find Team Member</label>
         <input id="member_search" type="text" data-member-search placeholder="Start typing your name">
@@ -327,17 +218,16 @@
 
       <div class="field">
         <label for="time_punch_name">Team Member</label>
-        <div class="member-select-wrap">
-          <select id="time_punch_name" name="time_punch_name" data-member-select required>
-            <option value="">Select your name</option>
-            {{ range .Employees }}
-              <option value="{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }}</option>
-            {{ end }}
-          </select>
-        </div>
+        <select id="time_punch_name" name="time_punch_name" data-member-select required>
+          <option value="">Select your name</option>
+          {{ range .Employees }}
+            <option value="{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }}</option>
+          {{ end }}
+        </select>
       </div>
+      {{ end }}
 
-      {{ if .UniformItem.Sizes }}
+      {{ if and .UniformItem.Sizes (ne .UniformItem.SystemKey "shoes") }}
       <div class="field">
         <label for="size">Size</label>
         <select id="size" name="size" required>
@@ -346,6 +236,13 @@
             <option value="{{ . }}">{{ . }}</option>
           {{ end }}
         </select>
+      </div>
+      {{ end }}
+
+      {{ if eq .UniformItem.SystemKey "shoes" }}
+      <div class="field">
+        <label for="shoe_item_number">Shoe Item Number</label>
+        <input id="shoe_item_number" name="shoe_item_number" type="text" maxlength="120" required placeholder="Enter the Shoes For Crews item number">
       </div>
       {{ end }}
 
@@ -369,43 +266,17 @@
   </section>
 
   <script>
-    const gallery = document.querySelector("[data-gallery]");
-    if (gallery) {
-      const images = Array.from(gallery.querySelectorAll(".gallery-image"));
-      if (images.length > 1) {
-        let index = 0;
-        const thumbs = gallery.querySelector("[data-gallery-thumbs]");
-        const renderThumbs = () => {
-          if (!thumbs) return;
-          thumbs.innerHTML = "";
-          images.forEach((img, thumbIndex) => {
-            const button = document.createElement("button");
-            button.type = "button";
-            button.className = "thumb-btn";
-            button.setAttribute("aria-label", "View image " + (thumbIndex + 1));
-            const thumb = document.createElement("img");
-            thumb.className = "thumb" + (thumbIndex === index ? " is-active" : "");
-            thumb.src = img.src;
-            thumb.alt = "Thumbnail " + (thumbIndex + 1);
-            thumb.loading = "lazy";
-            thumb.decoding = "async";
-            button.appendChild(thumb);
-            button.addEventListener("click", () => show(thumbIndex));
-            thumbs.appendChild(button);
-          });
-        };
-        const show = (nextIndex) => {
-          index = (nextIndex + images.length) % images.length;
-          images.forEach((img, idx) => img.classList.toggle("is-hidden", idx !== index));
-          renderThumbs();
-        };
-        const prev = gallery.querySelector(".gallery-prev");
-        const next = gallery.querySelector(".gallery-next");
-        if (prev) prev.addEventListener("click", () => show(index - 1));
-        if (next) next.addEventListener("click", () => show(index + 1));
-        show(0);
+    (() => {
+      const storageKey = "cfasuite-theme";
+      const root = document.documentElement;
+      const toggle = document.getElementById("theme-toggle");
+      if (toggle) {
+        toggle.addEventListener("click", function () {
+          const isDark = root.classList.toggle("dark");
+          window.localStorage.setItem(storageKey, isDark ? "dark" : "light");
+        });
       }
-    }
+    })();
 
     (() => {
       const searchInput = document.querySelector("[data-member-search]");
@@ -413,8 +284,7 @@
       const resultText = document.querySelector("[data-member-results]");
       if (!searchInput || !memberSelect) return;
 
-      const options = Array.from(memberSelect.options)
-        .filter((opt) => opt.value !== "");
+      const options = Array.from(memberSelect.options).filter((opt) => opt.value !== "");
       const normalize = (value) => value.toLowerCase().trim();
 
       const filterOptions = () => {
@@ -426,14 +296,12 @@
           opt.hidden = !isMatch;
           if (isMatch) matches += 1;
         });
-
         if (memberSelect.value) {
           const selected = options.find((opt) => opt.value === memberSelect.value);
           if (selected && selected.hidden) {
             memberSelect.value = "";
           }
         }
-
         if (resultText) {
           if (!query) {
             resultText.textContent = "You can type to filter or open the dropdown and select.";
@@ -447,9 +315,7 @@
 
       searchInput.addEventListener("input", filterOptions);
       searchInput.addEventListener("focus", () => {
-        options.forEach((opt) => {
-          opt.hidden = false;
-        });
+        options.forEach((opt) => { opt.hidden = false; });
       });
       memberSelect.addEventListener("change", () => {
         if (!memberSelect.value) return;
@@ -477,47 +343,5 @@
       updateTotal();
     })();
   </script>
-    <script>
-    (function () {
-      const storageKey = "cfasuite-theme";
-      const root = document.documentElement;
-      const toggle = document.getElementById("theme-toggle");
-      const navToggle = document.getElementById("nav-toggle");
-      const navLinks = document.getElementById("nav-links");
-
-      function currentTheme() {
-        return root.classList.contains("dark") ? "dark" : "light";
-      }
-
-      function updateLabel() {
-        if (!toggle) return;
-        const next = currentTheme() === "dark" ? "light" : "dark";
-        toggle.textContent = next === "dark" ? "Dark" : "Light";
-        toggle.setAttribute("aria-label", "Switch to " + next + " mode");
-        toggle.title = "Switch to " + next + " mode";
-      }
-
-      updateLabel();
-
-      if (toggle) {
-        toggle.addEventListener("click", function () {
-          const next = currentTheme() === "dark" ? "light" : "dark";
-          root.classList.toggle("dark", next === "dark");
-          window.localStorage.setItem(storageKey, next);
-          updateLabel();
-        });
-      }
-
-      if (navToggle && navLinks) {
-        navToggle.addEventListener("click", function () {
-          const expanded = navToggle.getAttribute("aria-expanded") === "true";
-          navToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
-          navLinks.classList.toggle("hidden", expanded);
-        });
-      }
-    })();
-  </script>
-
-
 </body>
 </html>

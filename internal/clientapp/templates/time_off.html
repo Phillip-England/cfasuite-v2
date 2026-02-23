@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ .CSRF }}">
-  <title>Time Off</title>
+  <title>Vacation Requests</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -82,13 +82,13 @@
 
   <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
     <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
-      <a href="/admin" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
+      <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
       <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
-        <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
         <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
-        <a href="/admin/locations/{{ .Location.Number }}/time-off" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Time Off</a>
+        <a href="/admin/locations/{{ .Location.Number }}/time-off" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Vacation Requests</a>
       </nav>
       <div class="flex items-center gap-2 shrink-0">
+        <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
         <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
           <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -100,9 +100,8 @@
       </div>
     </div>
     <div id="nav-mobile" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 bg-white dark:bg-zinc-950 flex-col gap-1">
-      <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
       <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
-      <a href="/admin/locations/{{ .Location.Number }}/time-off" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Time Off</a>
+      <a href="/admin/locations/{{ .Location.Number }}/time-off" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Vacation Requests</a>
     </div>
   </header>
 
@@ -110,28 +109,20 @@
     <div class="mx-auto max-w-[1024px]">
       <div class="card">
         <a class="back" href="/admin/locations/{{ .Location.Number }}">&#8592; Back to Apps</a>
-        <h1 style="margin-bottom:0.25rem;">Time Off Requests</h1>
+        <h1 style="margin-bottom:0.25rem;">Vacation Requests</h1>
         <p class="text-muted" style="margin-bottom:0.75rem;">{{ .Location.Name }} ({{ .Location.Number }})</p>
         {{ if .SuccessMessage }}<p class="notice ok">{{ .SuccessMessage }}</p>{{ end }}
         {{ if .Error }}<p class="notice error">{{ .Error }}</p>{{ end }}
         <div class="submenu" role="tablist" aria-label="Time off sections">
-          <button type="button" class="submenu-btn active" data-panel-target="create-request" role="tab" aria-selected="true">Create Time Off</button>
-          <button type="button" class="submenu-btn" data-panel-target="view-requests" role="tab" aria-selected="false">View Time Off</button>
-          <button type="button" class="submenu-btn" data-panel-target="archived-requests" role="tab" aria-selected="false">Archived Time Off</button>
+          <button type="button" class="submenu-btn active" data-panel-target="create-request" role="tab" aria-selected="true">Create Vacation Request</button>
+          <button type="button" class="submenu-btn" data-panel-target="view-requests" role="tab" aria-selected="false">Waiting to be Processed</button>
+          <button type="button" class="submenu-btn" data-panel-target="processed-requests" role="tab" aria-selected="false">Processed</button>
         </div>
 
         <section class="tab-panel" data-panel-name="create-request">
-          <section class="link-box">
-            <label>Secret Team Member Time Off Link</label>
-            <div class="link-row">
-              <input id="pto-link" type="text" readonly value="{{ .TimeOffLink }}">
-              <button id="copy-btn" type="button" class="btn btn-secondary btn-sm">Copy Link</button>
-              <button id="open-btn" type="button" class="btn btn-secondary btn-sm">Open Form</button>
-            </div>
-          </section>
           <section class="panel" style="padding:1rem;">
-            <h2 style="margin-bottom:.25rem;">Submit Time Off (Admin Test)</h2>
-            <p class="text-muted" style="margin-bottom:.75rem;">Use this to submit a time off request directly from this page.</p>
+            <h2 style="margin-bottom:.25rem;">Submit Vacation Request (Admin Test)</h2>
+            <p class="text-muted" style="margin-bottom:.75rem;">Use this to submit a vacation request directly from this page.</p>
             <form method="post" action="/admin/locations/{{ .Location.Number }}/time-off/create" style="display:grid;gap:.75rem;">
               <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
               <div>
@@ -154,14 +145,14 @@
                 </div>
               </div>
               <div style="margin-top:.25rem;">
-                <button type="submit" class="btn btn-primary">Submit Time Off</button>
+                <button type="submit" class="btn btn-primary">Submit Vacation Request</button>
               </div>
             </form>
           </section>
         </section>
 
         <section class="tab-panel" data-panel-name="view-requests" hidden>
-          <p class="text-muted" style="margin-bottom:.75rem;">Showing up to the 50 most recent active time off requests.</p>
+          <p class="text-muted" style="margin-bottom:.75rem;">Showing up to the 50 most recent requests waiting to be processed.</p>
           <div class="table-wrap">
             <table>
               <thead>
@@ -182,29 +173,29 @@
                       <td>{{ .StartDate }}</td>
                       <td>{{ .EndDate }}</td>
                       <td>
-                        <form method="post" action="/admin/locations/{{ $.Location.Number }}/time-off/{{ .ID }}/archive" onsubmit="return confirm('Archive this time off request?');">
+                        <form method="post" action="/admin/locations/{{ $.Location.Number }}/time-off/{{ .ID }}/archive" onsubmit="return confirm('Mark this vacation request as processed?');">
                           <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                          <button type="submit">Archive</button>
+                          <button type="submit">Mark Processed</button>
                         </form>
                       </td>
                     </tr>
                   {{ end }}
                 {{ else }}
-                  <tr><td colspan="5">No open time off requests.</td></tr>
+                  <tr><td colspan="5">No requests waiting to be processed.</td></tr>
                 {{ end }}
               </tbody>
             </table>
           </div>
         </section>
 
-        <section class="tab-panel" data-panel-name="archived-requests" hidden>
-          <p class="text-muted" style="margin-bottom:.75rem;">Showing up to the 50 most recent archived time off requests.</p>
+        <section class="tab-panel" data-panel-name="processed-requests" hidden>
+          <p class="text-muted" style="margin-bottom:.75rem;">Showing up to the 50 most recent processed vacation requests.</p>
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
                   <th>Submitted At (UTC)</th>
-                  <th>Archived At (UTC)</th>
+                  <th>Processed At (UTC)</th>
                   <th>Employee</th>
                   <th>Start Date</th>
                   <th>End Date</th>
@@ -222,7 +213,7 @@
                     </tr>
                   {{ end }}
                 {{ else }}
-                  <tr><td colspan="5">No archived time off requests yet.</td></tr>
+                  <tr><td colspan="5">No processed vacation requests yet.</td></tr>
                 {{ end }}
               </tbody>
             </table>
@@ -252,30 +243,12 @@
       btn.addEventListener("click", () => setActivePanel(btn.dataset.panelTarget || "create-request"));
     });
     const initialPanel = (window.location.hash || "").replace("#", "");
-    if (initialPanel === "view-requests" || initialPanel === "archived-requests" || initialPanel === "create-request") {
+    if (initialPanel === "view-requests" || initialPanel === "processed-requests" || initialPanel === "create-request") {
       setActivePanel(initialPanel, false);
     } else {
       setActivePanel("create-request", false);
     }
 
-    const copyBtn = document.getElementById("copy-btn");
-    const openBtn = document.getElementById("open-btn");
-    const linkInput = document.getElementById("pto-link");
-    if (copyBtn && linkInput) copyBtn.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(linkInput.value);
-        copyBtn.textContent = "Copied";
-        window.setTimeout(() => { copyBtn.textContent = "Copy Link"; }, 1200);
-      } catch (_) {
-        linkInput.select();
-        document.execCommand("copy");
-      }
-    });
-    if (openBtn && linkInput) openBtn.addEventListener("click", () => {
-      const target = (linkInput.value || "").trim();
-      if (!target) return;
-      window.location.href = target;
-    });
   </script>
   <script>
     (function () {

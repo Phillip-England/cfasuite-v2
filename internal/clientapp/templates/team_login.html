@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CFA Suite Login</title>
+  <title>Team Member Login</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -31,14 +31,8 @@
       --danger: #f87171; --success: #4ade80;
       --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
     }
-
     *, *::before, *::after { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      font-family: "Manrope", sans-serif;
-    }
-
+    body { margin: 0; font-family: "Manrope", sans-serif; }
     .card {
       background-color: var(--card);
       border: 1px solid var(--border);
@@ -46,24 +40,17 @@
       box-shadow: var(--shadow);
       padding: 2rem;
     }
-
     .card-title {
       margin: 0 0 0.25rem;
       font: 700 1.25rem/1.3 "Space Grotesk", sans-serif;
       color: var(--fg);
     }
-
     .card-desc {
       margin: 0 0 1.5rem;
       font-size: 0.875rem;
       color: var(--muted-fg);
     }
-
-    form {
-      display: grid;
-      gap: 1rem;
-    }
-
+    form { display: grid; gap: 1rem; }
     label {
       display: grid;
       gap: 0.375rem;
@@ -71,7 +58,6 @@
       font-weight: 600;
       color: var(--fg);
     }
-
     .error-msg {
       min-height: 1.25em;
       margin: 0;
@@ -79,92 +65,65 @@
       font-weight: 600;
       color: var(--danger);
     }
-
     .login-input:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 2px rgba(0,79,113,.2);
     }
-
-    .login-submit {
-      background: var(--primary);
-    }
-
-    .login-submit:hover {
-      background: #003a55;
-    }
+    .login-submit { background: var(--primary); }
+    .login-submit:hover { background: #003a55; }
   </style>
 </head>
 <body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
 
   <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
     <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
-      <a href="/admin" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
-      <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
-        <a href="/login" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Login</a>
-      </nav>
+      <a href="/team-login/{{ .Token }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
       <div class="flex items-center gap-2 shrink-0">
         <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
           <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
         </button>
-        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" class="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-          <span class="sr-only">Open menu</span>
-          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-        </button>
       </div>
-    </div>
-    <div id="nav-mobile" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 bg-white dark:bg-zinc-950 flex-col gap-1">
-      <a href="/login" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Login</a>
     </div>
   </header>
 
-  <div class="pt-14 min-h-[calc(100vh-3.5rem)] px-4 py-8 flex items-center justify-center">
+  <div class="pt-14 min-h-[calc(100vh-3.5rem)] px-4 py-8">
     <div class="mx-auto w-full max-w-[480px]">
       <div class="card">
-        <h1 class="card-title">Sign in to CFA Suite</h1>
-        <p class="card-desc">Sign in with your username and password.</p>
+        <h1 class="card-title">Team Member Sign In</h1>
+        <p class="card-desc">{{ .Location.Name }} ({{ .Location.Number }})</p>
 
-        <form method="post" action="/login">
+        <form method="post" action="/team-login/{{ .Token }}">
           <label>
-            Username
+            Clock In PIN
             <input
               type="text"
-              name="username"
-              autocomplete="username"
-              required
-              class="login-input mt-1 block w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none transition"
-            >
-          </label>
-          <label>
-            Password
-            <input
-              type="password"
-              name="password"
-              autocomplete="current-password"
+              name="pin"
+              inputmode="numeric"
+              autocomplete="one-time-code"
               required
               class="login-input mt-1 block w-full rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none transition"
             >
           </label>
           <button
-            id="login-btn"
+            id="team-login-btn"
             type="submit"
             class="login-submit w-full h-10 px-4 rounded-md text-white text-sm font-semibold transition-colors"
-          >Continue as Admin/Restaurant</button>
+          >Continue</button>
+          <p class="error-msg" aria-live="polite">{{ .Error }}</p>
         </form>
-
-        <p class="error-msg" aria-live="polite">{{ .Error }}</p>
       </div>
     </div>
   </div>
 
   <script>
     (function () {
-      var adminForm = document.querySelector('form[action="/login"]');
-      var adminBtn = document.getElementById("login-btn");
-      if (adminForm && adminBtn) {
-        adminForm.addEventListener("submit", function () {
-          adminBtn.disabled = true;
-          adminBtn.textContent = "Signing in\u2026";
+      var teamForm = document.querySelector('form[action^="/team-login/"]');
+      var teamBtn = document.getElementById("team-login-btn");
+      if (teamForm && teamBtn) {
+        teamForm.addEventListener("submit", function () {
+          teamBtn.disabled = true;
+          teamBtn.textContent = "Signing in\u2026";
         });
       }
     })();
@@ -175,20 +134,10 @@
       var storageKey = "cfasuite-theme";
       var root = document.documentElement;
       var toggle = document.getElementById("theme-toggle");
-      var navToggle = document.getElementById("nav-toggle");
-      var navMobile = document.getElementById("nav-mobile");
       if (toggle) {
         toggle.addEventListener("click", function () {
           var isDark = root.classList.toggle("dark");
           localStorage.setItem(storageKey, isDark ? "dark" : "light");
-        });
-      }
-      if (navToggle && navMobile) {
-        navToggle.addEventListener("click", function () {
-          var expanded = navToggle.getAttribute("aria-expanded") === "true";
-          navToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
-          navMobile.classList.toggle("hidden", expanded);
-          navMobile.style.display = expanded ? "" : "flex";
         });
       }
     })();

@@ -64,7 +64,7 @@
     .active-candidate-list { display: grid; gap: 0.5rem; }
     .active-candidate-row {
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: 1fr auto auto;
       gap: 0.5rem;
       align-items: center;
       border: 1px solid var(--border);
@@ -76,6 +76,7 @@
       transition: background-color 120ms, border-color 120ms, transform 120ms;
       cursor: pointer;
     }
+    .active-candidate-main { color: inherit; text-decoration: none; display: contents; }
     .active-candidate-row:hover {
       background: color-mix(in srgb, var(--card) 92%, var(--muted));
       border-color: var(--primary);
@@ -84,6 +85,7 @@
     }
     .active-candidate-name { font-weight: 700; line-height: 1.25; }
     .active-candidate-meta { color: var(--muted-fg); font-size: 0.8125rem; text-align: right; }
+    .active-candidate-delete { margin: 0; }
     @media (max-width: 700px) {
       .active-candidate-row { grid-template-columns: 1fr; }
       .active-candidate-meta { text-align: left; }
@@ -121,18 +123,39 @@
     .link-box { border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.75rem; background: color-mix(in srgb, var(--card) 96%, var(--muted)); }
     .copy-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
     .copy-row input { flex: 1; min-width: 220px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
+    .calendar-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
+    .month-btn { min-height:2.25rem; padding:.4rem .7rem; border:1px solid var(--border); border-radius:.5rem; background:var(--bg); color:var(--fg); cursor:pointer; font-weight:700; }
+    .month-label { font-weight:700; font-size:1rem; }
+    .weekdays { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:.35rem; color:var(--muted-fg); font-size:.75rem; text-transform:uppercase; letter-spacing:.04em; }
+    .weekdays div { text-align:center; padding:.25rem 0; }
+    .calendar-grid { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:.35rem; }
+    .calendar-day {
+      min-height:90px; border:1px solid var(--border); border-radius:.5rem; padding:.4rem;
+      background:var(--card); cursor:pointer; display:flex; flex-direction:column; gap:.35rem;
+    }
+    .calendar-day.empty { cursor:default; background:color-mix(in srgb,var(--card) 98%,var(--muted)); }
+    .calendar-day.selected { border-color:var(--primary); }
+    .calendar-day-num { font-size:.8rem; font-weight:700; }
+    .calendar-day-count { font-size:.72rem; color:var(--muted-fg); }
+    .calendar-day-preview { font-size:.72rem; color:var(--fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .calendar-day-panel { border:1px solid var(--border); border-radius:.6rem; padding:.75rem; }
+    .calendar-day-title { font-size:1rem; margin:0 0 .5rem 0; font-family:"Space Grotesk","Manrope",sans-serif; }
+    .calendar-day-list { display:grid; gap:.5rem; }
+    .calendar-item { border:1px solid var(--border); border-radius:.5rem; padding:.6rem; display:grid; gap:.3rem; background:var(--card); }
+    .calendar-item a { text-decoration:none; color:var(--primary); font-weight:700; }
+    .calendar-item-meta { color:var(--muted-fg); font-size:.8rem; }
   </style>
 </head>
 <body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
   <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
     <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
-      <a href="/admin" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
+      <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
       <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
-        <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
         <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
         <a href="/admin/locations/{{ .Location.Number }}/candidates" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Candidates</a>
       </nav>
       <div class="flex items-center gap-2 shrink-0">
+        <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
         <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
           <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -161,12 +184,16 @@
             <span>Create candidate profiles quickly.</span>
           </button>
           <button class="hub-btn" type="button" data-target="interviews">
-            <strong>Interviews</strong>
-            <span>Run interviews, then hire or pass.</span>
+            <strong>Active Candidates</strong>
+            <span>Open and manage active candidate records.</span>
           </button>
           <button class="hub-btn" type="button" data-target="archive">
             <strong>Archive</strong>
             <span>Search passed and hired candidates.</span>
+          </button>
+          <button class="hub-btn" type="button" data-target="calendar">
+            <strong>Interview Calendar</strong>
+            <span>View and open scheduled interviews by month.</span>
           </button>
         </div>
 
@@ -174,7 +201,7 @@
           <div class="panel stack">
             <div>
               <h2>New Candidate</h2>
-              <p class="text-muted" style="margin-top:0.25rem;">Create with first and last name only.</p>
+              <p class="text-muted" style="margin-top:0.25rem;">Create with first name, last name, and phone number.</p>
             </div>
             <form method="post" action="/admin/locations/{{ .Location.Number }}/candidates" class="stack">
               <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
@@ -186,6 +213,16 @@
                 <div>
                   <label for="last_name">Last Name</label>
                   <input id="last_name" name="last_name" type="text" maxlength="80" required>
+                </div>
+                <div>
+                  <label for="phone">Phone Number</label>
+                  <div style="display:inline-grid;grid-template-columns:96px auto 96px auto 96px;gap:8px;align-items:center;justify-content:start;">
+                    <input id="phone_1" name="phone_1" type="text" inputmode="numeric" maxlength="3" pattern="[0-9]{3}" placeholder="615" autocomplete="tel-area-code" required>
+                    <span style="font-weight:700;color:var(--muted-fg);text-align:center;">-</span>
+                    <input id="phone_2" name="phone_2" type="text" inputmode="numeric" maxlength="3" pattern="[0-9]{3}" placeholder="555" autocomplete="tel-local-prefix" required>
+                    <span style="font-weight:700;color:var(--muted-fg);text-align:center;">-</span>
+                    <input id="phone_3" name="phone_3" type="text" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" placeholder="1234" autocomplete="tel-local-suffix" required>
+                  </div>
                 </div>
               </div>
               <div><button class="btn btn-primary" type="submit">Create Candidate</button></div>
@@ -205,12 +242,16 @@
             {{ if .Candidates }}
               <div id="active-candidate-list" class="active-candidate-list">
                 {{ range .Candidates }}
-                  <a class="active-candidate-row"
-                     data-search-name="{{ .FirstName }} {{ .LastName }}"
-                     href="/admin/locations/{{ $.Location.Number }}/candidates/{{ .ID }}">
-                    <span class="active-candidate-name">{{ .FirstName }} {{ .LastName }}</span>
-                    <span class="active-candidate-meta">Created {{ .CreatedAt }}</span>
-                  </a>
+                  <div class="active-candidate-row" data-search-name="{{ .FirstName }} {{ .LastName }}">
+                    <a class="active-candidate-main" href="/admin/locations/{{ $.Location.Number }}/candidates/{{ .ID }}">
+                      <span class="active-candidate-name">{{ .FirstName }} {{ .LastName }}</span>
+                      <span class="active-candidate-meta">{{ .Phone }} · Created {{ .CreatedAt }}</span>
+                    </a>
+                    <form class="active-candidate-delete" method="post" action="/admin/locations/{{ $.Location.Number }}/candidates/{{ .ID }}/delete">
+                      <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                      <button class="btn btn-danger" type="submit" onclick="return confirm('Delete this candidate? This will remove linked interview sessions and cannot be undone.');">Delete</button>
+                    </form>
+                  </div>
                 {{ end }}
               </div>
             {{ else }}
@@ -234,10 +275,12 @@
                 <thead>
                   <tr>
                     <th>Name</th>
+                    <th>Phone</th>
                     <th>Status</th>
                     <th>Hired Employee</th>
                     <th>Archived At</th>
                     <th>Scorecard</th>
+                    <th>Delete</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -245,20 +288,49 @@
                     {{ range .ArchivedCandidates }}
                       <tr>
                         <td>{{ .FirstName }} {{ .LastName }}</td>
+                        <td>{{ .Phone }}</td>
                         <td>{{ .Status }}</td>
                         <td>{{ if .HiredTimePunchName }}<a href="/admin/locations/{{ $.Location.Number }}/employees/{{ .HiredTimePunchName }}">{{ .HiredTimePunchName }}</a>{{ else }}-{{ end }}</td>
                         <td>{{ if .ArchivedAt }}{{ .ArchivedAt }}{{ else }}-{{ end }}</td>
                         <td><a class="btn btn-outline" href="/admin/locations/{{ $.Location.Number }}/candidates/{{ .ID }}/scorecard">View</a></td>
+                        <td>
+                          <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidates/{{ .ID }}/delete">
+                            <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                            <button class="btn btn-danger" type="submit" onclick="return confirm('Delete this candidate? This will remove linked interview sessions and cannot be undone.');">Delete</button>
+                          </form>
+                        </td>
                       </tr>
                     {{ end }}
                   {{ else }}
                     <tr>
-                      <td colspan="5" class="text-muted">No archived candidates.</td>
+                      <td colspan="7" class="text-muted">No archived candidates.</td>
                     </tr>
                   {{ end }}
                 </tbody>
               </table>
             </div>
+          </div>
+        </section>
+
+        <section class="section" data-panel="calendar">
+          <div class="stack">
+            <div>
+              <h2>Interview Calendar</h2>
+              <p class="text-muted" style="margin-top:0.25rem;">All scheduled interviews. Click a day to open interview sessions quickly.</p>
+            </div>
+            <div class="calendar-head">
+              <button id="calendar-prev-month" class="month-btn" type="button">Previous</button>
+              <div id="calendar-month-label" class="month-label"></div>
+              <button id="calendar-next-month" class="month-btn" type="button">Next</button>
+            </div>
+            <div class="weekdays">
+              <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+            </div>
+            <div id="calendar-grid" class="calendar-grid"></div>
+            <section id="calendar-day-panel" class="calendar-day-panel">
+              <h3 id="calendar-day-title" class="calendar-day-title"></h3>
+              <div id="calendar-day-list" class="calendar-day-list"></div>
+            </section>
           </div>
         </section>
       </div>
@@ -276,6 +348,21 @@
           localStorage.setItem(storageKey, isDark ? "dark" : "light");
         });
       }
+
+      var interviewCalendar = [
+        {{- range .InterviewCalendar }}
+        {
+          token: "{{ .Token }}",
+          candidateId: Number("{{ .CandidateID }}"),
+          candidateFirstName: "{{ .CandidateFirstName }}",
+          candidateLastName: "{{ .CandidateLastName }}",
+          interviewerTimePunchName: "{{ .InterviewerTimePunchName }}",
+          interviewType: "{{ .InterviewType }}",
+          scheduledAt: "{{ .ScheduledAt }}",
+          usedAt: "{{ .UsedAt }}"
+        },
+        {{- end }}
+      ];
 
       var hubButtons = Array.from(document.querySelectorAll(".hub-btn"));
       var panels = Array.from(document.querySelectorAll(".section[data-panel]"));
@@ -311,6 +398,172 @@
             row.style.display = !query || name.indexOf(query) >= 0 ? "" : "none";
           });
         });
+      }
+
+      function digitsOnly(value, maxLen) {
+        return (value || "").replace(/\D+/g, "").slice(0, maxLen);
+      }
+
+      var phone1 = document.getElementById("phone_1");
+      var phone2 = document.getElementById("phone_2");
+      var phone3 = document.getElementById("phone_3");
+      if (phone1 && phone2 && phone3) {
+        phone1.addEventListener("input", function () {
+          phone1.value = digitsOnly(phone1.value, 3);
+          if (phone1.value.length === 3) phone2.focus();
+        });
+        phone2.addEventListener("input", function () {
+          phone2.value = digitsOnly(phone2.value, 3);
+          if (phone2.value.length === 3) phone3.focus();
+        });
+        phone3.addEventListener("input", function () {
+          phone3.value = digitsOnly(phone3.value, 4);
+        });
+      }
+
+      var calendarMonthLabel = document.getElementById("calendar-month-label");
+      var calendarGrid = document.getElementById("calendar-grid");
+      var calendarPrevMonth = document.getElementById("calendar-prev-month");
+      var calendarNextMonth = document.getElementById("calendar-next-month");
+      var calendarDayPanel = document.getElementById("calendar-day-panel");
+      var calendarDayTitle = document.getElementById("calendar-day-title");
+      var calendarDayList = document.getElementById("calendar-day-list");
+
+      function parseScheduled(value) {
+        if (!value) return null;
+        var parsed = new Date(value);
+        if (!isNaN(parsed.getTime())) return parsed;
+        return null;
+      }
+
+      var calendarItems = interviewCalendar.map(function (entry) {
+        return {
+          token: entry.token,
+          candidateId: entry.candidateId,
+          candidateName: [entry.candidateFirstName, entry.candidateLastName].join(" ").trim(),
+          interviewer: entry.interviewerTimePunchName,
+          interviewType: entry.interviewType,
+          scheduledAt: parseScheduled(entry.scheduledAt),
+          usedAt: parseScheduled(entry.usedAt)
+        };
+      }).filter(function (entry) {
+        return entry.scheduledAt instanceof Date;
+      });
+
+      var calendarByDate = new Map();
+      calendarItems.forEach(function (entry) {
+        var key = [
+          entry.scheduledAt.getFullYear(),
+          String(entry.scheduledAt.getMonth() + 1).padStart(2, "0"),
+          String(entry.scheduledAt.getDate()).padStart(2, "0")
+        ].join("-");
+        if (!calendarByDate.has(key)) calendarByDate.set(key, []);
+        calendarByDate.get(key).push(entry);
+      });
+      calendarByDate.forEach(function (entries, key) {
+        entries.sort(function (a, b) {
+          return a.scheduledAt.getTime() - b.scheduledAt.getTime();
+        });
+        calendarByDate.set(key, entries);
+      });
+
+      var now = new Date();
+      var currentCalendarYear = now.getFullYear();
+      var currentCalendarMonth = now.getMonth();
+      var selectedCalendarDate = "";
+
+      function formatDateKey(year, monthIndex, day) {
+        return year + "-" + String(monthIndex + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
+      }
+
+      function renderCalendarDayList(dateKey) {
+        if (!calendarDayPanel || !calendarDayTitle || !calendarDayList) return;
+        var entries = calendarByDate.get(dateKey) || [];
+        var parsed = new Date(dateKey + "T00:00:00");
+        calendarDayTitle.textContent = parsed.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+        if (entries.length === 0) {
+          calendarDayList.innerHTML = '<p class="text-muted">No interviews scheduled for this day.</p>';
+          return;
+        }
+        var html = entries.map(function (entry) {
+          var timeLabel = entry.scheduledAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+          var detailPath = "/interview/" + encodeURIComponent(entry.token);
+          var statusLabel = entry.usedAt ? "Completed" : "Scheduled";
+          return '' +
+            '<article class="calendar-item">' +
+              '<a href="' + detailPath + '">' + timeLabel + " · " + entry.candidateName + '</a>' +
+              '<div class="calendar-item-meta">' + entry.interviewType + ' · Interviewer: ' + entry.interviewer + '</div>' +
+              '<div class="calendar-item-meta">' + statusLabel + '</div>' +
+            '</article>';
+        }).join("");
+        calendarDayList.innerHTML = html;
+      }
+
+      function renderCalendarGrid() {
+        if (!calendarGrid || !calendarMonthLabel) return;
+        var firstOfMonth = new Date(currentCalendarYear, currentCalendarMonth, 1);
+        var startDay = firstOfMonth.getDay();
+        var daysInMonth = new Date(currentCalendarYear, currentCalendarMonth + 1, 0).getDate();
+        calendarMonthLabel.textContent = firstOfMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+
+        var cells = [];
+        for (var blank = 0; blank < startDay; blank++) {
+          cells.push('<div class="calendar-day empty"></div>');
+        }
+        for (var day = 1; day <= daysInMonth; day++) {
+          var key = formatDateKey(currentCalendarYear, currentCalendarMonth, day);
+          var entries = calendarByDate.get(key) || [];
+          var preview = entries.slice(0, 2).map(function (entry) {
+            return '<div class="calendar-day-preview">' + entry.candidateName + '</div>';
+          }).join("");
+          if (entries.length > 2) {
+            preview += '<div class="calendar-day-preview">+' + (entries.length - 2) + ' more</div>';
+          }
+          cells.push(
+            '<button type="button" class="calendar-day' + (selectedCalendarDate === key ? ' selected' : '') + '" data-calendar-date="' + key + '">' +
+              '<div class="calendar-day-num">' + day + '</div>' +
+              '<div class="calendar-day-count">' + entries.length + (entries.length === 1 ? ' interview' : ' interviews') + '</div>' +
+              preview +
+            '</button>'
+          );
+        }
+        calendarGrid.innerHTML = cells.join("");
+        Array.from(calendarGrid.querySelectorAll("[data-calendar-date]")).forEach(function (button) {
+          button.addEventListener("click", function () {
+            selectedCalendarDate = button.getAttribute("data-calendar-date") || "";
+            renderCalendarGrid();
+            renderCalendarDayList(selectedCalendarDate);
+          });
+        });
+      }
+
+      if (calendarPrevMonth && calendarNextMonth && calendarGrid) {
+        calendarPrevMonth.addEventListener("click", function () {
+          currentCalendarMonth -= 1;
+          if (currentCalendarMonth < 0) {
+            currentCalendarMonth = 11;
+            currentCalendarYear -= 1;
+          }
+          renderCalendarGrid();
+        });
+        calendarNextMonth.addEventListener("click", function () {
+          currentCalendarMonth += 1;
+          if (currentCalendarMonth > 11) {
+            currentCalendarMonth = 0;
+            currentCalendarYear += 1;
+          }
+          renderCalendarGrid();
+        });
+
+        if (calendarItems.length > 0) {
+          currentCalendarYear = calendarItems[0].scheduledAt.getFullYear();
+          currentCalendarMonth = calendarItems[0].scheduledAt.getMonth();
+          selectedCalendarDate = formatDateKey(currentCalendarYear, currentCalendarMonth, calendarItems[0].scheduledAt.getDate());
+        } else {
+          selectedCalendarDate = formatDateKey(currentCalendarYear, currentCalendarMonth, now.getDate());
+        }
+        renderCalendarGrid();
+        renderCalendarDayList(selectedCalendarDate);
       }
 
     })();

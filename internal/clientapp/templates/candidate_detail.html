@@ -26,6 +26,8 @@
     .btn{display:inline-flex;align-items:center;justify-content:center;min-height:2.3rem;padding:.5rem .85rem;border-radius:8px;border:1px solid transparent;cursor:pointer;font-weight:700;text-decoration:none}
     .btn-primary{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)} .btn-outline{background:transparent;color:var(--fg);border-color:var(--border)} .btn-danger{background:transparent;color:var(--danger);border-color:var(--danger)}
     input,select,textarea{width:100%;min-height:2.35rem;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);padding:.55rem .65rem;font:inherit}
+    input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }
+    html.dark input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: .9; }
     label{display:block;font-size:.875rem;font-weight:600;margin-bottom:.35rem} .grid-2{display:grid;gap:.75rem;grid-template-columns:repeat(2,minmax(0,1fr))}
     @media (max-width:780px){.grid-2{grid-template-columns:1fr}}
     textarea{min-height:7rem;resize:vertical}
@@ -35,7 +37,7 @@
     .interview{border:1px solid var(--border);border-radius:10px;padding:.8rem}
     .alert{border:1px solid var(--border);border-radius:8px;padding:.55rem .7rem;font-size:.875rem}
     .hub{display:grid;gap:.75rem;grid-template-columns:1fr;margin-top:.5rem}
-    @media (min-width:680px){.hub{grid-template-columns:repeat(3,1fr)}}
+    @media (min-width:680px){.hub{grid-template-columns:repeat(2,1fr)}}
     .hub-btn{width:100%;text-align:left;padding:.875rem 1rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;cursor:pointer;color:var(--fg)}
     .hub-btn.active{background:var(--muted);border-color:var(--primary)} .hub-btn strong{display:block;margin-bottom:.2rem}
     .hub-btn span{color:var(--muted-fg);font-size:.8rem}
@@ -45,10 +47,6 @@
     table{width:100%;border-collapse:collapse}
     th,td{text-align:left;padding:.55rem;border-bottom:1px solid var(--border);vertical-align:top}
     th{color:var(--muted-fg);font-size:.75rem;text-transform:uppercase;letter-spacing:.04em}
-    .session-row{cursor:pointer}
-    .session-row:hover{background:color-mix(in srgb,var(--card) 92%,var(--muted))}
-    .session-details{display:none;background:color-mix(in srgb,var(--card) 96%,var(--muted))}
-    .session-details.open{display:table-row}
     .session-actions{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
     .session-link{min-width:260px;flex:1}
   </style>
@@ -59,63 +57,95 @@
 
     <section class="card stack">
       <h1>{{ .Candidate.FirstName }} {{ .Candidate.LastName }}</h1>
+      <div class="meta">Phone: {{ .Candidate.Phone }}</div>
       <div class="meta">Status: {{ .Candidate.Status }}{{ if .Candidate.HiredTimePunchName }} | Hired as: {{ .Candidate.HiredTimePunchName }}{{ end }}</div>
       {{ if .SuccessMessage }}<div class="alert">{{ .SuccessMessage }}</div>{{ end }}
       {{ if .Error }}<div class="alert" style="color:var(--danger)">{{ .Error }}</div>{{ end }}
+      <form method="post" action="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/delete">
+        <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+        <button class="btn btn-danger" type="submit" onclick="return confirm('Delete this candidate? This will remove linked interview sessions and cannot be undone.');">Delete Candidate</button>
+      </form>
 
       <div class="hub">
-        <button class="hub-btn" type="button" data-target="create-interviews"><strong>Create Interviews</strong><span>Create interview sessions and open each dedicated link page.</span></button>
-        <button class="hub-btn" type="button" data-target="view-interviews"><strong>View Interviews</strong><span>See interview sessions and completed interviews.</span></button>
+        <button class="hub-btn" type="button" data-target="view-interviews"><strong>View Interviews</strong><span>Create and manage pending and completed interviews.</span></button>
         <button class="hub-btn" type="button" data-target="decision"><strong>Decision</strong><span>Hire or pass this candidate.</span></button>
       </div>
 
-      <section class="panel" data-panel="create-interviews">
-        {{ if eq .Candidate.Status "active" }}
-        <div class="stack">
-          <h2 style="font-size:1.05rem;">Create New Interview</h2>
-          <form method="post" action="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/interview-links" class="stack">
-            <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-            <div class="grid-2">
-              <div>
-                <label for="interviewer_time_punch_name">Interviewer</label>
-                <select id="interviewer_time_punch_name" name="interviewer_time_punch_name" required>
-                  <option value="">Select interviewer</option>
-                  {{ range .Employees }}
-                    <option value="{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }} ({{ .TimePunchName }})</option>
-                  {{ end }}
-                </select>
-              </div>
-              <div>
-                <label for="interview_type">Interview Type</label>
-                <select id="interview_type" name="interview_type" required>
-                  <option value="">Select interview type</option>
-                  {{ range .InterviewNames }}
-                    <option value="{{ .Name }}">{{ .Name }}</option>
-                  {{ end }}
-                </select>
-              </div>
-            </div>
-            <div class="row">
-              <button type="submit" class="btn btn-primary" {{ if or (not .CandidateValues) (not .InterviewNames) }}disabled{{ end }}>Create Interview</button>
-              <a class="btn btn-outline" href="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/scorecard">View Scorecard</a>
-            </div>
-          </form>
-          {{ if not .CandidateValues }}<p class="meta">Create candidate values first.</p>{{ end }}
-          {{ if not .InterviewNames }}<p class="meta">Create interview types first.</p>{{ end }}
-        </div>
-
-        <div class="stack" style="margin-top:1rem;">
-          <h2 style="font-size:1.05rem;">Interview Completion</h2>
-          <p class="meta">Interviews can only be completed through a generated interview link. Admin submission is disabled.</p>
-        </div>
-        {{ else }}
-          <p class="meta">This candidate is no longer active. New interviews are disabled.</p>
-        {{ end }}
-      </section>
-
       <section class="panel" data-panel="view-interviews">
         <div class="stack">
-          <h2 style="font-size:1.05rem;">Interview Sessions</h2>
+          {{ if eq .Candidate.Status "active" }}
+            <div class="stack">
+              <h2 style="font-size:1.05rem;">Create New Interview</h2>
+              <form method="post" action="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/interview-links" class="stack">
+                <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+                <div class="grid-2">
+                  <div>
+                    <label for="interviewer_time_punch_name">Interviewer</label>
+                    <select id="interviewer_time_punch_name" name="interviewer_time_punch_name" required>
+                      <option value="">Select interviewer</option>
+                      {{ range .Employees }}
+                        <option value="{{ .TimePunchName }}">
+                          {{ if .LastName }}
+                            {{ .FirstName }} {{ .LastName }} ({{ .TimePunchName }})
+                          {{ else }}
+                            {{ .FirstName }}
+                          {{ end }}
+                        </option>
+                      {{ end }}
+                    </select>
+                  </div>
+                  <div>
+                    <label for="scheduled_date">Interview Date</label>
+                    <input id="scheduled_date" name="scheduled_date" type="date" required>
+                  </div>
+                  <div>
+                    <label>Interview Time</label>
+                    <div class="row" style="gap:.4rem;flex-wrap:nowrap;">
+                      <select id="scheduled_hour" name="scheduled_hour" required style="max-width:6rem;">
+                        <option value="">HH</option>
+                        <option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option>
+                        <option value="05">05</option><option value="06">06</option><option value="07">07</option><option value="08">08</option>
+                        <option value="09">09</option><option value="10">10</option><option value="11">11</option><option value="12">12</option>
+                      </select>
+                      <span class="meta" style="align-self:center;">:</span>
+                      <select id="scheduled_minute" name="scheduled_minute" required style="max-width:6rem;">
+                        <option value="">MM</option>
+                        <option value="00">00</option><option value="05">05</option><option value="10">10</option><option value="15">15</option>
+                        <option value="20">20</option><option value="25">25</option><option value="30">30</option><option value="35">35</option>
+                        <option value="40">40</option><option value="45">45</option><option value="50">50</option><option value="55">55</option>
+                      </select>
+                      <select id="scheduled_ampm" name="scheduled_ampm" required style="max-width:7rem;">
+                        <option value="">AM/PM</option>
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label for="interview_type">Interview Type</label>
+                    <select id="interview_type" name="interview_type" required>
+                      <option value="">Select interview type</option>
+                      {{ range .InterviewNames }}
+                        <option value="{{ .Name }}">{{ .Name }}</option>
+                      {{ end }}
+                    </select>
+                  </div>
+                </div>
+                <div class="row">
+                  <button type="submit" class="btn btn-primary" {{ if or (not .CandidateValues) (not .InterviewNames) }}disabled{{ end }}>Create Interview</button>
+                  <a class="btn btn-outline" href="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/scorecard">View Scorecard</a>
+                </div>
+              </form>
+              {{ if not .CandidateValues }}<p class="meta">Create candidate values first.</p>{{ end }}
+              {{ if not .InterviewNames }}<p class="meta">Create interview types first.</p>{{ end }}
+            </div>
+          {{ else }}
+            <p class="meta">This candidate is no longer active. New interviews are disabled.</p>
+          {{ end }}
+        </div>
+
+        <div style="margin-top:1rem;">
+          <h2 style="font-size:1.05rem;">All Interviews</h2>
           {{ if .InterviewLinks }}
             <div class="table-wrap">
               <table>
@@ -123,31 +153,33 @@
                   <tr>
                     <th>Interview Type</th>
                     <th>Interviewer</th>
+                    <th>Scheduled</th>
                     <th>Created</th>
                     <th>Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {{ range .InterviewLinks }}
-                    <tr class="session-row" data-session-token="{{ .Token }}">
+                    <tr>
                       <td>{{ .InterviewType }}</td>
                       <td>{{ .InterviewerTimePunchName }}</td>
+                      <td>{{ .ScheduledAt }}</td>
                       <td>{{ .CreatedAt }}</td>
-                      <td>{{ if .UsedAt }}Completed{{ else }}Open{{ end }}</td>
-                    </tr>
-                    <tr class="session-details" data-session-details="{{ .Token }}">
-                      <td colspan="4">
-                        <div class="stack" style="gap:.625rem;">
-                          <div class="meta">{{ if .UsedAt }}Completed: {{ .UsedAt }}{{ else }}Pending completion{{ end }}</div>
-                          <div class="session-actions">
+                      <td>{{ if .UsedAt }}Completed{{ else }}Active{{ end }}</td>
+                      <td>
+                        <div class="session-actions">
+                          {{ if not .UsedAt }}
                             <input class="session-link" type="text" readonly value="{{ .Link }}">
                             <button class="btn btn-outline copy-session-link" type="button">Copy Link</button>
                             <a class="btn btn-outline" href="{{ .Link }}" target="_blank" rel="noreferrer">Conduct Interview</a>
                             <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidates/{{ $.Candidate.ID }}/interview-links/{{ .Token }}/delete">
                               <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                              <button class="btn btn-danger" type="submit" onclick="return confirm('Delete this interview session?');">Delete Interview</button>
+                              <button class="btn btn-danger" type="submit" onclick="return confirm('Delete this interview session?');">Delete</button>
                             </form>
-                          </div>
+                          {{ else }}
+                            <span class="meta">Interview completed (link hidden)</span>
+                          {{ end }}
                         </div>
                       </td>
                     </tr>
@@ -156,26 +188,11 @@
               </table>
             </div>
           {{ else }}
-            <p class="meta">No interview sessions yet.</p>
+            <p class="meta">No interviews yet.</p>
           {{ end }}
-        </div>
-        <div class="stack" style="margin-top:1rem;">
-          <h2 style="font-size:1.05rem;">Completed Interview Scorecards</h2>
-          {{ if .Candidate.Interviews }}
-            {{ range .Candidate.Interviews }}
-              <article class="interview">
-                <div class="row" style="justify-content:space-between;">
-                  <div>
-                    <strong>{{ .InterviewType }}</strong>
-                    <div class="meta">{{ .CreatedAt }} | Interviewer: {{ .InterviewerTimePunchName }}</div>
-                  </div>
-                  <a class="btn btn-outline" href="/admin/locations/{{ $.Location.Number }}/candidates/{{ $.Candidate.ID }}/interviews/{{ .ID }}">Open Interview</a>
-                </div>
-              </article>
-            {{ end }}
-          {{ else }}
-            <p class="meta">No completed interviews yet.</p>
-          {{ end }}
+          <div class="row" style="margin-top:.75rem;">
+            <a class="btn btn-outline" href="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/scorecard">View Scorecard</a>
+          </div>
         </div>
       </section>
 
@@ -186,7 +203,32 @@
             <div class="row">
               <form method="post" action="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/decision">
                 <input type="hidden" name="csrf_token" value="{{ .CSRF }}"><input type="hidden" name="decision" value="hire">
-                <button class="btn btn-primary" type="submit">Hire Candidate</button>
+                <label for="hire-department-id" style="margin-right:.5rem;">Assign Department</label>
+                <select id="hire-department-id" name="department_id" required style="margin-right:.5rem;">
+                  <option value="">Select department</option>
+                  {{ range .LocationDepartments }}
+                    <option value="{{ .ID }}">{{ .Name }}</option>
+                  {{ end }}
+                </select>
+                <label for="hire-job-id" style="margin-right:.5rem;">Assign Job</label>
+                <select id="hire-job-id" name="job_id" required style="margin-right:.5rem;">
+                  <option value="">Select department first</option>
+                  {{ range .LocationJobs }}
+                    <option
+                      value="{{ .ID }}"
+                      data-department-ids="{{ if .DepartmentIDs }}{{ range $idx, $id := .DepartmentIDs }}{{ if $idx }},{{ end }}{{ $id }}{{ end }}{{ else if gt .DepartmentID 0 }}{{ .DepartmentID }}{{ end }}"
+                    >{{ .Name }}{{ if .DepartmentName }} ({{ .DepartmentName }}){{ end }}</option>
+                  {{ end }}
+                </select>
+                <label for="hire-pay-type" style="margin-right:.5rem;">Pay Type</label>
+                <select id="hire-pay-type" name="pay_type" required style="margin-right:.5rem;">
+                  <option value="">Select pay type</option>
+                  <option value="hourly">Hourly</option>
+                  <option value="salary">Salary</option>
+                </select>
+                <label for="hire-pay-amount" style="margin-right:.5rem;">Pay Amount</label>
+                <input id="hire-pay-amount" name="pay_amount" type="number" min="0.01" step="0.01" required style="margin-right:.5rem;max-width:10rem;">
+                <button class="btn btn-primary" type="submit" {{ if or (not .LocationJobs) (not .LocationDepartments) }}disabled{{ end }}>Hire Candidate</button>
               </form>
               <form method="post" action="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/decision">
                 <input type="hidden" name="csrf_token" value="{{ .CSRF }}"><input type="hidden" name="decision" value="pass">
@@ -195,6 +237,9 @@
             </div>
           {{ else }}
             <p class="meta">Decision already made: {{ .Candidate.Status }}.</p>
+          {{ end }}
+          {{ if and (eq .Candidate.Status "active") (or (not .LocationJobs) (not .LocationDepartments)) }}
+            <p class="meta">Create at least one department and job before hiring candidates.</p>
           {{ end }}
           <a class="btn btn-outline" href="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/scorecard">View Full Scorecard</a>
         </div>
@@ -212,36 +257,18 @@
         if (window.location.hash !== "#" + name) { window.history.replaceState(null, "", "#" + name); }
       }
       hubButtons.forEach(function (btn) { btn.addEventListener("click", function () { showPanel(btn.getAttribute("data-target")); }); });
-      var initial = window.location.hash ? window.location.hash.slice(1) : "create-interviews";
+      var initial = window.location.hash ? window.location.hash.slice(1) : "view-interviews";
       var exists = panels.some(function (p) { return p.getAttribute("data-panel") === initial; });
-      showPanel(exists ? initial : "create-interviews");
-
-      var sessionRows = Array.from(document.querySelectorAll(".session-row[data-session-token]"));
-      function closeAllSessionDetails(exceptToken) {
-        Array.from(document.querySelectorAll(".session-details[data-session-details]")).forEach(function (row) {
-          var token = row.getAttribute("data-session-details");
-          row.classList.toggle("open", !!exceptToken && token === exceptToken);
-        });
-      }
-      sessionRows.forEach(function (row) {
-        row.addEventListener("click", function () {
-          var token = row.getAttribute("data-session-token");
-          var details = document.querySelector('.session-details[data-session-details="' + token + '"]');
-          var isOpen = !!details && details.classList.contains("open");
-          closeAllSessionDetails(isOpen ? "" : token);
-        });
-      });
+      showPanel(exists ? initial : "view-interviews");
 
       var params = new URLSearchParams(window.location.search || "");
       var openSessionToken = (params.get("open_session") || "").trim();
       if (openSessionToken) {
         showPanel("view-interviews");
-        closeAllSessionDetails(openSessionToken);
       }
 
       Array.from(document.querySelectorAll(".copy-session-link")).forEach(function (btn) {
         btn.addEventListener("click", async function (event) {
-          event.stopPropagation();
           var wrapper = btn.closest(".session-actions");
           if (!wrapper) return;
           var input = wrapper.querySelector(".session-link");
@@ -260,6 +287,66 @@
           }
         });
       });
+
+      function syncJobsByDepartment(departmentSelect, jobSelect) {
+        if (!departmentSelect || !jobSelect) return;
+        var selectedDepartment = (departmentSelect.value || "").trim();
+        var options = Array.from(jobSelect.options || []);
+        var placeholder = options[0] || null;
+        var visibleCount = 0;
+        options.forEach(function (option, index) {
+          if (index === 0) return;
+          var departmentIDs = (option.getAttribute("data-department-ids") || "")
+            .split(",")
+            .map(function (value) { return value.trim(); })
+            .filter(function (value) { return value !== ""; });
+          var match = selectedDepartment !== "" && departmentIDs.indexOf(selectedDepartment) >= 0;
+          option.hidden = !match;
+          if (match) visibleCount += 1;
+        });
+        if (!selectedDepartment) {
+          if (placeholder) placeholder.textContent = "Select department first";
+        } else if (visibleCount === 0) {
+          if (placeholder) placeholder.textContent = "No jobs in this department";
+        } else {
+          if (placeholder) placeholder.textContent = "Select job";
+        }
+        if (!selectedDepartment || (jobSelect.selectedOptions[0] && jobSelect.selectedOptions[0].hidden)) {
+          jobSelect.value = "";
+        }
+        jobSelect.disabled = !selectedDepartment || visibleCount === 0;
+      }
+
+      var hireDepartment = document.getElementById("hire-department-id");
+      var hireJob = document.getElementById("hire-job-id");
+      if (hireDepartment && hireJob) {
+        hireDepartment.addEventListener("change", function () {
+          syncJobsByDepartment(hireDepartment, hireJob);
+        });
+        syncJobsByDepartment(hireDepartment, hireJob);
+      }
+
+      var scheduledDateInput = document.getElementById("scheduled_date");
+      var scheduledHour = document.getElementById("scheduled_hour");
+      var scheduledMinute = document.getElementById("scheduled_minute");
+      var scheduledAMPM = document.getElementById("scheduled_ampm");
+      if (scheduledDateInput && scheduledHour && scheduledMinute && scheduledAMPM && !scheduledDateInput.value) {
+        var initialDate = new Date();
+        initialDate.setMinutes(initialDate.getMinutes() + 60);
+        initialDate.setSeconds(0, 0);
+        var yyyy = initialDate.getFullYear();
+        var mm = String(initialDate.getMonth() + 1).padStart(2, "0");
+        var dd = String(initialDate.getDate()).padStart(2, "0");
+        var hour24 = initialDate.getHours();
+        var minute = String(initialDate.getMinutes()).padStart(2, "0");
+        var ampm = hour24 >= 12 ? "PM" : "AM";
+        var hour12 = hour24 % 12;
+        if (hour12 === 0) hour12 = 12;
+        scheduledDateInput.value = yyyy + "-" + mm + "-" + dd;
+        scheduledHour.value = String(hour12).padStart(2, "0");
+        scheduledMinute.value = minute;
+        scheduledAMPM.value = ampm;
+      }
     })();
   </script>
 </body>

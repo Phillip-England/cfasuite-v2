@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Departments</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script>
+    (function () {
+      var stored = localStorage.getItem("cfasuite-theme");
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    })();
+  </script>
+  <style>
+    :root { --bg:#fff; --fg:#09090b; --card:#fff; --muted:#f4f4f5; --muted-fg:#71717a; --border:#e4e4e7; --primary:#004f71; --primary-fg:#fff; --danger:#dc2626; --success:#16a34a; }
+    html.dark { --bg:#09090b; --fg:#fafafa; --card:#09090b; --muted:#27272a; --muted-fg:#a1a1aa; --border:#3f3f46; --primary:#004f71; --primary-fg:#fff; --danger:#f87171; --success:#4ade80; }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font-family:"Manrope",sans-serif}
+    h1,h2{margin:0;font-family:"Space Grotesk",sans-serif}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem}
+    .wrap{padding:5rem 1rem 2rem}.inner{max-width:1024px;margin:0 auto;display:grid;gap:1rem}
+    .text-muted{color:var(--muted-fg);font-size:.875rem}
+    .back{font-size:.8125rem;color:var(--muted-fg);text-decoration:none}
+    .notice{font-size:.875rem;margin:0}
+    .notice.ok{color:var(--success)} .notice.error{color:var(--danger)}
+    form{display:grid;gap:.75rem}
+    label{display:block;font-size:.875rem;font-weight:600;margin-bottom:.35rem}
+    input,select{width:100%;min-height:2.35rem;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);padding:.55rem .65rem;font:inherit}
+    .btn{display:inline-flex;align-items:center;justify-content:center;min-height:2.3rem;padding:.5rem .85rem;border-radius:8px;border:1px solid transparent;cursor:pointer;font-weight:700}
+    .btn-primary{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+    .btn-responsive{justify-self:start;width:auto}
+    @media (max-width:639px){.btn-responsive{width:100%}}
+    .grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+    .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:8px}
+    table{width:100%;border-collapse:collapse}
+    th,td{text-align:left;padding:.55rem;border-bottom:1px solid var(--border)}
+    th{font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted-fg)}
+    tbody tr:last-child td{border-bottom:none}
+    .process-hub{display:grid;gap:.625rem;grid-template-columns:1fr;margin-top:.25rem}
+    @media (min-width:700px){.process-hub{grid-template-columns:repeat(2,1fr)}}
+    .process-btn{width:100%;text-align:left;padding:.75rem .875rem;background:var(--bg);border:1px solid var(--border);border-radius:.5rem;cursor:pointer;font-family:inherit;color:var(--fg);transition:150ms;font-weight:700;font-size:.875rem}
+    .process-btn:hover{background:var(--muted)}
+    .process-btn.active{background:var(--muted);border-color:var(--primary)}
+    .process-panel{display:none}
+    .process-panel.active{display:block}
+    .subnav{display:grid;gap:.5rem;margin:.25rem 0 .875rem}
+    @media (min-width:700px){.subnav{grid-template-columns:repeat(2,1fr)}}
+    .subbtn{width:100%;text-align:left;padding:.65rem .75rem;background:var(--bg);border:1px solid var(--border);border-radius:.5rem;cursor:pointer;font-family:inherit;color:var(--fg);transition:150ms;font-weight:600;font-size:.85rem}
+    .subbtn:hover{background:var(--muted)}
+    .subbtn.active{background:var(--muted);border-color:var(--primary)}
+    .subpanel{display:none}
+    .subpanel.active{display:block}
+    .chips{display:flex;flex-wrap:wrap;gap:.35rem}
+    .chip{font-size:.75rem;border:1px solid var(--border);border-radius:999px;padding:.15rem .5rem;color:var(--muted-fg)}
+    .assign-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.4rem}
+    .assign-item{display:flex;align-items:center;gap:.45rem;border:1px solid var(--border);border-radius:.5rem;padding:.35rem .45rem}
+    .assign-item input{width:auto;min-height:auto}
+    .job-row-btn{
+      width:100%;
+      text-align:left;
+      border:1px solid var(--border);
+      border-radius:.5rem;
+      background:var(--card);
+      color:var(--fg);
+      padding:.65rem .75rem;
+      cursor:pointer;
+      display:grid;
+      gap:.4rem;
+    }
+    .job-row-btn:hover{background:var(--muted)}
+    .job-row-head{display:flex;justify-content:space-between;gap:.75rem;align-items:center;flex-wrap:wrap}
+    .job-expand{border:1px solid var(--border);border-radius:.6rem;background:var(--card);overflow:hidden}
+    .job-expand-body{display:none;padding:.8rem;border-top:1px solid var(--border)}
+    .job-expand.open .job-expand-body{display:block}
+  </style>
+</head>
+<body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
+  <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
+    <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
+      <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
+      <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/admin/locations/{{ .Location.Number }}/departments" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Departments</a>
+      </nav>
+      <div class="flex items-center gap-2 shrink-0">
+        <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
+        <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+          <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" class="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+          <span class="sr-only">Open menu</span>
+          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+      </div>
+    </div>
+    <div id="nav-mobile" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 bg-white dark:bg-zinc-950 flex-col gap-1">
+      <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+      <a href="/admin/locations/{{ .Location.Number }}/departments" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Departments</a>
+    </div>
+  </header>
+  <div class="wrap">
+    <div class="inner">
+      <div class="card">
+        <a class="back" href="/admin/locations/{{ .Location.Number }}">&#8592; Back to Apps</a>
+        <h1 style="margin-top:.5rem;">Departments &amp; Jobs</h1>
+        <p class="text-muted" style="margin-top:.35rem;">{{ .Location.Name }} ({{ .Location.Number }})</p>
+        {{ if .SuccessMessage }}<p class="notice ok" style="margin-top:.75rem;">{{ .SuccessMessage }}</p>{{ end }}
+        {{ if .Error }}<p class="notice error" style="margin-top:.75rem;">{{ .Error }}</p>{{ end }}
+      </div>
+
+      <div class="card">
+        <div class="process-hub">
+          <button class="process-btn" type="button" data-process-target="departments">Departments</button>
+          <button class="process-btn" type="button" data-process-target="jobs">Jobs</button>
+        </div>
+      </div>
+
+      <section class="process-panel" data-process-panel="departments">
+        <div class="card">
+          <h2 style="margin-bottom:.75rem;">Departments</h2>
+          <div class="subnav">
+            <button class="subbtn" type="button" data-sub-target="departments-create">Create Department</button>
+            <button class="subbtn" type="button" data-sub-target="departments-view">View Departments</button>
+          </div>
+          <section class="subpanel" data-sub-panel="departments-create">
+            <form method="post" action="/admin/locations/{{ .Location.Number }}/departments/create">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+              <div>
+                <label for="department-name">Department Name</label>
+                <input id="department-name" name="name" type="text" placeholder="Example: Front of House" required>
+              </div>
+              <button class="btn btn-primary btn-responsive" type="submit">Create Department</button>
+            </form>
+          </section>
+          <section class="subpanel" data-sub-panel="departments-view">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Name</th></tr></thead>
+                <tbody>
+                  {{ if .LocationDepartments }}
+                    {{ range .LocationDepartments }}
+                      <tr><td>{{ .Name }}</td></tr>
+                    {{ end }}
+                  {{ else }}
+                    <tr><td>No departments yet.</td></tr>
+                  {{ end }}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="process-panel" data-process-panel="jobs">
+        <div class="card">
+          <h2 style="margin-bottom:.75rem;">Jobs</h2>
+          <div class="subnav">
+            <button class="subbtn" type="button" data-sub-target="jobs-create">Create Job</button>
+            <button class="subbtn" type="button" data-sub-target="jobs-view">View Jobs</button>
+          </div>
+          <section class="subpanel" data-sub-panel="jobs-create">
+            <form method="post" action="/admin/locations/{{ .Location.Number }}/jobs/create">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+              <div>
+                <label for="job-name">Job Name</label>
+                <input id="job-name" name="name" type="text" placeholder="Example: Team Leader" required>
+              </div>
+              <button class="btn btn-primary btn-responsive" type="submit">Create Job</button>
+            </form>
+            <p class="text-muted" style="margin-top:.6rem;">Create job first, then assign one or more departments below.</p>
+          </section>
+          <section class="subpanel" data-sub-panel="jobs-view">
+            <p class="text-muted" style="margin-bottom:.75rem;">Click a job row to manage department assignments.</p>
+            {{ if .LocationJobs }}
+              <div style="display:grid;gap:.6rem;">
+                {{ range .LocationJobs }}
+                  <article class="job-expand" data-job-expand="{{ .ID }}">
+                    <button class="job-row-btn" type="button" data-job-open="{{ .ID }}">
+                      <div class="job-row-head">
+                        <strong>{{ .Name }}</strong>
+                        <span class="text-muted">Created {{ .CreatedAt }}</span>
+                      </div>
+                      <div class="chips">
+                        {{ if .DepartmentNames }}
+                          {{ range .DepartmentNames }}<span class="chip">{{ . }}</span>{{ end }}
+                        {{ else }}
+                          <span class="chip">No departments assigned</span>
+                        {{ end }}
+                      </div>
+                    </button>
+                    <div class="job-expand-body" data-job-body="{{ .ID }}">
+                      <p class="text-muted" style="margin-bottom:.65rem;">Assign one or more departments for this job.</p>
+                      <form method="post" action="/admin/locations/{{ $.Location.Number }}/jobs/{{ .ID }}/departments/assign">
+                        <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                        <div class="assign-grid">
+                          {{ $jobIDs := .DepartmentIDs }}
+                          {{ range $.LocationDepartments }}
+                            {{ $deptID := .ID }}
+                            <label class="assign-item">
+                              <input type="checkbox" name="department_ids" value="{{ .ID }}" {{ range $jobIDs }}{{ if eq . $deptID }}checked{{ end }}{{ end }}>
+                              <span>{{ .Name }}</span>
+                            </label>
+                          {{ end }}
+                        </div>
+                        <button class="btn btn-primary btn-responsive" type="submit" style="margin-top:.6rem;">Save Department Assignments</button>
+                      </form>
+                    </div>
+                  </article>
+                {{ end }}
+              </div>
+            {{ else }}
+              <p class="text-muted">No jobs yet.</p>
+            {{ end }}
+          </section>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var storageKey = "cfasuite-theme";
+      var root = document.documentElement;
+      var toggle = document.getElementById("theme-toggle");
+      var navToggle = document.getElementById("nav-toggle");
+      var navMobile = document.getElementById("nav-mobile");
+      if (toggle) {
+        toggle.addEventListener("click", function () {
+          var isDark = root.classList.toggle("dark");
+          localStorage.setItem(storageKey, isDark ? "dark" : "light");
+        });
+      }
+      if (navToggle && navMobile) {
+        navToggle.addEventListener("click", function () {
+          var expanded = navToggle.getAttribute("aria-expanded") === "true";
+          navToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+          navMobile.classList.toggle("hidden", expanded);
+          if (!expanded) { navMobile.style.display = "flex"; } else { navMobile.style.removeProperty("display"); }
+        });
+      }
+
+      var buttons = Array.from(document.querySelectorAll(".process-btn"));
+      var panels = Array.from(document.querySelectorAll(".process-panel[data-process-panel]"));
+      var subButtons = Array.from(document.querySelectorAll(".subbtn"));
+      var subPanels = Array.from(document.querySelectorAll(".subpanel[data-sub-panel]"));
+      function showPanel(name) {
+        buttons.forEach(function (btn) { btn.classList.toggle("active", btn.getAttribute("data-process-target") === name); });
+        panels.forEach(function (panel) { panel.classList.toggle("active", panel.getAttribute("data-process-panel") === name); });
+        if (window.location.hash !== "#" + name) { window.history.replaceState(null, "", "#" + name); }
+        if (name === "departments") {
+          showSubPanel("departments-create");
+        } else if (name === "jobs") {
+          showSubPanel("jobs-create");
+        }
+      }
+      buttons.forEach(function (btn) { btn.addEventListener("click", function () { showPanel(btn.getAttribute("data-process-target")); }); });
+      function showSubPanel(name) {
+        subButtons.forEach(function (btn) { btn.classList.toggle("active", btn.getAttribute("data-sub-target") === name); });
+        subPanels.forEach(function (panel) { panel.classList.toggle("active", panel.getAttribute("data-sub-panel") === name); });
+      }
+      subButtons.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          showSubPanel(btn.getAttribute("data-sub-target"));
+        });
+      });
+      var initial = window.location.hash ? window.location.hash.slice(1) : "departments";
+      var exists = panels.some(function (panel) { return panel.getAttribute("data-process-panel") === initial; });
+      showPanel(exists ? initial : "departments");
+
+      var openButtons = Array.from(document.querySelectorAll("[data-job-open]"));
+      var jobExpanders = Array.from(document.querySelectorAll("[data-job-expand]"));
+      function toggleJobRow(jobID) {
+        jobExpanders.forEach(function (row) {
+          var matches = (row.getAttribute("data-job-expand") || "").trim() === jobID;
+          if (matches) {
+            row.classList.toggle("open");
+          } else {
+            row.classList.remove("open");
+          }
+        });
+      }
+      openButtons.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          toggleJobRow((btn.getAttribute("data-job-open") || "").trim());
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

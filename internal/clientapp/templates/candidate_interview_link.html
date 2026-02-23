@@ -37,14 +37,15 @@
       <div class="meta">Created: {{ .InterviewLink.CreatedAt }}</div>
       {{ if .InterviewLink.UsedAt }}
         <div class="meta">Completed: {{ .InterviewLink.UsedAt }}</div>
+        <div class="meta">This interview is complete. The link is no longer available.</div>
+      {{ else }}
+        <div class="copy-row">
+          <input id="interview-link" type="text" readonly value="{{ .InterviewLink.Link }}">
+          <button id="copy-link" class="btn btn-outline" type="button">Copy Link</button>
+          <a id="text-link" class="btn btn-outline" href="sms:?&body=Please%20complete%20this%20interview%20scorecard:%20{{ .InterviewLink.Link }}" target="_blank" rel="noreferrer">Text Link</a>
+        </div>
+        <div id="copy-status" class="meta"></div>
       {{ end }}
-
-      <div class="copy-row">
-        <input id="interview-link" type="text" readonly value="{{ .InterviewLink.Link }}">
-        <button id="copy-link" class="btn btn-outline" type="button">Copy Link</button>
-        <a id="text-link" class="btn btn-outline" href="sms:?&body=Please%20complete%20this%20interview%20scorecard:%20{{ .InterviewLink.Link }}" target="_blank" rel="noreferrer">Text Link</a>
-      </div>
-      <div id="copy-status" class="meta"></div>
     </section>
   </div>
 

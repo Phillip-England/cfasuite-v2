@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/app.css">
+  <script defer src="/assets/upload-drop.js"></script>
   <script>
     (function () {
       var stored = localStorage.getItem("cfasuite-theme");
@@ -95,8 +96,6 @@
     .archive-link { color: var(--primary); font-size: 0.8125rem; font-weight: 600; }
     .archive-link:hover { text-decoration: underline; }
 
-    .department-select { width: auto; min-width: 120px; }
-
     .notice { margin: 0 0 0.75rem; font-size: 0.875rem; font-weight: 600; }
     .notice.ok { color: var(--success); }
     .notice.error { color: var(--danger); }
@@ -104,20 +103,92 @@
     .meta-grid { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 1rem; font-size: 0.875rem; margin-bottom: 1.25rem; }
     .meta-label { color: var(--muted-fg); font-weight: 600; }
     .meta-value { font-weight: 600; }
+    .bulk-subnav { display: grid; gap: 0.5rem; margin: 0.5rem 0 0.875rem; }
+    @media (min-width: 640px) { .bulk-subnav { grid-template-columns: 1fr 1fr; } }
+    .bulk-subbtn {
+      width: 100%;
+      text-align: left;
+      padding: 0.625rem 0.75rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      color: var(--fg);
+      font: 600 0.875rem/1.3 inherit;
+      cursor: pointer;
+      transition: 150ms;
+    }
+    .bulk-subbtn:hover { background: var(--muted); }
+    .bulk-subbtn.active { border-color: var(--primary); background: var(--muted); }
+    .bulk-panel { display: none; }
+    .bulk-panel.active { display: block; }
+    .employee-status-subnav { display: grid; gap: 0.5rem; margin: 0.5rem 0 0.875rem; }
+    @media (min-width: 640px) { .employee-status-subnav { grid-template-columns: 1fr 1fr 1fr; } }
+    .employee-status-btn {
+      width: 100%;
+      text-align: left;
+      padding: 0.625rem 0.75rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      color: var(--fg);
+      font: 600 0.875rem/1.3 inherit;
+      cursor: pointer;
+      transition: 150ms;
+    }
+    .employee-status-btn:hover { background: var(--muted); }
+    .employee-status-btn.active { border-color: var(--primary); background: var(--muted); }
+    .employee-status-panel { display: none; }
+    .employee-status-panel.active { display: block; }
+    .file-dropzone {
+      position: relative;
+      display: grid;
+      gap: 0.375rem;
+      border: 1.5px dashed var(--border);
+      border-radius: 0.625rem;
+      background: var(--bg);
+      padding: 0.875rem;
+      transition: border-color 150ms, background-color 150ms, box-shadow 150ms;
+      cursor: pointer;
+    }
+    .file-dropzone:hover { border-color: var(--primary); background: var(--muted); }
+    .file-dropzone.is-dragging {
+      border-color: var(--primary);
+      background: var(--muted);
+      box-shadow: 0 0 0 3px rgba(0,79,113,.15);
+    }
+    .file-dropzone-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--muted-fg);
+    }
+    .file-dropzone-text {
+      font-size: 0.875rem;
+      color: var(--fg);
+      font-weight: 600;
+      word-break: break-word;
+    }
+    .file-dropzone-input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
 
   <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
     <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
-      <a href="/admin" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
+      <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
       <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
-        <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
         <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
         <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employees</a>
-        <a href="/admin/locations/{{ .Location.Number }}/employees/archived" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Archived</a>
+        <a href="/admin/locations/{{ .Location.Number }}/employees/archived" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Terminated</a>
       </nav>
       <div class="flex items-center gap-2 shrink-0">
+        <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
         <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
           <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -129,10 +200,9 @@
       </div>
     </div>
     <div id="nav-mobile" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 bg-white dark:bg-zinc-950 flex-col gap-1">
-      <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
       <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
       <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employees</a>
-      <a href="/admin/locations/{{ .Location.Number }}/employees/archived" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Archived</a>
+      <a href="/admin/locations/{{ .Location.Number }}/employees/archived" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Terminated</a>
     </div>
   </header>
 
@@ -153,15 +223,11 @@
         <section class="hub">
           <button class="hub-btn" type="button" data-target="add-employees">
             <strong>Add Employees</strong>
-            <span>Create a new employee and optionally attach initial paperwork.</span>
-          </button>
-          <button class="hub-btn" type="button" data-target="bulk-import">
-            <strong>Bulk Import</strong>
-            <span>Import employee bio and birthday reports in batch.</span>
+            <span>Create a new employee with first and last name only.</span>
           </button>
           <button class="hub-btn" type="button" data-target="view-employees">
             <strong>View Employees</strong>
-            <span>Browse all active employees and manage departments quickly.</span>
+            <span>Browse new hires, active employees, and terminated employees.</span>
           </button>
         </section>
 
@@ -173,73 +239,144 @@
             <input id="add-first-name" type="text" name="first_name" placeholder="First Name" required>
             <label for="add-last-name">Last Name</label>
             <input id="add-last-name" type="text" name="last_name" placeholder="Last Name" required>
-            <label for="add-department">Department</label>
-            <select id="add-department" name="department">
-              {{ range .Departments }}
-                <option value="{{ . }}" {{ if eq . "INIT" }}selected{{ end }}>{{ . }}</option>
+            <label for="add-department-id">Department</label>
+            <select id="add-department-id" name="department_id" required>
+              <option value="">Select department</option>
+              {{ range .LocationDepartments }}
+                <option value="{{ .ID }}">{{ .Name }}</option>
               {{ end }}
             </select>
-            <button type="submit">Create Employee</button>
-          </form>
-        </section>
-
-        <section class="section" data-panel="bulk-import">
-          <h2>Bulk Employee Imports</h2>
-          <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/import" enctype="multipart/form-data">
-            <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-            <input type="file" name="bio_file" accept=".xls,.xlsx,.xlsm,.xsl" required>
-            <button type="submit">Import Employees</button>
-          </form>
-          <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/birthdates/import" enctype="multipart/form-data" style="margin-top:0.625rem;">
-            <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-            <input type="file" name="birthdate_file" accept=".xls,.xlsx,.xlsm,.xsl" required>
-            <button type="submit">Import Birthdays</button>
+            <label for="add-job-id">Job</label>
+            <select id="add-job-id" name="job_id" required>
+              <option value="">Select department first</option>
+              {{ range .LocationJobs }}
+                <option
+                  value="{{ .ID }}"
+                  data-department-ids="{{ if .DepartmentIDs }}{{ range $idx, $id := .DepartmentIDs }}{{ if $idx }},{{ end }}{{ $id }}{{ end }}{{ else if gt .DepartmentID 0 }}{{ .DepartmentID }}{{ end }}"
+                >{{ .Name }}{{ if .DepartmentName }} ({{ .DepartmentName }}){{ end }}</option>
+              {{ end }}
+            </select>
+            <label for="add-pay-type">Pay Type</label>
+            <select id="add-pay-type" name="pay_type" required>
+              <option value="">Select pay type</option>
+              <option value="hourly">Hourly</option>
+              <option value="salary">Salary</option>
+            </select>
+            <label for="add-pay-amount">Pay Amount</label>
+            <input id="add-pay-amount" type="number" name="pay_amount" min="0.01" step="0.01" placeholder="Example: 16.50 or 52000" required>
+            <button type="submit" {{ if or (not .LocationJobs) (not .LocationDepartments) }}disabled{{ end }}>Create Employee</button>
+            {{ if or (not .LocationJobs) (not .LocationDepartments) }}
+              <p class="text-muted" style="margin:0;">Create at least one department and one job before adding employees.</p>
+            {{ end }}
           </form>
         </section>
 
         <section class="section" data-panel="view-employees">
           <div class="employees-head">
-            <h2>View All Employees ({{ len .Employees }})</h2>
-            <a class="archive-link" href="/admin/locations/{{ .Location.Number }}/employees/archived">View Archived Employees</a>
+            <h2>Employee Status</h2>
+            <a class="archive-link" href="/admin/locations/{{ .Location.Number }}/employees/archived">Open Terminated Page</a>
           </div>
-          <p id="dept-flash" role="alert" style="display:none; margin-bottom:0.5rem; font-size:0.8125rem; font-weight:600; color:var(--danger);"></p>
-          <p class="text-muted" style="margin-bottom:0.5rem; font-size:0.8rem;">&#42; Needs initial department assignment</p>
+          <div class="employee-status-subnav">
+            <button class="employee-status-btn" type="button" data-employee-status-target="new-hires">New Hires</button>
+            <button class="employee-status-btn" type="button" data-employee-status-target="active-employees">Active Employees</button>
+            <button class="employee-status-btn" type="button" data-employee-status-target="terminated-employees">Terminated Employees</button>
+          </div>
           <div class="employee-search">
             <input id="employee-search-input" type="text" placeholder="Search employee by name">
-            <div id="employee-search-meta" class="employee-search-meta">Showing {{ len .Employees }} of {{ len .Employees }}</div>
+            <div id="employee-search-meta" class="employee-search-meta">Showing {{ len .NewHireEmployees }} of {{ len .NewHireEmployees }}</div>
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Time Punch</th>
-                  <th>Department</th>
-                  <th>Birthday</th>
-                </tr>
-              </thead>
-              <tbody>
-                {{ if .Employees }}
-                  {{ range .Employees }}
-                    <tr class="employee-row" data-search-name="{{ .FirstName }} {{ .LastName }}">
-                      <td><a class="location-link" href="/admin/locations/{{ $.Location.Number }}/employees/{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }}{{ if eq .Department "INIT" }} *{{ end }}</a></td>
-                      <td>{{ .TimePunchName }}</td>
-                      <td>
-                        <select class="department-select" data-timepunch="{{ .TimePunchName }}">
-                          {{ $current := .Department }}
-                          {{ range $.Departments }}
-                            <option value="{{ . }}" {{ if eq . $current }}selected{{ end }}>{{ . }}</option>
-                          {{ end }}
-                        </select>
-                      </td>
-                      <td>{{ .Birthday }}</td>
-                    </tr>
+          <div class="employee-status-panel" data-employee-status-panel="new-hires">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th colspan="4">New Hires ({{ len .NewHireEmployees }})</th>
+                  </tr>
+                  <tr>
+                    <th>Name</th>
+                    <th>Department</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {{ if .NewHireEmployees }}
+                    {{ range .NewHireEmployees }}
+                      <tr class="employee-row" data-search-name="{{ .FirstName }} {{ .LastName }}">
+                        <td><a class="location-link" href="/admin/locations/{{ $.Location.Number }}/employees/{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }}</a></td>
+                        <td>{{ if .Department }}{{ .Department }}{{ else }}INIT{{ end }}</td>
+                        <td>{{ if .Email }}{{ .Email }}{{ else }}-{{ end }}</td>
+                        <td>{{ if .Phone }}{{ .Phone }}{{ else }}-{{ end }}</td>
+                      </tr>
+                    {{ end }}
+                  {{ else }}
+                    <tr><td colspan="4">No new hires right now.</td></tr>
                   {{ end }}
-                {{ else }}
-                  <tr><td colspan="4">No employees imported for this location yet.</td></tr>
-                {{ end }}
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="employee-status-panel" data-employee-status-panel="active-employees">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th colspan="4">Active Employees ({{ len .ActiveEmployees }})</th>
+                  </tr>
+                  <tr>
+                    <th>Name</th>
+                    <th>Department</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {{ if .ActiveEmployees }}
+                    {{ range .ActiveEmployees }}
+                      <tr class="employee-row" data-search-name="{{ .FirstName }} {{ .LastName }}">
+                        <td><a class="location-link" href="/admin/locations/{{ $.Location.Number }}/employees/{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }}</a></td>
+                        <td>{{ if .Department }}{{ .Department }}{{ else }}INIT{{ end }}</td>
+                        <td>{{ if .Email }}{{ .Email }}{{ else }}-{{ end }}</td>
+                        <td>{{ if .Phone }}{{ .Phone }}{{ else }}-{{ end }}</td>
+                      </tr>
+                    {{ end }}
+                  {{ else }}
+                    <tr><td colspan="4">No active employees right now.</td></tr>
+                  {{ end }}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="employee-status-panel" data-employee-status-panel="terminated-employees">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th colspan="4">Terminated Employees ({{ len .ArchivedEmployees }})</th>
+                  </tr>
+                  <tr>
+                    <th>Name</th>
+                    <th>Time Punch</th>
+                    <th>Email</th>
+                    <th>Terminated At (UTC)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {{ if .ArchivedEmployees }}
+                    {{ range .ArchivedEmployees }}
+                      <tr class="employee-row" data-search-name="{{ .FirstName }} {{ .LastName }}">
+                        <td><a class="location-link" href="/admin/locations/{{ $.Location.Number }}/employees/archived/{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }}</a></td>
+                        <td>{{ .TimePunchName }}</td>
+                        <td>{{ if .Email }}{{ .Email }}{{ else }}-{{ end }}</td>
+                        <td>{{ .ArchivedAt }}</td>
+                      </tr>
+                    {{ end }}
+                  {{ else }}
+                    <tr><td colspan="4">No terminated employees right now.</td></tr>
+                  {{ end }}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
       </div>
@@ -247,22 +384,15 @@
   </div>
 
   <script>
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
-    const locationNumber = "{{ .Location.Number }}";
-    const selects = document.querySelectorAll(".department-select");
-    const deptFlash = document.getElementById("dept-flash");
-    function showDeptFlash(msg) {
-      if (!deptFlash) return;
-      deptFlash.textContent = msg;
-      deptFlash.style.display = "block";
-      clearTimeout(deptFlash._t);
-      deptFlash._t = setTimeout(() => { deptFlash.style.display = "none"; }, 4000);
-    }
     const employeeRows = Array.from(document.querySelectorAll(".employee-row"));
     const employeeSearchInput = document.getElementById("employee-search-input");
     const employeeSearchMeta = document.getElementById("employee-search-meta");
     const hubButtons = Array.from(document.querySelectorAll(".hub-btn"));
     const panels = Array.from(document.querySelectorAll(".section[data-panel]"));
+    const addDepartmentSelect = document.getElementById("add-department-id");
+    const addJobSelect = document.getElementById("add-job-id");
+    const employeeStatusButtons = Array.from(document.querySelectorAll(".employee-status-btn"));
+    const employeeStatusPanels = Array.from(document.querySelectorAll(".employee-status-panel[data-employee-status-panel]"));
 
     function showPanel(panelName) {
       hubButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.target === panelName));
@@ -275,42 +405,24 @@
     hubButtons.forEach((btn) => {
       btn.addEventListener("click", () => showPanel(btn.dataset.target));
     });
+
+    function showEmployeeStatusPanel(panelName) {
+      employeeStatusButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.employeeStatusTarget === panelName));
+      employeeStatusPanels.forEach((panel) => panel.classList.toggle("active", panel.dataset.employeeStatusPanel === panelName));
+      filterEmployeesByName();
+    }
+
+    employeeStatusButtons.forEach((btn) => {
+      btn.addEventListener("click", () => showEmployeeStatusPanel(btn.dataset.employeeStatusTarget));
+    });
+
+    showEmployeeStatusPanel("new-hires");
     const initialPanel = (window.location.hash || "").replace("#", "");
     if (initialPanel && panels.some((panel) => panel.dataset.panel === initialPanel)) {
       showPanel(initialPanel);
     } else {
       showPanel("view-employees");
     }
-
-    selects.forEach((selectEl) => {
-      selectEl.addEventListener("change", async () => {
-        const previous = selectEl.dataset.prev || selectEl.defaultValue || "INIT";
-        const nextDepartment = selectEl.value;
-        const timePunchName = selectEl.dataset.timepunch;
-        selectEl.disabled = true;
-        try {
-          const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/employees/${encodeURIComponent(timePunchName)}/department`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              "X-CSRF-Token": csrfToken
-            },
-            body: JSON.stringify({ department: nextDepartment })
-          });
-          const result = await response.json().catch(() => ({}));
-          if (!response.ok) {
-            throw new Error(result.error || "Unable to update department.");
-          }
-          selectEl.dataset.prev = nextDepartment;
-          selectEl.defaultValue = nextDepartment;
-        } catch (error) {
-          selectEl.value = previous;
-          showDeptFlash(error.message || "Unable to update department.");
-        } finally {
-          selectEl.disabled = false;
-        }
-      });
-    });
 
     function normalizeSearchText(value) {
       return (value || "").toLowerCase().trim();
@@ -321,17 +433,20 @@
         return;
       }
       const query = normalizeSearchText(employeeSearchInput.value);
+      const activeStatusPanel = document.querySelector(".employee-status-panel.active");
+      const scopedRows = activeStatusPanel ? Array.from(activeStatusPanel.querySelectorAll(".employee-row")) : employeeRows;
       let visible = 0;
       employeeRows.forEach((row) => {
+        const isInActivePanel = scopedRows.includes(row);
         const fullName = normalizeSearchText(row.dataset.searchName);
-        const match = query === "" || fullName.includes(query);
+        const match = isInActivePanel && (query === "" || fullName.includes(query));
         row.style.display = match ? "" : "none";
         if (match) {
           visible += 1;
         }
       });
       if (employeeSearchMeta) {
-        employeeSearchMeta.textContent = "Showing " + visible + " of " + employeeRows.length;
+        employeeSearchMeta.textContent = "Showing " + visible + " of " + scopedRows.length;
       }
     }
 
@@ -339,6 +454,43 @@
       employeeSearchInput.addEventListener("input", filterEmployeesByName);
       filterEmployeesByName();
     }
+
+    function syncJobOptionsByDepartment(departmentSelect, jobSelect) {
+      if (!departmentSelect || !jobSelect) return;
+      const selectedDepartment = (departmentSelect.value || "").trim();
+      const options = Array.from(jobSelect.options || []);
+      const placeholder = options[0] || null;
+      let visibleCount = 0;
+      options.forEach((option, index) => {
+        if (index === 0) return;
+        const departmentIDs = (option.dataset.departmentIds || "")
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean);
+        const match = selectedDepartment !== "" && departmentIDs.includes(selectedDepartment);
+        option.hidden = !match;
+        if (match) visibleCount += 1;
+      });
+      if (!selectedDepartment) {
+        if (placeholder) placeholder.textContent = "Select department first";
+      } else if (visibleCount === 0) {
+        if (placeholder) placeholder.textContent = "No jobs in this department";
+      } else {
+        if (placeholder) placeholder.textContent = "Select job";
+      }
+      if (!selectedDepartment || (jobSelect.value && jobSelect.selectedOptions[0] && jobSelect.selectedOptions[0].hidden)) {
+        jobSelect.value = "";
+      }
+      jobSelect.disabled = !selectedDepartment || visibleCount === 0;
+    }
+
+    if (addDepartmentSelect && addJobSelect) {
+      addDepartmentSelect.addEventListener("change", function () {
+        syncJobOptionsByDepartment(addDepartmentSelect, addJobSelect);
+      });
+      syncJobOptionsByDepartment(addDepartmentSelect, addJobSelect);
+    }
+
   </script>
 
   <script>

@@ -4,225 +4,178 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/assets/app.css">
-  <title>Uniform Order</title>
+  <title>Uniform Catalog</title>
+  <script>
+    (function () {
+      var stored = localStorage.getItem("cfasuite-theme");
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    })();
+  </script>
   <style>
     :root {
-      --bg: #f4f1ec;
+      --bg: #ffffff;
       --card: #ffffff;
-      --line: #e2d5c4;
-      --ink: #1f232a;
-      --muted: #68707b;
-      --accent: #b2472a;
-      --accent-dark: #913820;
+      --line: #e4e4e7;
+      --ink: #09090b;
+      --muted: #71717a;
+      --accent: #004f71;
+      --accent-strong: #003a55;
+      --ok: #166534;
+      --danger: #b91c1c;
+      --shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+    html.dark {
+      --bg: #000000;
+      --card: #09090b;
+      --line: #27272a;
+      --ink: #f4f4f5;
+      --muted: #a1a1aa;
+      --accent: #004f71;
+      --accent-strong: #2f8fb8;
+      --ok: #4ade80;
+      --danger: #f87171;
+      --shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      padding: 18px;
-      background: radial-gradient(55rem 30rem at 110% -10%, #f1d9bf 0, transparent 52%), var(--bg);
+      padding: 16px;
+      background: var(--bg);
       color: var(--ink);
       font-family: "Manrope", "Segoe UI", sans-serif;
     }
     .wrap {
-      max-width: 980px;
+      width: 100%;
+      max-width: 820px;
       margin: 0 auto;
-      background: var(--card);
       border: 1px solid var(--line);
-      border-radius: 16px;
+      border-radius: 14px;
+      background: var(--card);
+      box-shadow: var(--shadow);
       padding: 16px;
-      box-shadow: 0 14px 30px rgba(33, 28, 23, 0.08);
     }
     h1 {
       margin: 0 0 4px;
-      font-size: clamp(1.25rem, 5vw, 1.55rem);
-      line-height: 1.12;
+      font-size: clamp(1.25rem, 5vw, 1.6rem);
+      line-height: 1.15;
     }
     .sub {
-      margin: 0 0 14px;
+      margin: 0 0 12px;
       color: var(--muted);
-      font-size: 0.92rem;
+      font-size: 0.9rem;
     }
-    .msg { margin: 0 0 10px; font-weight: 700; font-size: 0.9rem; }
-    .msg.error { color: #9f1e1e; }
-    .msg.ok { color: #186243; }
-
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 190px));
-      gap: 12px;
-      justify-content: center;
+    .top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 4px;
     }
-    .card {
-      width: 100%;
-      max-width: 190px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: #fff;
-      overflow: hidden;
-      display: grid;
-      grid-template-rows: auto 1fr;
-    }
-    .photo-link {
-      display: block;
-      background: #f8f1e8;
-      aspect-ratio: 1/1;
-      max-width: 180px;
-      max-height: 180px;
-      margin: 0 auto;
-    }
-    .photo {
-      width: 100%;
-      height: 100%;
-      max-width: 180px;
-      max-height: 180px;
-      object-fit: cover;
-      display: block;
-      margin: 0 auto;
-    }
-    .meta {
-      padding: 10px;
-      display: grid;
-      gap: 6px;
-    }
-    .name {
-      margin: 0;
-      font-size: 0.96rem;
-      line-height: 1.25;
-      font-weight: 800;
-    }
-    .price {
-      margin: 0;
+    .back-link {
+      text-decoration: none;
       color: var(--muted);
-      font-size: 0.88rem;
+      font-size: 0.84rem;
       font-weight: 700;
     }
-    .open {
-      display: inline-flex;
-      justify-content: center;
+    .msg { margin: 0 0 10px; font-weight: 700; font-size: 0.9rem; }
+    .msg.error { color: var(--danger); }
+    .msg.ok { color: var(--ok); }
+    .items {
+      display: grid;
+      gap: 10px;
+      justify-items: start;
+    }
+    .item-card {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      display: grid;
+      gap: 10px;
       align-items: center;
-      text-decoration: none;
+      background: var(--card);
+    }
+    .item-media {
+      width: 92px;
+      height: 92px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 1px solid var(--line);
+      background: #f4f4f5;
+    }
+    .item-info {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+    .item-name {
+      margin: 0;
+      font-size: 0.98rem;
+      font-weight: 800;
+      line-height: 1.25;
+    }
+    .item-price {
+      margin: 0;
+      font-size: 0.86rem;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       border: 0;
       border-radius: 10px;
       padding: 10px 12px;
+      font: 800 0.9rem/1 "Manrope", sans-serif;
+      text-decoration: none;
       background: var(--accent);
       color: #fff;
-      font: 800 0.9rem/1 "Manrope", sans-serif;
+      white-space: nowrap;
     }
-    .open:hover { background: var(--accent-dark); }
-
-    @media (max-width: 420px) {
-      .cards {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        justify-content: stretch;
-      }
-      .card {
-        max-width: 100%;
-      }
-      .photo-link,
-      .photo {
-        max-width: 100%;
-        max-height: none;
-      }
-    }
-
+    .btn:hover { background: var(--accent-strong); }
     .empty {
       margin: 0;
       color: var(--muted);
-      font-size: 0.92rem;
+      font-size: 0.9rem;
     }
-</style>
-  <script>
-    (function () {
-      const stored = localStorage.getItem("cfasuite-theme");
-      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-      const theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
-      document.documentElement.classList.toggle("dark", theme === "dark");
-    })();
-  </script>
-
-  <style>
-    :root {
-      --bg: #ffffff;
-      --surface: #ffffff;
-      --paper: #ffffff;
-      --ink: #0f172a;
-      --muted: #52525b;
-      --line: #e4e4e7;
-      --brand: #004f71;
-      --brand-dark: #003a55;
-      --accent: #004f71;
-      --shadow: 0 16px 34px rgba(15, 23, 42, 0.10);
-    }
-
-    html.dark {
-      --bg: #000000;
-      --surface: #09090b;
-      --paper: #09090b;
-      --ink: #f4f4f5;
-      --muted: #a1a1aa;
-      --line: #27272a;
-      --brand: #004f71;
-      --brand-dark: #2f8fb8;
-      --accent: #004f71;
-      --shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
-    }
-
-    html.dark input,
-    html.dark select,
-    html.dark textarea,
-    html.dark table,
-    html.dark .card,
-    html.dark .panel {
-      background-color: #09090b !important;
-      color: var(--ink) !important;
-      border-color: var(--line) !important;
+    @media (min-width: 640px) {
+      .item-card {
+        grid-template-columns: 92px minmax(0, 1fr) auto;
+      }
     }
   </style>
-
 </head>
-<body class="min-h-screen pt-20 bg-white text-zinc-900 dark:bg-black dark:text-zinc-100 transition-colors duration-200">
-  <button id="theme-toggle" type="button" class="fixed top-3 right-3 z-[1200] rounded-full border border-zinc-300/80 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.08em] text-zinc-700 dark:text-zinc-200 shadow-sm backdrop-blur">Dark</button>
-  <nav id="app-nav" class="fixed top-3 left-3 right-20 z-[1100]">
-    <div class="mx-auto max-w-6xl rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur px-3 py-2">
-      <div class="flex items-center justify-between gap-3">
-        <div class="text-sm font-extrabold tracking-[0.06em] uppercase text-zinc-800 dark:text-zinc-100">CFA Suite</div>
-        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links" class="md:hidden inline-flex items-center justify-center rounded-md border border-zinc-300 dark:border-zinc-700 p-2 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800">
-          <span class="sr-only">Toggle navigation</span>
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4">
-            <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16" />
-          </svg>
-        </button>
-      </div>
-      <div id="nav-links" class="mt-2 hidden flex-col gap-1 text-xs font-semibold md:mt-2 md:flex md:flex-row md:flex-wrap md:items-center md:gap-2">
-        <a href="/uniform-order/{{ .Token }}" class="block px-2.5 py-1 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black">Uniform Catalog</a>
-      
-      </div>
-    </div>
-  </nav>
-
-
+<body>
+  <button id="theme-toggle" type="button" aria-label="Toggle theme" class="fixed top-3 right-3 z-[1200] h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors backdrop-blur">
+    <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+  </button>
   <section class="wrap">
-    <h1>Uniform Purchase Form</h1>
+    <div class="top-row">
+      <a class="back-link" href="/team">&#8592; Back to Portal</a>
+    </div>
+    <h1>Uniform Catalog</h1>
     <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})</p>
     {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
     {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
 
     {{ if .UniformItems }}
-      <div class="cards">
+      <div class="items">
         {{ range .UniformItems }}
-          <article class="card">
-            <a class="photo-link" href="/uniform-order/{{ $.Token }}/item/{{ .ID }}">
-              {{ if .Images }}
-                <img class="photo" src="data:{{ (index .Images 0).ImageMime }};base64,{{ (index .Images 0).ImageData }}" alt="{{ .Name }}">
-              {{ else }}
-                <img class="photo" src="data:{{ .ImageMime }};base64,{{ .ImageData }}" alt="{{ .Name }}">
-              {{ end }}
-            </a>
-            <div class="meta">
-              <p class="name">{{ .Name }}</p>
-              <p class="price">${{ printf "%.2f" .Price }}</p>
-              <a class="open" href="/uniform-order/{{ $.Token }}/item/{{ .ID }}">Select Item</a>
+          <article class="item-card">
+            {{ if .Images }}
+              <img class="item-media" src="data:{{ (index .Images 0).ImageMime }};base64,{{ (index .Images 0).ImageData }}" alt="{{ .Name }}">
+            {{ else }}
+              <img class="item-media" src="data:{{ .ImageMime }};base64,{{ .ImageData }}" alt="{{ .Name }}">
+            {{ end }}
+            <div class="item-info">
+              <p class="item-name">{{ .Name }}</p>
+              <p class="item-price">${{ printf "%.2f" .Price }}</p>
             </div>
+            <a class="btn" href="/uniform-order/{{ $.Token }}/item/{{ .ID }}">Order Item</a>
           </article>
         {{ end }}
       </div>
@@ -230,47 +183,18 @@
       <p class="empty">No uniform items are currently available for purchase.</p>
     {{ end }}
   </section>
-    <script>
+  <script>
     (function () {
-      const storageKey = "cfasuite-theme";
-      const root = document.documentElement;
-      const toggle = document.getElementById("theme-toggle");
-      const navToggle = document.getElementById("nav-toggle");
-      const navLinks = document.getElementById("nav-links");
-
-      function currentTheme() {
-        return root.classList.contains("dark") ? "dark" : "light";
-      }
-
-      function updateLabel() {
-        if (!toggle) return;
-        const next = currentTheme() === "dark" ? "light" : "dark";
-        toggle.textContent = next === "dark" ? "Dark" : "Light";
-        toggle.setAttribute("aria-label", "Switch to " + next + " mode");
-        toggle.title = "Switch to " + next + " mode";
-      }
-
-      updateLabel();
-
+      var storageKey = "cfasuite-theme";
+      var root = document.documentElement;
+      var toggle = document.getElementById("theme-toggle");
       if (toggle) {
         toggle.addEventListener("click", function () {
-          const next = currentTheme() === "dark" ? "light" : "dark";
-          root.classList.toggle("dark", next === "dark");
-          window.localStorage.setItem(storageKey, next);
-          updateLabel();
-        });
-      }
-
-      if (navToggle && navLinks) {
-        navToggle.addEventListener("click", function () {
-          const expanded = navToggle.getAttribute("aria-expanded") === "true";
-          navToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
-          navLinks.classList.toggle("hidden", expanded);
+          var isDark = root.classList.toggle("dark");
+          window.localStorage.setItem(storageKey, isDark ? "dark" : "light");
         });
       }
     })();
   </script>
-
-
 </body>
 </html>

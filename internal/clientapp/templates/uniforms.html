@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/app.css">
+  <script defer src="/assets/upload-drop.js"></script>
   <script>
     (function () {
       var stored = localStorage.getItem("cfasuite-theme");
@@ -76,7 +77,9 @@
     .link-row input { flex: 1; min-width: 200px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8125rem; }
 
     .hub { display: grid; gap: 0.75rem; grid-template-columns: 1fr; margin-bottom: 1rem; }
-    @media (min-width: 640px) { .hub { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 640px) { .hub { grid-template-columns: repeat(4, 1fr); } }
+    .order-grid { display: grid; gap: 0.75rem; grid-template-columns: 1fr; }
+    @media (min-width: 640px) { .order-grid { grid-template-columns: 1fr 1fr; } }
 
     .item-cards { display: grid; gap: 0.75rem; grid-template-columns: 1fr; }
     @media (min-width: 640px) { .item-cards { grid-template-columns: repeat(2, 1fr); } }
@@ -163,14 +166,14 @@
 
   <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
     <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
-      <a href="/admin" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
+      <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
       <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
-        <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
         <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
         <a href="/admin/locations/{{ .Location.Number }}/uniforms" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Uniforms</a>
         <a href="/admin/locations/{{ .Location.Number }}/uniform-orders/archived" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Archived Orders</a>
       </nav>
       <div class="flex items-center gap-2 shrink-0">
+        <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
         <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
           <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -182,7 +185,6 @@
       </div>
     </div>
     <div id="nav-mobile" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 bg-white dark:bg-zinc-950 flex-col gap-1">
-      <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
       <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
       <a href="/admin/locations/{{ .Location.Number }}/uniforms" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Uniforms</a>
       <a href="/admin/locations/{{ .Location.Number }}/uniform-orders/archived" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Archived Orders</a>
@@ -207,6 +209,10 @@
             <strong>Existing Items</strong>
             <span>Browse configured items and open a dedicated item page.</span>
           </button>
+          <button class="hub-btn" type="button" data-target="order-uniform">
+            <strong>Order Uniform</strong>
+            <span>Place an admin test order and share the team member ordering link.</span>
+          </button>
           <button class="hub-btn" type="button" data-target="submitted-requests">
             <strong>Submitted Requests</strong>
             <span>Review submitted orders, mark items purchased, and track chargebacks.</span>
@@ -229,8 +235,9 @@
               <input id="item-price-input" type="text" name="price" placeholder="19.99" required>
             </div>
             <div>
-              <label for="item-sizes-input">Sizes (optional, comma-separated)</label>
-              <input id="item-sizes-input" type="text" name="sizes" placeholder="XS,S,M,L,XL">
+              <label for="item-size-fields-input">Size Fields (optional)</label>
+              <textarea id="item-size-fields-input" name="size_fields" rows="4" placeholder="Size: XS,S,M,L,XL&#10;Waist: 28,30,32,34&#10;Height: 30,32,34"></textarea>
+              <p class="text-muted" style="margin-top:0.25rem;">One field per line using <strong>Label: option1, option2</strong>.</p>
             </div>
             <div>
               <label for="photo_file">Image (png, jpeg, webp)</label>
@@ -281,18 +288,89 @@
           {{ end }}
         </div>
 
+        <div class="section" data-panel="order-uniform">
+          <h2 style="margin-bottom:1rem;">Order Uniform</h2>
+          <form method="post" action="/admin/locations/{{ .Location.Number }}/uniform-orders/create">
+            <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+            <input type="hidden" name="order_type" value="">
+            <div class="order-grid">
+              <div>
+                <label for="admin-order-employee">Employee</label>
+                <select id="admin-order-employee" name="time_punch_name" required>
+                  <option value="">Select employee</option>
+                  {{ range .Employees }}
+                    <option value="{{ .TimePunchName }}">{{ .LastName }}, {{ .FirstName }} ({{ .TimePunchName }})</option>
+                  {{ end }}
+                </select>
+              </div>
+              <div>
+                <label for="admin-order-item">Item</label>
+                <select id="admin-order-item" name="item_id" required>
+                  <option value="">Select uniform item</option>
+                  {{ range .UniformItems }}
+                    <option value="{{ .ID }}">{{ .Name }}</option>
+                  {{ end }}
+                </select>
+              </div>
+            </div>
+            <div id="admin-uniform-standard-fields">
+              <div id="admin-order-size-fields" class="order-grid"></div>
+              <div class="order-grid">
+                <div>
+                  <label for="admin-order-quantity">Quantity</label>
+                  <input id="admin-order-quantity" type="number" name="quantity" min="1" value="1" required>
+                </div>
+              </div>
+              <div>
+                <label for="admin-order-note">Note (optional)</label>
+                <textarea id="admin-order-note" name="note" rows="3" placeholder="Optional note for this order line"></textarea>
+              </div>
+            </div>
+            <div id="admin-uniform-shoe-fields" style="display:none;">
+              <div class="text-muted" style="margin-bottom:.5rem;">
+                Use these links, then copy the <strong>Style # (5 digits)</strong> and list price from Shoes For Crews.
+                Enter the shoe price <strong>before</strong> tax/shipping. We automatically add <strong>10% tax + $10 shipping per pair</strong>.
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.65rem;">
+                <a href="https://www.shoesforcrews.com/catalog/men-view-all" target="_blank" rel="noopener noreferrer">Men's Non-Slip Shoes</a>
+                <a href="https://www.shoesforcrews.com/catalog/women-view-all" target="_blank" rel="noopener noreferrer">Women's Non-Slip Shoes</a>
+              </div>
+              <div class="order-grid">
+                <div>
+                  <label for="admin-shoe-item-number">Shoe Style # (5 digits)</label>
+                  <input id="admin-shoe-item-number" type="text" inputmode="numeric" pattern="[0-9]{5}" maxlength="5" name="shoe_item_number" placeholder="e.g. 12345">
+                </div>
+                <div>
+                  <label for="admin-shoe-price">Shoe Price (before tax/shipping)</label>
+                  <input id="admin-shoe-price" type="text" name="shoe_price" placeholder="e.g. 40.00">
+                </div>
+              </div>
+              <p id="admin-shoe-pricing-hint" class="text-muted" style="margin:.2rem 0 .65rem;">Final charge per pair = entered price + 10% tax + $10 shipping.</p>
+              <div class="order-grid">
+                <div>
+                  <label for="admin-shoe-url">Shoe URL (optional)</label>
+                  <input id="admin-shoe-url" type="url" name="shoe_url" placeholder="https://www.shoesforcrews.com/...">
+                </div>
+                <div>
+                  <label for="admin-shoe-quantity">Quantity</label>
+                  <input id="admin-shoe-quantity" type="number" name="quantity" min="1" value="1">
+                </div>
+              </div>
+              <div>
+                <label for="admin-shoe-note">Note (optional)</label>
+                <textarea id="admin-shoe-note" name="note" rows="3" placeholder="Optional note for this shoe request"></textarea>
+              </div>
+            </div>
+            <div>
+              <button class="btn btn-primary" type="submit">Submit Uniform Order</button>
+            </div>
+          </form>
+        </div>
+
         <div class="section" data-panel="submitted-requests">
           <div class="section-top">
             <h2>Submitted Requests</h2>
             <a class="section-link" href="/admin/locations/{{ .Location.Number }}/uniform-orders/archived">View Archived Orders</a>
-          </div>
-          <div class="link-box">
-            <label>Secret Team Member Form</label>
-            <div class="link-row" style="margin-bottom:0.75rem;">
-              <input id="uniform-link" type="text" readonly value="{{ .UniformLink }}">
-              <button class="btn btn-secondary btn-sm" id="copy-link" type="button">Copy Link</button>
-              <button class="btn btn-secondary btn-sm" id="open-link" type="button">Open Form</button>
-            </div>
           </div>
           <div class="table-wrap">
             <table>
@@ -300,6 +378,7 @@
                 <tr>
                   <th>Submitted At (UTC)</th>
                   <th>Employee</th>
+                  <th>Status</th>
                   <th>Item</th>
                   <th>Purchased</th>
                   <th>Charged Back ($)</th>
@@ -316,10 +395,13 @@
                         <tr>
                           <td>{{ $order.CreatedAt }}</td>
                           <td>{{ $order.TimePunchName }}</td>
+                          <td>{{ $order.Status }}</td>
                           <td class="item-cell">
                             <div class="item-title">
                               {{ .ItemName }}{{ if .SizeOption }} ({{ .SizeOption }}){{ end }} x{{ .Quantity }}
                             </div>
+                            {{ if .ItemNumber }}<div class="item-note">Item #: {{ .ItemNumber }}</div>{{ end }}
+                            {{ if .ExternalURL }}<div class="item-note"><a href="{{ .ExternalURL }}" target="_blank" rel="noopener noreferrer">Open shoe listing</a></div>{{ end }}
                             {{ if .Note }}<div class="item-note">Note: {{ .Note }}</div>{{ end }}
                           </td>
                           <td class="purchase-cell">
@@ -338,6 +420,7 @@
                       <tr>
                         <td>{{ .CreatedAt }}</td>
                         <td>{{ .TimePunchName }}</td>
+                        <td>{{ .Status }}</td>
                         <td>{{ .ItemsSummary }}</td>
                         <td></td>
                         <td></td>
@@ -346,7 +429,7 @@
                     {{ end }}
                   {{ end }}
                 {{ else }}
-                  <tr><td colspan="6">No uniform orders submitted yet.</td></tr>
+                  <tr><td colspan="7">No uniform orders submitted yet.</td></tr>
                 {{ end }}
               </tbody>
             </table>
@@ -357,9 +440,20 @@
   </div>
 
   <script>
-    const copyBtn = document.getElementById("copy-link");
-    const openBtn = document.getElementById("open-link");
-    const linkInput = document.getElementById("uniform-link");
+    const adminOrderItem = document.getElementById("admin-order-item");
+    const adminOrderSizeFields = document.getElementById("admin-order-size-fields");
+    const adminOrderForm = document.querySelector('form[action$="/uniform-orders/create"]');
+    const adminOrderTypeInput = adminOrderForm ? adminOrderForm.querySelector('input[name="order_type"]') : null;
+    const adminStandardFields = document.getElementById("admin-uniform-standard-fields");
+    const adminShoeFields = document.getElementById("admin-uniform-shoe-fields");
+    const adminStandardQty = document.getElementById("admin-order-quantity");
+    const adminStandardNote = document.getElementById("admin-order-note");
+    const adminShoeItemNumber = document.getElementById("admin-shoe-item-number");
+    const adminShoePrice = document.getElementById("admin-shoe-price");
+    const adminShoePricingHint = document.getElementById("admin-shoe-pricing-hint");
+    const adminShoeURL = document.getElementById("admin-shoe-url");
+    const adminShoeQty = document.getElementById("admin-shoe-quantity");
+    const adminShoeNote = document.getElementById("admin-shoe-note");
     const photoFile = document.getElementById("photo_file");
     const preview = document.getElementById("photo-preview");
     const cropTools = document.getElementById("crop-tools");
@@ -404,21 +498,113 @@
       showPanel("existing-items");
     }
 
-    copyBtn.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(linkInput.value);
-        copyBtn.textContent = "Copied";
-        window.setTimeout(() => { copyBtn.textContent = "Copy Link"; }, 1200);
-      } catch (_) {
-        linkInput.select();
-        document.execCommand("copy");
+    const uniformSizeFieldsByItem = {
+      {{ range .UniformItems }}
+      "{{ .ID }}": [
+        {{ range .SizeFields }}
+        { label: {{ printf "%q" .Label }}, options: [{{ range $idx, $option := .Options }}{{ if $idx }}, {{ end }}{{ printf "%q" $option }}{{ end }}] },
+        {{ end }}
+      ],
+      {{ end }}
+    };
+    const uniformItemSystemKeyByItem = {
+      {{ range .UniformItems }}
+      "{{ .ID }}": {{ printf "%q" .SystemKey }},
+      {{ end }}
+    };
+
+    function syncAdminOrderSizes() {
+      if (!adminOrderItem || !adminOrderSizeFields) return;
+      const selectedItemID = String(adminOrderItem.value || "");
+      const systemKey = String(uniformItemSystemKeyByItem[selectedItemID] || "").toLowerCase().trim();
+      const selectedOption = adminOrderItem.options[adminOrderItem.selectedIndex];
+      const selectedLabel = String(selectedOption ? selectedOption.textContent : "").toLowerCase().trim();
+      const isShoe = systemKey === "shoes" || selectedLabel.includes("shoes for crews");
+      if (adminOrderTypeInput) adminOrderTypeInput.value = isShoe ? "shoes" : "";
+      if (adminStandardFields) adminStandardFields.style.display = isShoe ? "none" : "";
+      if (adminShoeFields) adminShoeFields.style.display = isShoe ? "" : "none";
+      if (adminStandardQty) {
+        adminStandardQty.required = !isShoe;
+        adminStandardQty.disabled = isShoe;
       }
-    });
-    openBtn.addEventListener("click", () => {
-      const target = (linkInput.value || "").trim();
-      if (!target) return;
-      window.location.href = target;
-    });
+      if (adminStandardNote) adminStandardNote.disabled = isShoe;
+      if (adminShoeItemNumber) {
+        adminShoeItemNumber.required = isShoe;
+        adminShoeItemNumber.disabled = !isShoe;
+      }
+      if (adminShoePrice) {
+        adminShoePrice.required = isShoe;
+        adminShoePrice.disabled = !isShoe;
+      }
+      if (adminShoeURL) adminShoeURL.disabled = !isShoe;
+      if (adminShoeQty) {
+        adminShoeQty.required = isShoe;
+        adminShoeQty.disabled = !isShoe;
+      }
+      if (adminShoeNote) adminShoeNote.disabled = !isShoe;
+      const fields = uniformSizeFieldsByItem[selectedItemID] || [];
+      adminOrderSizeFields.innerHTML = "";
+      if (isShoe) {
+        return;
+      }
+      fields.forEach((field, idx) => {
+        const wrap = document.createElement("div");
+        const label = document.createElement("label");
+        label.setAttribute("for", "admin-size-field-" + idx);
+        label.textContent = field.label;
+        const hiddenLabel = document.createElement("input");
+        hiddenLabel.type = "hidden";
+        hiddenLabel.name = "size_field_label";
+        hiddenLabel.value = field.label;
+        const select = document.createElement("select");
+        select.id = "admin-size-field-" + idx;
+        select.name = "size_field_value";
+        select.required = true;
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "Select " + field.label;
+        select.appendChild(placeholder);
+        (field.options || []).forEach((optionValue) => {
+          const option = document.createElement("option");
+          option.value = optionValue;
+          option.textContent = optionValue;
+          select.appendChild(option);
+        });
+        wrap.appendChild(label);
+        wrap.appendChild(hiddenLabel);
+        wrap.appendChild(select);
+        adminOrderSizeFields.appendChild(wrap);
+      });
+    }
+    if (adminOrderItem && adminOrderSizeFields) {
+      adminOrderItem.addEventListener("change", syncAdminOrderSizes);
+      syncAdminOrderSizes();
+    }
+
+    function parseUSD(value) {
+      const cleaned = String(value || "").replace(/[$,\s]/g, "");
+      if (cleaned === "") return NaN;
+      const parsed = Number.parseFloat(cleaned);
+      return Number.isFinite(parsed) ? parsed : NaN;
+    }
+
+    function syncAdminShoePricingHint() {
+      if (!adminShoePricingHint) return;
+      const base = parseUSD(adminShoePrice ? adminShoePrice.value : "");
+      const qtyRaw = Number.parseInt(adminShoeQty ? adminShoeQty.value : "1", 10);
+      const qty = Number.isFinite(qtyRaw) && qtyRaw > 0 ? qtyRaw : 1;
+      if (!Number.isFinite(base) || base <= 0) {
+        adminShoePricingHint.textContent = "Final charge per pair = entered price + 10% tax + $10 shipping.";
+        return;
+      }
+      const tax = base * 0.10;
+      const unit = base + tax + 10;
+      const lineTotal = unit * qty;
+      adminShoePricingHint.textContent = "Per pair: $" + unit.toFixed(2) + " ($" + base.toFixed(2) + " + $" + tax.toFixed(2) + " tax + $10.00 shipping). Line total: $" + lineTotal.toFixed(2) + ".";
+    }
+    if (adminShoePrice) adminShoePrice.addEventListener("input", syncAdminShoePricingHint);
+    if (adminShoeQty) adminShoeQty.addEventListener("input", syncAdminShoePricingHint);
+    syncAdminShoePricingHint();
 
     document.querySelectorAll("[data-autosave-form]").forEach((control) => {
       const formId = control.getAttribute("data-autosave-form");

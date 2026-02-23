@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/app.css">
+  <script defer src="/assets/upload-drop.js"></script>
   <script>
     (function () {
       var stored = localStorage.getItem("cfasuite-theme");
@@ -60,7 +61,7 @@
     .back:hover { color: var(--fg); text-decoration: none; }
 
     /* Submenu */
-    .submenu { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0; }
+    .submenu { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0 0; }
     .submenu-btn { padding: 0.375rem 0.75rem; font-size: 0.8125rem; font-weight: 500; background-color: transparent; border: 1px solid var(--border); border-radius: 0.375rem; cursor: pointer; font-family: inherit; color: var(--muted-fg); transition: 150ms; }
     .submenu-btn:hover { background-color: var(--muted); color: var(--fg); }
     .submenu-btn.active { background-color: var(--fg); color: var(--bg); border-color: var(--fg); }
@@ -74,8 +75,28 @@
     .label { color: var(--muted-fg); font-weight: 500; }
     .value { font-weight: 600; }
 
-    /* Section dividers */
-    .section-divider { border-top: 1px solid var(--border); margin-top: 1rem; padding-top: 1rem; }
+    /* Employee detail layout */
+    .profile-header { display: grid; gap: 0.75rem; margin-top: 0.5rem; }
+    .profile-kicker { color: var(--muted-fg); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+    .profile-name-row { display: flex; gap: 0.625rem; align-items: center; flex-wrap: wrap; }
+    .status-pill { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.625rem; font-size: 0.75rem; font-weight: 700; }
+    .status-pill.active { color: var(--success); border-color: rgba(22, 163, 74, 0.45); background: rgba(22, 163, 74, 0.1); }
+    .status-pill.archived { color: var(--muted-fg); }
+    .summary-grid { display: grid; gap: 0.625rem; margin-top: 1rem; }
+    @media (min-width: 640px) { .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .summary-card { border: 1px solid var(--border); border-radius: 0.625rem; background: var(--bg); padding: 0.75rem 0.875rem; display: grid; gap: 0.2rem; min-height: 4.25rem; }
+    .summary-label { font-size: 0.75rem; letter-spacing: 0.03em; text-transform: uppercase; color: var(--muted-fg); font-weight: 700; }
+    .summary-value { font-size: 0.95rem; font-weight: 700; color: var(--fg); word-break: break-word; }
+    .section-stack { display: grid; gap: 0.875rem; margin-top: 1rem; }
+    .section-card { border: 1px solid var(--border); border-radius: 0.625rem; background: var(--bg); padding: 0.95rem; display: grid; gap: 0.625rem; }
+    .section-card-title { font-size: 0.875rem; font-weight: 700; margin: 0; }
+    .section-card-sub { color: var(--muted-fg); font-size: 0.8125rem; margin: 0; }
+    .field-grid { display: grid; gap: 0.625rem; }
+    @media (min-width: 640px) { .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .edit-form-grid { display: grid; gap: 0.75rem; }
+    @media (min-width: 640px) { .edit-form-grid.two-col { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (min-width: 640px) { .edit-form-grid.three-col { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .readonly-pill { display: inline-flex; align-items: center; min-height: 2.375rem; padding: 0.5rem 0.75rem; border-radius: 0.375rem; border: 1px solid var(--border); background: var(--muted); color: var(--muted-fg); font-size: 0.875rem; font-weight: 600; }
 
     /* Photo */
     .photo-preview { width: 180px; max-width: 100%; height: auto; max-height: 280px; border-radius: 0.5rem; border: 1px solid var(--border); object-fit: contain; display: block; background: var(--muted); }
@@ -147,14 +168,14 @@
 
   <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
     <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
-      <a href="/admin" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
+      <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
       <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
-        <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
         <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
         <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employees</a>
         <a href="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employee</a>
       </nav>
       <div class="flex items-center gap-2 shrink-0">
+        <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
         <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
           <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -166,7 +187,6 @@
       </div>
     </div>
     <div id="nav-mobile" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 bg-white dark:bg-zinc-950 flex-col gap-1">
-      <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Locations</a>
       <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
       <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employees</a>
       <a href="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employee</a>
@@ -177,81 +197,271 @@
     <div class="mx-auto max-w-[720px]">
       <div class="card">
 
-        <a class="back" href="{{ if .IsArchivedEmployee }}/admin/locations/{{ .Location.Number }}/employees/archived{{ else }}/admin/locations/{{ .Location.Number }}/employees{{ end }}">&#8592; Back to {{ if .IsArchivedEmployee }}Archived Employees{{ else }}Employees{{ end }}</a>
+        <a class="back" href="{{ if .IsArchivedEmployee }}/admin/locations/{{ .Location.Number }}/employees/archived{{ else }}/admin/locations/{{ .Location.Number }}/employees{{ end }}">&#8592; Back to {{ if .IsArchivedEmployee }}Terminated Employees{{ else }}Employees{{ end }}</a>
 
-        <h1>{{ .Employee.FirstName }} {{ .Employee.LastName }}</h1>
-        <p class="sub">Location {{ .Location.Name }} ({{ .Location.Number }}){{ if .IsArchivedEmployee }} &bull; Archived {{ .Employee.ArchivedAt }}{{ end }}</p>
+        <div class="profile-header">
+          <p class="profile-kicker">Employee Profile</p>
+          <div class="profile-name-row">
+            <h1>{{ .Employee.FirstName }} {{ .Employee.LastName }}</h1>
+            <span class="status-pill {{ if .IsArchivedEmployee }}archived{{ else }}active{{ end }}">{{ if .IsArchivedEmployee }}Terminated{{ else }}Active{{ end }}</span>
+          </div>
+          <p class="sub">Location {{ .Location.Name }} ({{ .Location.Number }}){{ if .IsArchivedEmployee }} &bull; Terminated {{ .Employee.ArchivedAt }}{{ end }}</p>
+        </div>
 
         <section class="submenu">
-          <button class="submenu-btn" type="button" data-target="employee-view">View Employee</button>
+          <button class="submenu-btn" type="button" data-target="employee">Employee</button>
           <button class="submenu-btn" type="button" data-target="paperwork-upload">Paperwork Link</button>
           <button class="submenu-btn" type="button" data-target="paperwork-view">View Paperwork</button>
         </section>
 
-        <section class="panel" data-panel="employee-view">
-          <div class="grid">
-            <div class="label">Time Punch Name</div>
-            <div class="value">{{ .Employee.TimePunchName }}</div>
-            <div class="label">Birthday</div>
-            <div class="value">{{ .Employee.Birthday }}</div>
+        {{ if or .SuccessMessage .Error }}
+        <div class="message {{ if .Error }}error{{ else }}ok{{ end }}">{{ if .Error }}{{ .Error }}{{ else }}{{ .SuccessMessage }}{{ end }}</div>
+        {{ end }}
+
+        <section class="panel" data-panel="employee">
+          <div class="summary-grid">
+            <article class="summary-card">
+              <p class="summary-label">Time Punch Name</p>
+              <p class="summary-value">{{ .Employee.TimePunchName }}</p>
+            </article>
+            <article class="summary-card">
+              <p class="summary-label">Birthday</p>
+              <p class="summary-value">{{ .Employee.Birthday }}</p>
+            </article>
+            <article class="summary-card">
+              <p class="summary-label">Pay Type</p>
+              <p class="summary-value">{{ if .Employee.PayType }}{{ .Employee.PayType }}{{ else }}-{{ end }}</p>
+            </article>
+            <article class="summary-card">
+              <p class="summary-label">Pay</p>
+              <p class="summary-value">{{ if gt .Employee.PayAmountCents 0 }}{{ .Employee.PayAmountCents }} cents{{ else }}-{{ end }}</p>
+            </article>
+            <article class="summary-card">
+              <p class="summary-label">Email</p>
+              <p class="summary-value">{{ if .Employee.Email }}{{ .Employee.Email }}{{ else }}-{{ end }}</p>
+            </article>
+            <article class="summary-card">
+              <p class="summary-label">Phone</p>
+              <p class="summary-value">{{ if .Employee.Phone }}{{ .Employee.Phone }}{{ else }}-{{ end }}</p>
+            </article>
           </div>
 
-          {{ if not .IsArchivedEmployee }}
-          <div class="section-divider">
-            <label style="margin-bottom:0.5rem;">Profile Photo</label>
-            <div class="preview-row">
-              <div class="preview-box">
-                <span class="preview-label">Selected Image</span>
-                <div class="crop-stage">
-                  <img id="photo-preview" class="photo-preview" src="{{ if .Employee.HasPhoto }}/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/photo{{ else }}data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23888888' font-family='Manrope' font-size='14'%3ENo Photo%3C%2Ftext%3E%3C%2Fsvg%3E{{ end }}" alt="Profile photo">
-                  <div id="crop-selection" class="crop-selection">
-                    <div id="crop-handle" class="crop-handle"></div>
-                  </div>
-                </div>
-              </div>
-              <div id="crop-result-box" class="preview-box crop-result-box">
-                <span class="preview-label">Cropped Result</span>
-                <canvas id="crop-result" class="photo-preview" width="180" height="180"></canvas>
-              </div>
-            </div>
-            <form id="photo-form" class="controls" method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/photo" enctype="multipart/form-data">
-              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-              <input type="hidden" id="crop_x" name="crop_x" value="0">
-              <input type="hidden" id="crop_y" name="crop_y" value="0">
-              <input type="hidden" id="crop_size" name="crop_size" value="0">
-              <input id="photo_file" type="file" name="photo_file" accept="image/png,image/jpeg,image/webp" required>
-              <div id="crop-tools" class="crop-tools">
-                <p class="hint" style="margin:0;">Drag the crop box. Use the bottom-right handle to resize.</p>
-                <div class="button-row">
-                  <button id="confirm-crop" type="button" class="btn btn-secondary btn-sm">Confirm Crop</button>
-                  <button id="upload-photo-btn" type="submit" class="btn btn-primary btn-sm" disabled>Upload Photo</button>
-                  <button id="cancel-upload" type="button" class="btn btn-secondary btn-sm">Cancel Upload</button>
-                </div>
-              </div>
-            </form>
-            <button id="generate-link" type="button" class="btn btn-secondary btn-sm" style="margin-top:0.625rem;">Generate Secure Upload Link</button>
-            <div id="upload-link-box" class="upload-link-box"></div>
-          </div>
-
-          <div class="section-divider">
-            <label for="department">Department</label>
-            <select id="department">
-              {{ $current := .Employee.Department }}
-              {{ range $.Departments }}
-                <option value="{{ . }}" {{ if eq . $current }}selected{{ end }}>{{ . }}</option>
-              {{ end }}
-            </select>
-            <div id="message" class="message">{{ if .SuccessMessage }}{{ .SuccessMessage }}{{ end }}{{ if .Error }}{{ .Error }}{{ end }}</div>
-          </div>
+          {{ if .IsArchivedEmployee }}
+          <p class="hint" style="margin-top:0.75rem;">Terminated employee profiles are read-only.</p>
           {{ else }}
-          <p class="hint" style="margin-top:0.75rem;">Archived employee profiles are read-only.</p>
+          <p class="hint" style="margin-top:0.75rem;">You can review and edit this employee in this section.</p>
           {{ end }}
         </section>
+
+        {{ if not .IsArchivedEmployee }}
+        <section class="panel" data-panel="employee">
+          <section class="section-card">
+            <h2 class="section-card-title">Edit Employee Details</h2>
+            <p class="section-card-sub">Use this form to update employee details.</p>
+            <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/details/update" style="display:grid; gap:1rem;">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+
+              <div class="edit-form-grid two-col">
+                <div>
+                  <label>Time Punch Name</label>
+                  <div class="readonly-pill">{{ .Employee.TimePunchName }}</div>
+                </div>
+              </div>
+
+              <div class="edit-form-grid two-col">
+                <div>
+                  <label for="edit-first-name">First Name</label>
+                  <input id="edit-first-name" name="first_name" value="{{ .Employee.FirstName }}" required>
+                </div>
+                <div>
+                  <label for="edit-last-name">Last Name</label>
+                  <input id="edit-last-name" name="last_name" value="{{ .Employee.LastName }}" required>
+                </div>
+              </div>
+
+              <div class="edit-form-grid two-col">
+                <div>
+                  <label for="edit-email">Email</label>
+                  <input id="edit-email" name="email" type="email" value="{{ .Employee.Email }}">
+                </div>
+                <div>
+                  <label for="edit-phone">Phone</label>
+                  <input id="edit-phone" name="phone" value="{{ .Employee.Phone }}">
+                </div>
+              </div>
+
+              <div class="edit-form-grid two-col">
+                <div>
+                  <label>Birthday</label>
+                  <div class="edit-form-grid three-col">
+                    <div>
+                      <label for="edit-birthday-month" class="text-muted" style="margin-bottom:0.25rem;">Month</label>
+                      <select id="edit-birthday-month" name="birthday_month" data-selected="{{ .EmployeeBirthMonthInput }}"></select>
+                    </div>
+                    <div>
+                      <label for="edit-birthday-day" class="text-muted" style="margin-bottom:0.25rem;">Day</label>
+                      <select id="edit-birthday-day" name="birthday_day" data-selected="{{ .EmployeeBirthDayInput }}"></select>
+                    </div>
+                    <div>
+                      <label for="edit-birthday-year" class="text-muted" style="margin-bottom:0.25rem;">Year</label>
+                      <select id="edit-birthday-year" name="birthday_year" data-selected="{{ .EmployeeBirthYearInput }}"></select>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <label for="edit-address">Address</label>
+                  <input id="edit-address" name="address" value="{{ .Employee.Address }}">
+                </div>
+              </div>
+
+              <div class="edit-form-grid three-col">
+                <div>
+                  <label for="edit-apt-number">Apt Number</label>
+                  <input id="edit-apt-number" name="apt_number" value="{{ .Employee.AptNumber }}">
+                </div>
+                <div>
+                  <label for="edit-city">City</label>
+                  <input id="edit-city" name="city" value="{{ .Employee.City }}">
+                </div>
+                <div>
+                  <label for="edit-state">State</label>
+                  <input id="edit-state" name="state" value="{{ .Employee.State }}">
+                </div>
+              </div>
+
+              <div class="edit-form-grid two-col">
+                <div>
+                  <label for="edit-zip-code">Zip Code</label>
+                  <input id="edit-zip-code" name="zip_code" value="{{ .Employee.ZipCode }}">
+                </div>
+                <div></div>
+              </div>
+
+              <div class="edit-form-grid two-col">
+                <div>
+                  <label for="edit-pay-type">Pay Type</label>
+                  <select id="edit-pay-type" name="pay_type" required>
+                    <option value="">Select pay type</option>
+                    <option value="hourly" {{ if eq .Employee.PayType "hourly" }}selected{{ end }}>Hourly</option>
+                    <option value="salary" {{ if eq .Employee.PayType "salary" }}selected{{ end }}>Salary</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="edit-pay-amount">Pay Amount</label>
+                  <input id="edit-pay-amount" name="pay_amount" value="{{ .EmployeePayAmountInput }}" inputmode="decimal" placeholder="Enter dollars (e.g. 18.50 or 52000)" required>
+                </div>
+              </div>
+
+              <div class="button-row">
+                <button type="submit" class="btn btn-primary">Save Employee Details</button>
+              </div>
+            </form>
+          </section>
+
+          <div class="section-stack">
+            <section class="section-card">
+              <h2 class="section-card-title">Role Assignment</h2>
+              <p class="section-card-sub">Manage where this team member is assigned.</p>
+              <div class="field-grid">
+                <div>
+                  <label for="department-name">Department</label>
+                  <select id="department-name" {{ if not .LocationDepartments }}disabled{{ end }}>
+                    <option value="">Select department</option>
+                    {{ $currentDepartment := .Employee.Department }}
+                    {{ range .LocationDepartments }}
+                      <option value="{{ .Name }}" {{ if eq .Name $currentDepartment }}selected{{ end }}>{{ .Name }}</option>
+                    {{ end }}
+                  </select>
+                </div>
+                <div>
+                  <label for="job-id">Job</label>
+                  <select id="job-id" {{ if not .LocationJobs }}disabled{{ end }}>
+                    <option value="">Select department first</option>
+                    {{ $currentJobID := .Employee.JobID }}
+                    {{ range .LocationJobs }}
+                      <option
+                        value="{{ .ID }}"
+                        data-department-names="{{ if .DepartmentNames }}{{ range $idx, $name := .DepartmentNames }}{{ if $idx }},{{ end }}{{ $name }}{{ end }}{{ else if .DepartmentName }}{{ .DepartmentName }}{{ end }}"
+                        {{ if eq .ID $currentJobID }}selected{{ end }}
+                      >{{ .Name }}{{ if .DepartmentName }} ({{ .DepartmentName }}){{ end }}</option>
+                    {{ end }}
+                  </select>
+                </div>
+              </div>
+              <div id="message" class="message">{{ if .SuccessMessage }}{{ .SuccessMessage }}{{ end }}{{ if .Error }}{{ .Error }}{{ end }}</div>
+            </section>
+
+            <section class="section-card">
+              <h2 class="section-card-title">Access</h2>
+              <p class="section-card-sub">Set or replace the team member clock-in PIN.</p>
+              <label for="clock-in-pin">Clock In PIN</label>
+              <input id="clock-in-pin" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="6" placeholder="{{ if .Employee.HasClockInPIN }}Enter new PIN to replace existing{{ else }}Set a 6-digit PIN{{ end }}">
+              <div class="button-row" style="margin-top:0.625rem;">
+                <button id="save-clock-in-pin" type="button" class="btn btn-secondary btn-sm">Save Clock In PIN</button>
+                <span id="clock-in-pin-status" class="hint">{{ if .Employee.HasClockInPIN }}Clock in PIN is set.{{ else }}No clock in PIN assigned yet.{{ end }}</span>
+              </div>
+              <div class="button-row" style="margin-top:0.625rem;">
+                <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/login-as-team">
+                  <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+                  <button type="submit" class="btn btn-secondary btn-sm" {{ if not .Employee.HasClockInPIN }}disabled{{ end }}>Log In as Team Member</button>
+                </form>
+                <span class="hint">{{ if .Employee.HasClockInPIN }}Start a team portal session as this employee for quick testing.{{ else }}Set a clock-in PIN first to enable team login.{{ end }}</span>
+              </div>
+            </section>
+
+            <section class="section-card">
+              <h2 class="section-card-title">Profile Photo</h2>
+              <p class="section-card-sub">Upload, crop, and save the employee photo.</p>
+              <div class="preview-row">
+                <div class="preview-box">
+                  <span class="preview-label">Selected Image</span>
+                  <div class="crop-stage">
+                    <img id="photo-preview" class="photo-preview" src="{{ if .Employee.HasPhoto }}/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/photo{{ else }}data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23888888' font-family='Manrope' font-size='14'%3ENo Photo%3C%2Ftext%3E%3C%2Fsvg%3E{{ end }}" alt="Profile photo">
+                    <div id="crop-selection" class="crop-selection">
+                      <div id="crop-handle" class="crop-handle"></div>
+                    </div>
+                  </div>
+                </div>
+                <div id="crop-result-box" class="preview-box crop-result-box">
+                  <span class="preview-label">Cropped Result</span>
+                  <canvas id="crop-result" class="photo-preview" width="180" height="180"></canvas>
+                </div>
+              </div>
+              <form id="photo-form" class="controls" method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/photo" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+                <input type="hidden" id="crop_x" name="crop_x" value="0">
+                <input type="hidden" id="crop_y" name="crop_y" value="0">
+                <input type="hidden" id="crop_size" name="crop_size" value="0">
+                <input id="photo_file" type="file" name="photo_file" accept="image/png,image/jpeg,image/webp" required>
+                <div id="crop-tools" class="crop-tools">
+                  <p class="hint" style="margin:0;">Drag the crop box. Use the bottom-right handle to resize.</p>
+                  <div class="button-row">
+                    <button id="confirm-crop" type="button" class="btn btn-secondary btn-sm">Confirm Crop</button>
+                    <button id="upload-photo-btn" type="submit" class="btn btn-primary btn-sm" disabled>Upload Photo</button>
+                    <button id="cancel-upload" type="button" class="btn btn-secondary btn-sm">Cancel Upload</button>
+                  </div>
+                </div>
+              </form>
+              <button id="generate-link" type="button" class="btn btn-secondary btn-sm" style="margin-top:0.625rem;">Generate Secure Upload Link</button>
+              <div id="upload-link-box" class="upload-link-box"></div>
+            </section>
+
+            <section class="section-card">
+              <h2 class="section-card-title">Termination</h2>
+              <p class="section-card-sub">Terminate this employee to move them out of the active list and into Terminated Employees.</p>
+              <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/terminate" onsubmit="return confirm('Terminate this employee? They will be removed from active employees and moved to terminated employees.');">
+                <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+                <button type="submit" class="btn btn-secondary btn-sm" style="border-color: var(--danger); color: var(--danger);">Terminate Employee</button>
+              </form>
+            </section>
+          </div>
+        </section>
+        {{ end }}
 
         <section class="panel" data-panel="paperwork-upload">
           <label style="margin-bottom:0.5rem;">Employee Paperwork Link</label>
           {{ if .IsArchivedEmployee }}
-            <p class="hint">Archived employee paperwork is read-only.</p>
+            <p class="hint">Terminated employee paperwork is read-only.</p>
           {{ else }}
             <div style="margin-bottom:0.625rem;">
               <div class="copy-row">
@@ -351,8 +561,12 @@
     const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
     const locationNumber = "{{ .Location.Number }}";
     const timePunchName = "{{ .Employee.TimePunchName }}";
-    const department = document.getElementById("department");
+    const departmentSelect = document.getElementById("department-name");
+    const jobSelect = document.getElementById("job-id");
     const message = document.getElementById("message");
+    const clockInPinInput = document.getElementById("clock-in-pin");
+    const saveClockInPinBtn = document.getElementById("save-clock-in-pin");
+    const clockInPinStatus = document.getElementById("clock-in-pin-status");
     const preview = document.getElementById("photo-preview");
     const photoFile = document.getElementById("photo_file");
     const cropSelection = document.getElementById("crop-selection");
@@ -383,6 +597,9 @@
     const i9SignatureStatus = document.getElementById("i9-signature-status");
     const i9FormMain = document.getElementById("i9-form-main");
     const w4FormMain = document.getElementById("w4-form-main");
+    const editBirthdayMonth = document.getElementById("edit-birthday-month");
+    const editBirthdayDay = document.getElementById("edit-birthday-day");
+    const editBirthdayYear = document.getElementById("edit-birthday-year");
     const originalPreviewSrc = preview.getAttribute("src") || "";
     let naturalWidth = 0;
     let naturalHeight = 0;
@@ -395,37 +612,184 @@
     let cropLocked = false;
     let i9HasInk = false;
 
-    department.addEventListener("change", async () => {
-      const previous = department.dataset.prev || department.defaultValue || "INIT";
-      const nextDepartment = department.value;
-      department.disabled = true;
+    function populateBirthdaySelect(select, min, max, selectedValue, pad) {
+      if (!select) return;
+      const selectedNumber = Number.parseInt((selectedValue || "").trim(), 10);
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Select";
+      select.appendChild(placeholder);
+      for (let value = min; value <= max; value += 1) {
+        const option = document.createElement("option");
+        option.value = String(value);
+        option.textContent = pad ? String(value).padStart(2, "0") : String(value);
+        if (Number.isFinite(selectedNumber) && value === selectedNumber) {
+          option.selected = true;
+        }
+        select.appendChild(option);
+      }
+    }
+
+    if (editBirthdayMonth && editBirthdayDay && editBirthdayYear) {
+      populateBirthdaySelect(editBirthdayMonth, 1, 12, editBirthdayMonth.dataset.selected || "", true);
+      populateBirthdaySelect(editBirthdayDay, 1, 31, editBirthdayDay.dataset.selected || "", true);
+      const nowYear = new Date().getFullYear();
+      populateBirthdaySelect(editBirthdayYear, 1900, nowYear + 1, editBirthdayYear.dataset.selected || "", false);
+    }
+
+    function normalizeDepartmentName(value) {
+      return (value || "").trim().toUpperCase();
+    }
+
+    function syncEmployeeJobsByDepartment() {
+      if (!departmentSelect || !jobSelect) return;
+      const selectedDepartment = normalizeDepartmentName(departmentSelect.value);
+      const options = Array.from(jobSelect.options || []);
+      const placeholder = options[0] || null;
+      let visibleCount = 0;
+      options.forEach((option, index) => {
+        if (index === 0) return;
+        const names = (option.dataset.departmentNames || "")
+          .split(",")
+          .map((value) => normalizeDepartmentName(value))
+          .filter((value) => value !== "");
+        const match = selectedDepartment !== "" && names.includes(selectedDepartment);
+        option.hidden = !match;
+        if (match) visibleCount += 1;
+      });
+      if (!selectedDepartment) {
+        if (placeholder) placeholder.textContent = "Select department first";
+      } else if (visibleCount === 0) {
+        if (placeholder) placeholder.textContent = "No jobs in this department";
+      } else {
+        if (placeholder) placeholder.textContent = "Select job";
+      }
+      if (!selectedDepartment || (jobSelect.selectedOptions[0] && jobSelect.selectedOptions[0].hidden)) {
+        jobSelect.value = "";
+      }
+      jobSelect.disabled = selectedDepartment === "" || visibleCount === 0;
+    }
+
+    syncEmployeeJobsByDepartment();
+
+    if (departmentSelect) {
+      departmentSelect.addEventListener("change", async () => {
+        const previous = departmentSelect.dataset.prev || departmentSelect.defaultValue || "";
+        const nextDepartment = (departmentSelect.value || "").trim();
+        if (!nextDepartment) {
+          message.textContent = "Please select a department.";
+          message.className = "message error";
+          departmentSelect.value = previous;
+          return;
+        }
+        departmentSelect.disabled = true;
+        message.textContent = "";
+        message.className = "message";
+        try {
+          const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/employees/${encodeURIComponent(timePunchName)}/department`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": csrfToken
+            },
+            body: JSON.stringify({ department: nextDepartment })
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(result.error || "Unable to update department.");
+          }
+          departmentSelect.dataset.prev = nextDepartment;
+          departmentSelect.defaultValue = nextDepartment;
+          syncEmployeeJobsByDepartment();
+          message.textContent = "Department updated.";
+          message.classList.add("ok");
+        } catch (error) {
+          departmentSelect.value = previous;
+          syncEmployeeJobsByDepartment();
+          message.textContent = error.message || "Unable to update department.";
+          message.classList.add("error");
+        } finally {
+          departmentSelect.disabled = false;
+        }
+      });
+    }
+
+    jobSelect.addEventListener("change", async () => {
+      const previous = jobSelect.dataset.prev || jobSelect.defaultValue || "";
+      const nextJobID = (jobSelect.value || "").trim();
+      if (!nextJobID) {
+        message.textContent = "Please select a job.";
+        message.className = "message error";
+        jobSelect.value = previous;
+        return;
+      }
+      jobSelect.disabled = true;
       message.textContent = "";
       message.className = "message";
       try {
-        const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/employees/${encodeURIComponent(timePunchName)}/department`, {
+        const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/employees/${encodeURIComponent(timePunchName)}/job`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
             "X-CSRF-Token": csrfToken
           },
-          body: JSON.stringify({ department: nextDepartment })
+          body: JSON.stringify({ jobId: Number(nextJobID) })
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) {
-          throw new Error(result.error || "Unable to update department.");
+          throw new Error(result.error || "Unable to update job.");
         }
-        department.dataset.prev = nextDepartment;
-        department.defaultValue = nextDepartment;
-        message.textContent = "Department updated.";
+        jobSelect.dataset.prev = nextJobID;
+        jobSelect.defaultValue = nextJobID;
+        message.textContent = "Job updated.";
         message.classList.add("ok");
       } catch (error) {
-        department.value = previous;
-        message.textContent = error.message || "Unable to update department.";
+        jobSelect.value = previous;
+        message.textContent = error.message || "Unable to update job.";
         message.classList.add("error");
       } finally {
-        department.disabled = false;
+        jobSelect.disabled = false;
       }
     });
+
+    if (saveClockInPinBtn && clockInPinInput && clockInPinStatus) {
+      clockInPinInput.addEventListener("input", () => {
+        clockInPinInput.value = (clockInPinInput.value || "").replace(/\D+/g, "").slice(0, 6);
+      });
+      saveClockInPinBtn.addEventListener("click", async () => {
+        const pin = (clockInPinInput.value || "").replace(/\D+/g, "").slice(0, 6);
+        clockInPinInput.value = pin;
+        if (!/^\d{6}$/.test(pin)) {
+          clockInPinStatus.textContent = "PIN must be exactly 6 digits.";
+          return;
+        }
+        saveClockInPinBtn.disabled = true;
+        clockInPinStatus.textContent = "Saving...";
+        try {
+          const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/employees/${encodeURIComponent(timePunchName)}/clock-in-pin`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": csrfToken
+            },
+            body: JSON.stringify({ pin })
+          });
+          const raw = await response.text();
+          let result = {};
+          try { result = raw ? JSON.parse(raw) : {}; } catch (_) {}
+          if (!response.ok) {
+            const fallback = typeof raw === "string" ? raw.trim() : "";
+            throw new Error(result.error || fallback || "Unable to save clock in PIN.");
+          }
+          clockInPinInput.value = "";
+          clockInPinStatus.textContent = "Clock in PIN saved.";
+        } catch (error) {
+          clockInPinStatus.textContent = error.message || "Unable to save clock in PIN.";
+        } finally {
+          saveClockInPinBtn.disabled = false;
+        }
+      });
+    }
 
     function syncCropHiddenFields() {
       const displayWidth = preview.clientWidth || 0;
@@ -781,11 +1145,14 @@
       btn.addEventListener("click", () => showPanel(btn.dataset.target));
     });
 
-    const initialPanel = (window.location.hash || "").replace("#", "");
+    let initialPanel = (window.location.hash || "").replace("#", "");
+    if (initialPanel === "employee-view" || initialPanel === "employee-edit") {
+      initialPanel = "employee";
+    }
     if (initialPanel && panels.some((panel) => panel.dataset.panel === initialPanel)) {
       showPanel(initialPanel);
     } else {
-      showPanel("employee-view");
+      showPanel("employee");
     }
   </script>
   <script>
