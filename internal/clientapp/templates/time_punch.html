@@ -71,6 +71,26 @@
     .notice { margin: 0 0 0.625rem; font-size: 0.875rem; }
     .notice.ok { color: var(--success); font-weight: 500; }
     .notice.error { color: var(--danger); font-weight: 500; }
+    .warning-banner {
+      margin: 0.875rem 0 0.75rem;
+      border: 2px solid var(--danger);
+      border-radius: 0.625rem;
+      background: color-mix(in srgb, var(--danger) 12%, var(--bg));
+      color: var(--danger);
+      padding: 0.875rem 1rem;
+    }
+    .warning-banner strong {
+      display: block;
+      font-size: 1rem;
+      line-height: 1.25;
+    }
+    .warning-banner span {
+      display: block;
+      font-size: 0.875rem;
+      margin-top: 0.25rem;
+      color: var(--fg);
+      font-weight: 600;
+    }
 
     /* Link box */
     .link-box { border: 1px solid var(--border); border-radius: 0.5rem; background: var(--bg); padding: 1rem; margin-bottom: 1.25rem; }
@@ -126,6 +146,12 @@
 
         {{ if .SuccessMessage }}<p class="notice ok">{{ .SuccessMessage }}</p>{{ end }}
         {{ if .Error }}<p class="notice error">{{ .Error }}</p>{{ end }}
+        {{ if .HasOpenTimePunchEntries }}
+          <div class="warning-banner" role="alert">
+            <strong>Warning: Time punch corrections are waiting to be completed.</strong>
+            <span>{{ len .TimePunchEntries }} in process time punch{{ if ne (len .TimePunchEntries) 1 }}es{{ end }} still need to be marked completed.</span>
+          </div>
+        {{ end }}
 
         <div class="submenu" role="tablist" aria-label="Time punch sections">
           <button type="button" class="submenu-btn active" data-panel-target="create-punch" role="tab" aria-selected="true">Create Time Punch</button>

@@ -322,6 +322,7 @@ type employee struct {
 	FirstName             string `json:"firstName"`
 	LastName              string `json:"lastName"`
 	TimePunchName         string `json:"timePunchName"`
+	EmployeeNumber        string `json:"employeeNumber,omitempty"`
 	Department            string `json:"department"`
 	DepartmentID          int64  `json:"departmentId"`
 	JobID                 int64  `json:"jobId"`
@@ -388,6 +389,7 @@ type archivedEmployeeRecord struct {
 	ID             int64
 	LocationNumber string
 	TimePunchName  string
+	EmployeeNumber string
 	FirstName      string
 	LastName       string
 	Department     string
@@ -406,10 +408,11 @@ type archivedEmployeeRecord struct {
 }
 
 type bioEmployeeRow struct {
-	FirstName     string
-	LastName      string
-	TimePunchName string
-	Terminated    bool
+	EmployeeNumber string
+	FirstName      string
+	LastName       string
+	TimePunchName  string
+	Terminated     bool
 }
 
 type birthdateRow struct {
@@ -5461,6 +5464,7 @@ func (s *server) updateLocationCandidateDecision(w http.ResponseWriter, r *http.
 			TimePunchName:  timePunchName,
 			FirstName:      candidateRecord.FirstName,
 			LastName:       candidateRecord.LastName,
+			Phone:          candidateRecord.Phone,
 			Department:     departmentName,
 			DepartmentID:   req.DepartmentID,
 			JobID:          job.ID,
@@ -6354,29 +6358,61 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	employeesByKey := make(map[string]employee, len(existing))
+	employeesByNumber := make(map[string]employee, len(existing))
 	for _, e := range existing {
 		employeesByKey[e.TimePunchName] = e
-	}
-
-	activeByKey := make(map[string]bioEmployeeRow)
-	for _, row := range parsedRows {
-		if row.Terminated {
-			continue
+		if strings.TrimSpace(e.EmployeeNumber) != "" {
+			employeesByNumber[strings.TrimSpace(e.EmployeeNumber)] = e
 		}
-		activeByKey[row.TimePunchName] = row
 	}
 
 	added := 0
 	updated := 0
+	terminated := 0
 	archived := 0
-	for key, incoming := range activeByKey {
-		current, found := employeesByKey[key]
+
+	activeByKey := make(map[string]struct{})
+	terminatedByKey := make(map[string]struct{})
+	for _, incoming := range parsedRows {
+		matchKey := ""
+		if strings.TrimSpace(incoming.EmployeeNumber) != "" {
+			if currentByNumber, found := employeesByNumber[strings.TrimSpace(incoming.EmployeeNumber)]; found {
+				matchKey = currentByNumber.TimePunchName
+			}
+		}
+		if matchKey == "" {
+			if currentByName, found := employeesByKey[incoming.TimePunchName]; found {
+				matchKey = currentByName.TimePunchName
+			}
+		}
+
+		if incoming.Terminated {
+			if matchKey == "" {
+				continue
+			}
+			if _, alreadyTerminated := terminatedByKey[matchKey]; alreadyTerminated {
+				continue
+			}
+			if err := withSQLiteRetry(func() error {
+				return s.store.archiveAndDeleteLocationEmployee(r.Context(), number, matchKey)
+			}); err != nil {
+				writeError(w, http.StatusInternalServerError, "unable to archive terminated employees")
+				return
+			}
+			terminatedByKey[matchKey] = struct{}{}
+			delete(employeesByKey, matchKey)
+			terminated++
+			continue
+		}
+
+		current, found := employeesByKey[matchKey]
 		if !found {
 			newEmployee := employee{
-				FirstName:     incoming.FirstName,
-				LastName:      incoming.LastName,
-				TimePunchName: incoming.TimePunchName,
-				Department:    "INIT",
+				FirstName:      incoming.FirstName,
+				LastName:       incoming.LastName,
+				TimePunchName:  incoming.TimePunchName,
+				EmployeeNumber: strings.TrimSpace(incoming.EmployeeNumber),
+				Department:     "INIT",
 			}
 			if err := withSQLiteRetry(func() error {
 				return s.store.upsertLocationEmployee(r.Context(), number, newEmployee)
@@ -6384,12 +6420,20 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 				writeError(w, http.StatusInternalServerError, "unable to persist employees: "+err.Error())
 				return
 			}
-			employeesByKey[key] = newEmployee
+			employeesByKey[newEmployee.TimePunchName] = newEmployee
+			if strings.TrimSpace(newEmployee.EmployeeNumber) != "" {
+				employeesByNumber[strings.TrimSpace(newEmployee.EmployeeNumber)] = newEmployee
+			}
+			activeByKey[newEmployee.TimePunchName] = struct{}{}
 			added++
 			continue
 		}
 
 		changed := false
+		if strings.TrimSpace(incoming.EmployeeNumber) != "" && strings.TrimSpace(current.EmployeeNumber) != strings.TrimSpace(incoming.EmployeeNumber) {
+			current.EmployeeNumber = strings.TrimSpace(incoming.EmployeeNumber)
+			changed = true
+		}
 		if current.FirstName != incoming.FirstName {
 			current.FirstName = incoming.FirstName
 			changed = true
@@ -6409,13 +6453,20 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 				writeError(w, http.StatusInternalServerError, "unable to persist employees: "+err.Error())
 				return
 			}
-			employeesByKey[key] = current
+			employeesByKey[current.TimePunchName] = current
 			updated++
 		}
+		if strings.TrimSpace(current.EmployeeNumber) != "" {
+			employeesByNumber[strings.TrimSpace(current.EmployeeNumber)] = current
+		}
+		activeByKey[current.TimePunchName] = struct{}{}
 	}
 
 	for _, existingEmployee := range existing {
 		if _, ok := activeByKey[existingEmployee.TimePunchName]; ok {
+			continue
+		}
+		if _, ok := terminatedByKey[existingEmployee.TimePunchName]; ok {
 			continue
 		}
 		if err := withSQLiteRetry(func() error {
@@ -6428,11 +6479,12 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"message":  "employee bio reader imported",
-		"added":    added,
-		"updated":  updated,
-		"archived": archived,
-		"count":    len(activeByKey),
+		"message":    "employee bio reader imported",
+		"added":      added,
+		"updated":    updated,
+		"terminated": terminated,
+		"archived":   archived,
+		"count":      len(activeByKey),
 	})
 }
 
@@ -7248,6 +7300,7 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 		`CREATE TABLE IF NOT EXISTS location_employees (
 			location_number TEXT NOT NULL,
 			time_punch_name TEXT NOT NULL,
+			employee_number TEXT NOT NULL DEFAULT '',
 			first_name TEXT NOT NULL,
 			last_name TEXT NOT NULL,
 			department TEXT NOT NULL DEFAULT 'INIT',
@@ -7272,6 +7325,7 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			location_number TEXT NOT NULL,
 			time_punch_name TEXT NOT NULL,
+			employee_number TEXT NOT NULL DEFAULT '',
 			first_name TEXT NOT NULL,
 			last_name TEXT NOT NULL,
 			department TEXT NOT NULL DEFAULT 'INIT',
@@ -7790,6 +7844,12 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 		return err
 	}
 	if _, err := s.exec(ctx, `
+		ALTER TABLE location_employees
+		ADD COLUMN employee_number TEXT NOT NULL DEFAULT '';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
 		ALTER TABLE location_candidates
 		ADD COLUMN phone TEXT NOT NULL DEFAULT '';
 	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
@@ -7865,6 +7925,12 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 	if _, err := s.exec(ctx, `
 		ALTER TABLE archived_location_employees
 		ADD COLUMN zip_code TEXT NOT NULL DEFAULT '';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE archived_location_employees
+		ADD COLUMN employee_number TEXT NOT NULL DEFAULT '';
 	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
 		return err
 	}
@@ -9955,7 +10021,7 @@ func (s *sqliteStore) countEmployeesForLocation(ctx context.Context, number stri
 
 func (s *sqliteStore) listLocationEmployees(ctx context.Context, number string) ([]employee, error) {
 	rows, err := s.query(ctx, `
-		SELECT e.time_punch_name, e.first_name, e.last_name, e.department, e.job_id, COALESCE(j.name, '') AS job_name,
+		SELECT e.time_punch_name, e.employee_number, e.first_name, e.last_name, e.department, e.job_id, COALESCE(j.name, '') AS job_name,
 			0 AS department_id, e.department AS department_name,
 			e.pay_type, e.pay_amount_cents, e.birthday, e.email, e.phone, e.address, e.apt_number, e.city, e.state, e.zip_code,
 			CASE WHEN LENGTH(COALESCE(profile_image_data, '')) > 0 THEN 1 ELSE 0 END AS has_photo,
@@ -9989,6 +10055,10 @@ func (s *sqliteStore) listLocationEmployees(ctx context.Context, number string) 
 	employees := make([]employee, 0, len(rows))
 	for _, row := range rows {
 		timePunchName, err := valueAsString(row["time_punch_name"])
+		if err != nil {
+			return nil, err
+		}
+		employeeNumber, err := valueAsString(row["employee_number"])
 		if err != nil {
 			return nil, err
 		}
@@ -10072,6 +10142,7 @@ func (s *sqliteStore) listLocationEmployees(ctx context.Context, number string) 
 			FirstName:             firstName,
 			LastName:              lastName,
 			TimePunchName:         timePunchName,
+			EmployeeNumber:        strings.TrimSpace(employeeNumber),
 			Department:            normalizeDepartment(departmentName),
 			DepartmentID:          departmentID,
 			JobID:                 jobID,
@@ -10096,7 +10167,7 @@ func (s *sqliteStore) listLocationEmployees(ctx context.Context, number string) 
 
 func (s *sqliteStore) getLocationEmployee(ctx context.Context, locationNumber, timePunchName string) (*employee, error) {
 	rows, err := s.query(ctx, `
-		SELECT e.time_punch_name, e.first_name, e.last_name, e.department, e.job_id, COALESCE(j.name, '') AS job_name,
+		SELECT e.time_punch_name, e.employee_number, e.first_name, e.last_name, e.department, e.job_id, COALESCE(j.name, '') AS job_name,
 			0 AS department_id, e.department AS department_name,
 			e.pay_type, e.pay_amount_cents, e.birthday, e.email, e.phone, e.address, e.apt_number, e.city, e.state, e.zip_code,
 			CASE WHEN LENGTH(COALESCE(profile_image_data, '')) > 0 THEN 1 ELSE 0 END AS has_photo,
@@ -10121,6 +10192,10 @@ func (s *sqliteStore) getLocationEmployee(ctx context.Context, locationNumber, t
 	}
 	if len(rows) == 0 {
 		return nil, errNotFound
+	}
+	employeeNumber, err := valueAsString(rows[0]["employee_number"])
+	if err != nil {
+		return nil, err
 	}
 	firstName, err := valueAsString(rows[0]["first_name"])
 	if err != nil {
@@ -10202,6 +10277,7 @@ func (s *sqliteStore) getLocationEmployee(ctx context.Context, locationNumber, t
 		FirstName:      firstName,
 		LastName:       lastName,
 		TimePunchName:  tpn,
+		EmployeeNumber: strings.TrimSpace(employeeNumber),
 		Department:     normalizeDepartment(departmentName),
 		DepartmentID:   departmentID,
 		JobID:          jobID,
@@ -10223,7 +10299,7 @@ func (s *sqliteStore) getLocationEmployee(ctx context.Context, locationNumber, t
 
 func (s *sqliteStore) listArchivedLocationEmployees(ctx context.Context, number string) ([]employee, error) {
 	rows, err := s.query(ctx, `
-		SELECT time_punch_name, first_name, last_name, department, job_id, pay_type, pay_amount_cents, birthday, email, phone, address, apt_number, city, state, zip_code,
+		SELECT time_punch_name, employee_number, first_name, last_name, department, job_id, pay_type, pay_amount_cents, birthday, email, phone, address, apt_number, city, state, zip_code,
 			CASE WHEN LENGTH(COALESCE(profile_image_data, '')) > 0 THEN 1 ELSE 0 END AS has_photo,
 			archived_at
 		FROM archived_location_employees
@@ -10236,6 +10312,10 @@ func (s *sqliteStore) listArchivedLocationEmployees(ctx context.Context, number 
 	employees := make([]employee, 0, len(rows))
 	for _, row := range rows {
 		timePunchName, err := valueAsString(row["time_punch_name"])
+		if err != nil {
+			return nil, err
+		}
+		employeeNumber, err := valueAsString(row["employee_number"])
 		if err != nil {
 			return nil, err
 		}
@@ -10307,6 +10387,7 @@ func (s *sqliteStore) listArchivedLocationEmployees(ctx context.Context, number 
 			FirstName:      firstName,
 			LastName:       lastName,
 			TimePunchName:  timePunchName,
+			EmployeeNumber: strings.TrimSpace(employeeNumber),
 			Department:     normalizeDepartment(department),
 			JobID:          jobID,
 			JobName:        "",
@@ -10329,7 +10410,7 @@ func (s *sqliteStore) listArchivedLocationEmployees(ctx context.Context, number 
 
 func (s *sqliteStore) getArchivedLocationEmployee(ctx context.Context, locationNumber, timePunchName string) (*employee, error) {
 	rows, err := s.query(ctx, `
-		SELECT time_punch_name, first_name, last_name, department, job_id, pay_type, pay_amount_cents, birthday, email, phone, address, apt_number, city, state, zip_code,
+		SELECT time_punch_name, employee_number, first_name, last_name, department, job_id, pay_type, pay_amount_cents, birthday, email, phone, address, apt_number, city, state, zip_code,
 			CASE WHEN LENGTH(COALESCE(profile_image_data, '')) > 0 THEN 1 ELSE 0 END AS has_photo,
 			archived_at
 		FROM archived_location_employees
@@ -10345,6 +10426,10 @@ func (s *sqliteStore) getArchivedLocationEmployee(ctx context.Context, locationN
 	}
 	if len(rows) == 0 {
 		return nil, errNotFound
+	}
+	employeeNumber, err := valueAsString(rows[0]["employee_number"])
+	if err != nil {
+		return nil, err
 	}
 	firstName, err := valueAsString(rows[0]["first_name"])
 	if err != nil {
@@ -10418,6 +10503,7 @@ func (s *sqliteStore) getArchivedLocationEmployee(ctx context.Context, locationN
 		FirstName:      firstName,
 		LastName:       lastName,
 		TimePunchName:  tpn,
+		EmployeeNumber: strings.TrimSpace(employeeNumber),
 		Department:     normalizeDepartment(dept),
 		JobID:          jobID,
 		JobName:        "",
@@ -10438,7 +10524,7 @@ func (s *sqliteStore) getArchivedLocationEmployee(ctx context.Context, locationN
 
 func (s *sqliteStore) getArchivedEmployeeRecord(ctx context.Context, locationNumber, timePunchName string) (*archivedEmployeeRecord, error) {
 	rows, err := s.query(ctx, `
-		SELECT id, location_number, time_punch_name, first_name, last_name, department, job_id, birthday, email, phone, address, apt_number, city, state, zip_code, profile_image_data, profile_image_mime, archived_at
+		SELECT id, location_number, time_punch_name, employee_number, first_name, last_name, department, job_id, birthday, email, phone, address, apt_number, city, state, zip_code, profile_image_data, profile_image_mime, archived_at
 		FROM archived_location_employees
 		WHERE location_number = @location_number
 			AND time_punch_name = @time_punch_name
@@ -10454,6 +10540,10 @@ func (s *sqliteStore) getArchivedEmployeeRecord(ctx context.Context, locationNum
 		return nil, errNotFound
 	}
 	id, err := valueAsInt64(rows[0]["id"])
+	if err != nil {
+		return nil, err
+	}
+	employeeNumber, err := valueAsString(rows[0]["employee_number"])
 	if err != nil {
 		return nil, err
 	}
@@ -10521,6 +10611,7 @@ func (s *sqliteStore) getArchivedEmployeeRecord(ctx context.Context, locationNum
 		ID:             id,
 		LocationNumber: locationNumber,
 		TimePunchName:  timePunchName,
+		EmployeeNumber: strings.TrimSpace(employeeNumber),
 		FirstName:      firstName,
 		LastName:       lastName,
 		Department:     normalizeDepartment(department),
@@ -10541,7 +10632,7 @@ func (s *sqliteStore) getArchivedEmployeeRecord(ctx context.Context, locationNum
 
 func (s *sqliteStore) archiveAndDeleteLocationEmployee(ctx context.Context, locationNumber, timePunchName string) error {
 	rows, err := s.query(ctx, `
-		SELECT first_name, last_name, department, job_id, pay_type, pay_amount_cents, birthday, email, phone, address, apt_number, city, state, zip_code, profile_image_data, profile_image_mime
+		SELECT employee_number, first_name, last_name, department, job_id, pay_type, pay_amount_cents, birthday, email, phone, address, apt_number, city, state, zip_code, profile_image_data, profile_image_mime
 		FROM location_employees
 		WHERE location_number = @location_number AND time_punch_name = @time_punch_name
 		LIMIT 1;
@@ -10554,6 +10645,10 @@ func (s *sqliteStore) archiveAndDeleteLocationEmployee(ctx context.Context, loca
 	}
 	if len(rows) == 0 {
 		return errNotFound
+	}
+	employeeNumber, err := valueAsString(rows[0]["employee_number"])
+	if err != nil {
+		return err
 	}
 	firstName, err := valueAsString(rows[0]["first_name"])
 	if err != nil {
@@ -10624,10 +10719,11 @@ func (s *sqliteStore) archiveAndDeleteLocationEmployee(ctx context.Context, loca
 	stmt := `
 		BEGIN;
 		INSERT INTO archived_location_employees (
-			location_number, time_punch_name, first_name, last_name, department, job_id, pay_type, pay_amount_cents, birthday, email, phone, address, apt_number, city, state, zip_code, profile_image_data, profile_image_mime, archived_at
+			location_number, time_punch_name, employee_number, first_name, last_name, department, job_id, pay_type, pay_amount_cents, birthday, email, phone, address, apt_number, city, state, zip_code, profile_image_data, profile_image_mime, archived_at
 		) VALUES (
 			` + sqliteStringLiteral(locationNumber) + `,
 			` + sqliteStringLiteral(timePunchName) + `,
+			` + sqliteStringLiteral(strings.TrimSpace(employeeNumber)) + `,
 			` + sqliteStringLiteral(firstName) + `,
 			` + sqliteStringLiteral(lastName) + `,
 			` + sqliteStringLiteral(normalizeDepartment(department)) + `,
@@ -10648,6 +10744,7 @@ func (s *sqliteStore) archiveAndDeleteLocationEmployee(ctx context.Context, loca
 		)
 		ON CONFLICT(location_number, time_punch_name)
 		DO UPDATE SET
+			employee_number = excluded.employee_number,
 			first_name = excluded.first_name,
 			last_name = excluded.last_name,
 			department = excluded.department,
@@ -11390,11 +11487,12 @@ func (s *sqliteStore) getArchivedEmployeeW4File(ctx context.Context, archivedEmp
 func (s *sqliteStore) upsertLocationEmployee(ctx context.Context, locationNumber string, emp employee) error {
 	_, err := s.exec(ctx, `
 		INSERT INTO location_employees (
-			location_number, time_punch_name, first_name, last_name, department, job_id, pay_type, pay_amount_cents, birthday, email, phone, address, apt_number, city, state, zip_code
+			location_number, time_punch_name, employee_number, first_name, last_name, department, job_id, pay_type, pay_amount_cents, birthday, email, phone, address, apt_number, city, state, zip_code
 		)
-		VALUES (@location_number, @time_punch_name, @first_name, @last_name, @department, @job_id, @pay_type, @pay_amount_cents, @birthday, @email, @phone, @address, @apt_number, @city, @state, @zip_code)
+		VALUES (@location_number, @time_punch_name, @employee_number, @first_name, @last_name, @department, @job_id, @pay_type, @pay_amount_cents, @birthday, @email, @phone, @address, @apt_number, @city, @state, @zip_code)
 		ON CONFLICT(location_number, time_punch_name)
 		DO UPDATE SET
+			employee_number = excluded.employee_number,
 			first_name = excluded.first_name,
 			last_name = excluded.last_name,
 			department = excluded.department,
@@ -11412,6 +11510,7 @@ func (s *sqliteStore) upsertLocationEmployee(ctx context.Context, locationNumber
 	`, map[string]string{
 		"location_number":  locationNumber,
 		"time_punch_name":  emp.TimePunchName,
+		"employee_number":  strings.TrimSpace(emp.EmployeeNumber),
 		"first_name":       emp.FirstName,
 		"last_name":        emp.LastName,
 		"department":       normalizeDepartment(emp.Department),
@@ -15452,6 +15551,10 @@ func parseBioEmployeesFromSpreadsheet(reader io.Reader, filename string) ([]bioE
 	if !ok {
 		return nil, fmt.Errorf("missing required column: employee name")
 	}
+	employeeNumberIdx := -1
+	if idx, ok := headerIndex["employee number"]; ok {
+		employeeNumberIdx = idx
+	}
 	statusIdx := -1
 	if idx, ok := headerIndex["employee status"]; ok {
 		statusIdx = idx
@@ -15472,10 +15575,11 @@ func parseBioEmployeesFromSpreadsheet(reader io.Reader, filename string) ([]bioE
 		termDate := strings.TrimSpace(cellValue(row, termDateIdx))
 		terminated := termDate != "" || strings.Contains(status, "terminat") || strings.Contains(status, "inactive")
 		employees = append(employees, bioEmployeeRow{
-			FirstName:     first,
-			LastName:      last,
-			TimePunchName: timePunch,
-			Terminated:    terminated,
+			EmployeeNumber: strings.TrimSpace(cellValue(row, employeeNumberIdx)),
+			FirstName:      first,
+			LastName:       last,
+			TimePunchName:  timePunch,
+			Terminated:     terminated,
 		})
 	}
 

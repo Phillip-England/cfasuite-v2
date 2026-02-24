@@ -22,14 +22,14 @@
       --bg: #ffffff; --fg: #09090b; --card: #ffffff;
       --muted: #f4f4f5; --muted-fg: #71717a; --border: #e4e4e7;
       --primary: #004f71; --primary-fg: #ffffff;
-      --danger: #dc2626; --success: #16a34a;
+      --danger: #dc2626; --success: #16a34a; --warning: #d97706;
       --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
     }
     html.dark {
       --bg: #09090b; --fg: #fafafa; --card: #09090b;
       --muted: #27272a; --muted-fg: #a1a1aa; --border: #3f3f46;
       --primary: #004f71; --primary-fg: #ffffff;
-      --danger: #f87171; --success: #4ade80;
+      --danger: #f87171; --success: #4ade80; --warning: #fbbf24;
       --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
     }
     *, *::before, *::after { box-sizing: border-box; }
@@ -55,6 +55,21 @@
     .alert { border-radius: 0.5rem; padding: 0.625rem 0.75rem; font-size: 0.875rem; border: 1px solid var(--border); }
     .alert-success { border-color: color-mix(in srgb, var(--success) 35%, var(--border)); color: var(--success); }
     .alert-error { border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); color: var(--danger); }
+    .warning-banner {
+      margin: 0.25rem 0 0;
+      border: 2px solid var(--danger);
+      border-radius: 0.625rem;
+      background: color-mix(in srgb, var(--danger) 12%, var(--bg));
+      color: var(--danger);
+      padding: 0.875rem 1rem;
+    }
+    .warning-banner strong { display: block; font-size: 1rem; line-height: 1.25; }
+    .warning-banner span { display: block; font-size: 0.875rem; margin-top: 0.25rem; color: var(--fg); font-weight: 600; }
+    .warning-banner.warn {
+      border-color: var(--warning);
+      background: color-mix(in srgb, var(--warning) 14%, var(--bg));
+      color: var(--warning);
+    }
     .back { font-size: 0.8125rem; font-weight: 500; color: var(--muted-fg); display: inline-flex; align-items: center; margin-bottom: 1rem; text-decoration: none; }
     .value-item { border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.75rem; }
     .table-wrap { overflow-x: auto; }
@@ -177,6 +192,17 @@
         </div>
         {{ if .SuccessMessage }}<div class="alert alert-success">{{ .SuccessMessage }}</div>{{ end }}
         {{ if .Error }}<div class="alert alert-error">{{ .Error }}</div>{{ end }}
+        {{ if .HasStaleCandidateInterviews }}
+          <div class="warning-banner" role="alert">
+            <strong>Warning: Stale interviews exist.</strong>
+            <span>{{ .StaleCandidateInterviewCount }} scheduled interview{{ if ne .StaleCandidateInterviewCount 1 }}s{{ end }} are over 4 hours old and still incomplete. Complete or delete them.</span>
+          </div>
+        {{ else if .HasActiveCandidates }}
+          <div class="warning-banner warn" role="status">
+            <strong>Reminder: You have active candidates pending decisions.</strong>
+            <span>{{ .ActiveCandidateCount }} candidate{{ if ne .ActiveCandidateCount 1 }}s{{ end }} are still in progress.</span>
+          </div>
+        {{ end }}
 
         <div class="hub">
           <button class="hub-btn" type="button" data-target="new-candidate">

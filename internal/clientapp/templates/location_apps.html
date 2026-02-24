@@ -21,14 +21,14 @@
       --bg: #ffffff; --fg: #09090b; --card: #ffffff;
       --muted: #f4f4f5; --muted-fg: #71717a; --border: #e4e4e7;
       --primary: #004f71; --primary-fg: #ffffff;
-      --danger: #dc2626; --success: #16a34a;
+      --danger: #dc2626; --success: #16a34a; --warning: #d97706;
       --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
     }
     html.dark {
       --bg: #09090b; --fg: #fafafa; --card: #09090b;
       --muted: #27272a; --muted-fg: #a1a1aa; --border: #3f3f46;
       --primary: #004f71; --primary-fg: #ffffff;
-      --danger: #f87171; --success: #4ade80;
+      --danger: #f87171; --success: #4ade80; --warning: #fbbf24;
       --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
     }
     *, *::before, *::after { box-sizing: border-box; }
@@ -49,12 +49,25 @@
     .back:hover { color: var(--fg); text-decoration: none; }
 
     .app-card {
+      position: relative;
       display: block; padding: 1rem;
       background-color: var(--bg); border: 1px solid var(--border);
       border-radius: 0.5rem; color: var(--fg); text-decoration: none;
       transition: background-color 150ms, border-color 150ms;
     }
     .app-card:hover { background-color: var(--muted); text-decoration: none; }
+    .app-status-dot {
+      position: absolute;
+      top: 0.625rem;
+      right: 0.625rem;
+      width: 0.625rem;
+      height: 0.625rem;
+      border-radius: 999px;
+      box-shadow: 0 0 0 2px var(--bg);
+    }
+    .app-status-dot.good { background: var(--success); }
+    .app-status-dot.warn { background: var(--warning); }
+    .app-status-dot.bad { background: var(--danger); }
     .app-title { font-size: 0.9375rem; font-weight: 600; margin-bottom: 0.25rem; font-family: "Space Grotesk", sans-serif; }
     .app-desc { margin: 0; font-size: 0.8125rem; color: var(--muted-fg); line-height: 1.4; }
     .apps { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; }
@@ -107,38 +120,47 @@
 
         <section class="apps">
           <a class="app-card" href="/admin/locations/{{ .Location.Number }}/employees">
+            <span class="app-status-dot {{ if .NewHireEmployees }}bad{{ else }}good{{ end }}" aria-hidden="true"></span>
             <div class="app-title">Employees</div>
             <p class="app-desc">Create team members, manage job assignments, update photos, and manage employee details.</p>
           </a>
           <a class="app-card" href="/admin/locations/{{ .Location.Number }}/departments">
+            <span class="app-status-dot {{ if .DepartmentsMissingJobs }}bad{{ else }}good{{ end }}" aria-hidden="true"></span>
             <div class="app-title">Departments</div>
             <p class="app-desc">Create departments and jobs. Jobs are assigned to team members and determine department placement.</p>
           </a>
           <a class="app-card" href="/admin/locations/{{ .Location.Number }}/time-punch">
+            <span class="app-status-dot {{ if .HasOpenTimePunchEntries }}bad{{ else }}good{{ end }}" aria-hidden="true"></span>
             <div class="app-title">Time Punch</div>
             <p class="app-desc">Review submitted time punch corrections and share the store link for team member submissions.</p>
           </a>
           <a class="app-card" href="/admin/locations/{{ .Location.Number }}/business-days">
+            <span class="app-status-dot {{ if .HasIncompleteBusinessDays }}bad{{ else }}good{{ end }}" aria-hidden="true"></span>
             <div class="app-title">Business Days</div>
             <p class="app-desc">Create daily store records and track key metrics like sales and labor hours.</p>
           </a>
           <a class="app-card" href="/admin/locations/{{ .Location.Number }}/time-off">
+            <span class="app-status-dot {{ if .HasOverdueTimeOffRequests }}bad{{ else if .HasUpcomingTimeOffRequests }}warn{{ else }}good{{ end }}" aria-hidden="true"></span>
             <div class="app-title">Vacation Requests</div>
             <p class="app-desc">Share a request form with team members and archive requests as they are addressed.</p>
           </a>
           <a class="app-card" href="/admin/locations/{{ .Location.Number }}/uniforms">
+            <span class="app-status-dot {{ if .HasPendingUniformOrders }}bad{{ else if .HasOutstandingUniformCharges }}warn{{ else }}good{{ end }}" aria-hidden="true"></span>
             <div class="app-title">Uniforms</div>
             <p class="app-desc">Set purchasable uniform items and share a secret form for team member uniform orders.</p>
           </a>
           <a class="app-card" href="/admin/locations/{{ .Location.Number }}/candidates">
+            <span class="app-status-dot {{ if .HasStaleCandidateInterviews }}bad{{ else if .HasActiveCandidates }}warn{{ else }}good{{ end }}" aria-hidden="true"></span>
             <div class="app-title">Candidates</div>
             <p class="app-desc">Create candidates, run interviews, and make hire/pass decisions.</p>
           </a>
           <a class="app-card" href="/admin/locations/{{ .Location.Number }}/interview-process">
+            <span class="app-status-dot {{ if or (not .HasInterviewTypes) (.InterviewTypesMissingQuestions) }}bad{{ else }}good{{ end }}" aria-hidden="true"></span>
             <div class="app-title">Interview Process</div>
             <p class="app-desc">Manage interview values, questions, and interview types used by your location.</p>
           </a>
           <a class="app-card" href="/admin/locations/{{ .Location.Number }}/settings">
+            <span class="app-status-dot good" aria-hidden="true"></span>
             <div class="app-title">Location Settings</div>
             <p class="app-desc">Manage location-level paperwork defaults, including owner/operator.</p>
           </a>

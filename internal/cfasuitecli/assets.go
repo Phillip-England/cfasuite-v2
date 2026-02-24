@@ -2,7 +2,6 @@ package cfasuitecli
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -20,10 +19,16 @@ const (
 func runAssets(args []string) error {
 	fs := flag.NewFlagSet("assets", flag.ContinueOnError)
 	if err := fs.Parse(args); err != nil {
+		if err == flag.ErrHelp {
+			return usageError()
+		}
 		return err
 	}
+	if fs.NArg() == 1 && isHelpArg(fs.Arg(0)) {
+		return usageError()
+	}
 	if fs.NArg() != 1 || fs.Arg(0) != "build" {
-		return errors.New("usage: cfasuite assets build")
+		return fmt.Errorf("%w: usage: cfasuite assets build", ErrUsage)
 	}
 	return ensureClientAssets(context.Background())
 }

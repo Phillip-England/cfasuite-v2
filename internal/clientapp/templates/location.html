@@ -84,6 +84,11 @@
       min-height: 2.375rem;
     }
     .section button[type="submit"]:hover { opacity: 0.9; }
+    .btn-inline {
+      justify-self: start;
+      width: auto;
+      min-width: 0;
+    }
 
     .employees-head { display: flex; align-items: center; justify-content: space-between; gap: 0.625rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
 
@@ -99,6 +104,26 @@
     .notice { margin: 0 0 0.75rem; font-size: 0.875rem; font-weight: 600; }
     .notice.ok { color: var(--success); }
     .notice.error { color: var(--danger); }
+    .warning-banner {
+      margin: 0.875rem 0 0.5rem;
+      border: 2px solid var(--danger);
+      border-radius: 0.625rem;
+      background: color-mix(in srgb, var(--danger) 12%, var(--bg));
+      color: var(--danger);
+      padding: 0.875rem 1rem;
+    }
+    .warning-banner strong {
+      display: block;
+      font-size: 1rem;
+      line-height: 1.25;
+    }
+    .warning-banner span {
+      display: block;
+      font-size: 0.875rem;
+      margin-top: 0.25rem;
+      color: var(--fg);
+      font-weight: 600;
+    }
 
     .meta-grid { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 1rem; font-size: 0.875rem; margin-bottom: 1.25rem; }
     .meta-label { color: var(--muted-fg); font-weight: 600; }
@@ -219,11 +244,21 @@
 
         {{ if .SuccessMessage }}<p class="notice ok">{{ .SuccessMessage }}</p>{{ end }}
         {{ if .Error }}<p class="notice error">{{ .Error }}</p>{{ end }}
+        {{ if .NewHireEmployees }}
+          <div class="warning-banner" role="alert">
+            <strong>Warning: New hire paperwork is pending.</strong>
+            <span>All new hires need their paperwork completed immediately.</span>
+          </div>
+        {{ end }}
 
         <section class="hub">
           <button class="hub-btn" type="button" data-target="add-employees">
             <strong>Add Employees</strong>
             <span>Create a new employee with first and last name only.</span>
+          </button>
+          <button class="hub-btn" type="button" data-target="bulk-import">
+            <strong>Employee Bio Upload</strong>
+            <span>Drag and drop the Employee Bio report to sync employee numbers and status.</span>
           </button>
           <button class="hub-btn" type="button" data-target="view-employees">
             <strong>View Employees</strong>
@@ -268,6 +303,17 @@
             {{ if or (not .LocationJobs) (not .LocationDepartments) }}
               <p class="text-muted" style="margin:0;">Create at least one department and one job before adding employees.</p>
             {{ end }}
+          </form>
+        </section>
+
+        <section class="section" data-panel="bulk-import" id="bulk-import">
+          <h2>Employee Bio Upload</h2>
+          <p class="text-muted" style="margin-bottom:0.75rem;">Upload the Employee Bio report to assign Employee Numbers and automatically terminate/archive employees marked terminated.</p>
+          <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/import" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+            <label for="bio-file">Employee Bio File (.xlsx, .xls, .csv)</label>
+            <input id="bio-file" type="file" name="bio_file" accept=".xlsx,.xls,.csv" required>
+            <button type="submit" class="btn-inline">Upload Employee Bio</button>
           </form>
         </section>
 

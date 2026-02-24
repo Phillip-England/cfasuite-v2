@@ -110,56 +110,73 @@ type pageData struct {
 	NextPage   int
 	TotalCount int
 
-	Location                  *locationView
-	Employee                  *employeeView
-	BusinessDay               *businessDayView
-	Employees                 []employeeView
-	ActiveEmployees           []employeeView
-	NewHireEmployees          []employeeView
-	BusinessDays              []businessDayView
-	ArchivedEmployees         []employeeView
-	TimePunchEntries          []timePunchEntryView
-	ArchivedTimePunchEntries  []timePunchEntryView
-	TimeOffRequests           []timeOffRequestView
-	ArchivedTimeOffRequests   []timeOffRequestView
-	UniformItems              []uniformItemView
-	UniformOrders             []uniformOrderView
-	ArchivedOrders            []uniformOrderView
-	UniformItem               *uniformItemView
-	Candidates                []candidateView
-	ArchivedCandidates        []candidateView
-	EmployeeScorecards        []candidateView
-	CandidateValues           []candidateValueView
-	InterviewNames            []candidateInterviewNameView
-	InterviewQuestions        []candidateInterviewQuestionView
-	InterviewQuestionStarters []interviewQuestionStarterView
-	InterviewLinks            []candidateInterviewLinkView
-	InterviewCalendar         []interviewCalendarEntryView
-	Candidate                 *candidateView
-	Interview                 *candidateInterviewView
-	InterviewLink             *candidateInterviewLinkView
-	EmployeeNames             []string
-	Departments               []string
-	LocationDepartments       []departmentView
-	LocationJobs              []jobView
-	SuccessMessage            string
-	UploadLink                string
-	EmployeePaperworkLink     string
-	LocationSettings          *locationSettingsView
-	TimePunchLink             string
-	TimeOffLink               string
-	UniformLink               string
-	TeamLoginLink             string
-	EmployeeI9                *employeeI9View
-	EmployeeI9Documents       []employeeI9DocumentView
-	EmployeeW4                *employeeI9View
-	PaperworkSections         []paperworkSectionView
-	IsArchivedEmployee        bool
-	CurrentUser               *authSessionView
-	EmployeePayAmountInput    string
-	EmployeeBirthMonthInput   string
-	EmployeeBirthDayInput     string
-	EmployeeBirthYearInput    string
+	Location                           *locationView
+	Employee                           *employeeView
+	BusinessDay                        *businessDayView
+	Employees                          []employeeView
+	ActiveEmployees                    []employeeView
+	NewHireEmployees                   []employeeView
+	BusinessDays                       []businessDayView
+	ArchivedEmployees                  []employeeView
+	TimePunchEntries                   []timePunchEntryView
+	ArchivedTimePunchEntries           []timePunchEntryView
+	TimeOffRequests                    []timeOffRequestView
+	ArchivedTimeOffRequests            []timeOffRequestView
+	UniformItems                       []uniformItemView
+	UniformOrders                      []uniformOrderView
+	ArchivedOrders                     []uniformOrderView
+	UniformItem                        *uniformItemView
+	Candidates                         []candidateView
+	ArchivedCandidates                 []candidateView
+	EmployeeScorecards                 []candidateView
+	CandidateValues                    []candidateValueView
+	InterviewNames                     []candidateInterviewNameView
+	InterviewQuestions                 []candidateInterviewQuestionView
+	InterviewQuestionStarters          []interviewQuestionStarterView
+	InterviewLinks                     []candidateInterviewLinkView
+	InterviewCalendar                  []interviewCalendarEntryView
+	Candidate                          *candidateView
+	Interview                          *candidateInterviewView
+	InterviewLink                      *candidateInterviewLinkView
+	EmployeeNames                      []string
+	Departments                        []string
+	LocationDepartments                []departmentView
+	LocationJobs                       []jobView
+	DepartmentsMissingJobs             []string
+	HasOpenTimePunchEntries            bool
+	HasIncompleteBusinessDays          bool
+	HasOverdueTimeOffRequests          bool
+	OverdueTimeOffRequestCount         int
+	HasUpcomingTimeOffRequests         bool
+	UpcomingTimeOffRequestCount        int
+	HasPendingUniformOrders            bool
+	PendingUniformOrderCount           int
+	HasOutstandingUniformCharges       bool
+	OutstandingUniformChargeOrderCount int
+	HasStaleCandidateInterviews        bool
+	StaleCandidateInterviewCount       int
+	HasActiveCandidates                bool
+	ActiveCandidateCount               int
+	HasInterviewTypes                  bool
+	InterviewTypesMissingQuestions     []string
+	SuccessMessage                     string
+	UploadLink                         string
+	EmployeePaperworkLink              string
+	LocationSettings                   *locationSettingsView
+	TimePunchLink                      string
+	TimeOffLink                        string
+	UniformLink                        string
+	TeamLoginLink                      string
+	EmployeeI9                         *employeeI9View
+	EmployeeI9Documents                []employeeI9DocumentView
+	EmployeeW4                         *employeeI9View
+	PaperworkSections                  []paperworkSectionView
+	IsArchivedEmployee                 bool
+	CurrentUser                        *authSessionView
+	EmployeePayAmountInput             string
+	EmployeeBirthMonthInput            string
+	EmployeeBirthDayInput              string
+	EmployeeBirthYearInput             string
 }
 
 type locationView struct {
@@ -174,6 +191,7 @@ type employeeView struct {
 	FirstName             string `json:"firstName"`
 	LastName              string `json:"lastName"`
 	TimePunchName         string `json:"timePunchName"`
+	EmployeeNumber        string `json:"employeeNumber"`
 	Department            string `json:"department"`
 	DepartmentID          int64  `json:"departmentId"`
 	JobID                 int64  `json:"jobId"`
@@ -1548,8 +1566,100 @@ func (s *server) locationDetailPage(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	employees, err := s.fetchLocationEmployees(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load location employees", http.StatusBadGateway)
+		return
+	}
+	newHireEmployees := make([]employeeView, 0, len(employees))
+	for _, employee := range employees {
+		if employee.HasCompletedPaperwork {
+			continue
+		}
+		newHireEmployees = append(newHireEmployees, employee)
+	}
+	departments, err := s.fetchLocationDepartments(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load departments", http.StatusBadGateway)
+		return
+	}
+	jobs, err := s.fetchLocationJobs(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load jobs", http.StatusBadGateway)
+		return
+	}
+	openTimePunchEntries, err := s.fetchLocationTimePunchEntries(r, locationNumber, false)
+	if err != nil {
+		http.Error(w, "unable to load time punch entries", http.StatusBadGateway)
+		return
+	}
+	timeOffRequests, err := s.fetchLocationTimeOffRequests(r, locationNumber, false)
+	if err != nil {
+		http.Error(w, "unable to load vacation requests", http.StatusBadGateway)
+		return
+	}
+	activeUniformOrders, err := s.fetchLocationUniformOrders(r, locationNumber, false)
+	if err != nil {
+		http.Error(w, "unable to load uniform orders", http.StatusBadGateway)
+		return
+	}
+	archivedUniformOrders, err := s.fetchLocationUniformOrders(r, locationNumber, true)
+	if err != nil {
+		http.Error(w, "unable to load archived uniform orders", http.StatusBadGateway)
+		return
+	}
+	activeCandidates, err := s.fetchLocationCandidates(r, locationNumber, false, "")
+	if err != nil {
+		http.Error(w, "unable to load candidates", http.StatusBadGateway)
+		return
+	}
+	interviewCalendar, err := s.fetchLocationInterviewCalendar(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load interview calendar", http.StatusBadGateway)
+		return
+	}
+	interviewNames, err := s.fetchLocationCandidateInterviewNames(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load interview types", http.StatusBadGateway)
+		return
+	}
+	interviewQuestions, err := s.fetchLocationCandidateInterviewQuestions(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load interview questions", http.StatusBadGateway)
+		return
+	}
+	businessDays, err := s.fetchLocationBusinessDays(r, locationNumber)
+	if err != nil {
+		http.Error(w, "unable to load business days", http.StatusBadGateway)
+		return
+	}
+	departmentsMissingJobs := departmentsWithoutJobs(departments, jobs)
+	hasOverdueTimeOffRequests, overdueTimeOffRequestCount := overdueTimeOffRequestStatus(timeOffRequests, time.Now())
+	hasUpcomingTimeOffRequests, upcomingTimeOffRequestCount := upcomingTimeOffRequestStatus(timeOffRequests, time.Now(), 7)
+	hasPendingUniformOrders, pendingUniformOrderCount := unpurchasedUniformOrderStatus(activeUniformOrders)
+	hasOutstandingUniformCharges, outstandingUniformChargeOrderCount := outstandingUniformChargesStatus(append(append([]uniformOrderView{}, activeUniformOrders...), archivedUniformOrders...))
+	hasStaleCandidateInterviews, staleCandidateInterviewCount := staleInterviewStatus(interviewCalendar, time.Now())
+	interviewTypesMissingQuestions := interviewTypesWithoutQuestions(interviewNames, interviewQuestions)
 	if err := renderHTMLTemplate(w, s.locationAppsTmpl, pageData{
-		Location: location,
+		Location:                           location,
+		NewHireEmployees:                   newHireEmployees,
+		DepartmentsMissingJobs:             departmentsMissingJobs,
+		HasOpenTimePunchEntries:            len(openTimePunchEntries) > 0,
+		HasIncompleteBusinessDays:          hasIncompleteBusinessDaysSinceLocationCreation(location.CreatedAt, businessDays, time.Now()),
+		HasOverdueTimeOffRequests:          hasOverdueTimeOffRequests,
+		OverdueTimeOffRequestCount:         overdueTimeOffRequestCount,
+		HasUpcomingTimeOffRequests:         hasUpcomingTimeOffRequests,
+		UpcomingTimeOffRequestCount:        upcomingTimeOffRequestCount,
+		HasPendingUniformOrders:            hasPendingUniformOrders,
+		PendingUniformOrderCount:           pendingUniformOrderCount,
+		HasOutstandingUniformCharges:       hasOutstandingUniformCharges,
+		OutstandingUniformChargeOrderCount: outstandingUniformChargeOrderCount,
+		HasStaleCandidateInterviews:        hasStaleCandidateInterviews,
+		StaleCandidateInterviewCount:       staleCandidateInterviewCount,
+		HasActiveCandidates:                len(activeCandidates) > 0,
+		ActiveCandidateCount:               len(activeCandidates),
+		HasInterviewTypes:                  len(interviewNames) > 0,
+		InterviewTypesMissingQuestions:     interviewTypesMissingQuestions,
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("location apps template render failed: %v", err)
@@ -2014,17 +2124,271 @@ func (s *server) locationDepartmentsPage(w http.ResponseWriter, r *http.Request,
 		http.Error(w, "unable to load jobs", http.StatusBadGateway)
 		return
 	}
+	departmentsMissingJobs := departmentsWithoutJobs(departments, jobs)
 	if err := renderHTMLTemplate(w, s.departmentsTmpl, pageData{
-		Location:            location,
-		CSRF:                csrfToken,
-		LocationDepartments: departments,
-		LocationJobs:        jobs,
-		SuccessMessage:      r.URL.Query().Get("message"),
-		Error:               r.URL.Query().Get("error"),
+		Location:               location,
+		CSRF:                   csrfToken,
+		LocationDepartments:    departments,
+		LocationJobs:           jobs,
+		DepartmentsMissingJobs: departmentsMissingJobs,
+		SuccessMessage:         r.URL.Query().Get("message"),
+		Error:                  r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("departments template render failed: %v", err)
 	}
+}
+
+func departmentsWithoutJobs(departments []departmentView, jobs []jobView) []string {
+	if len(departments) == 0 {
+		return nil
+	}
+	departmentHasJob := make(map[int64]bool, len(departments))
+	for _, job := range jobs {
+		if len(job.DepartmentIDs) > 0 {
+			for _, departmentID := range job.DepartmentIDs {
+				if departmentID > 0 {
+					departmentHasJob[departmentID] = true
+				}
+			}
+			continue
+		}
+		if job.DepartmentID > 0 {
+			departmentHasJob[job.DepartmentID] = true
+		}
+	}
+	missing := make([]string, 0, len(departments))
+	for _, department := range departments {
+		if department.ID <= 0 || departmentHasJob[department.ID] {
+			continue
+		}
+		if strings.TrimSpace(department.Name) == "" {
+			continue
+		}
+		missing = append(missing, department.Name)
+	}
+	return missing
+}
+
+func hasIncompleteBusinessDaysSinceLocationCreation(locationCreatedAt string, businessDays []businessDayView, now time.Time) bool {
+	createdAt, ok := parseLocationCreatedAt(locationCreatedAt)
+	if !ok {
+		return false
+	}
+	locationStart := time.Date(createdAt.Year(), createdAt.Month(), createdAt.Day(), 0, 0, 0, 0, now.Location())
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	checkEnd := todayStart.AddDate(0, 0, -1)
+	if locationStart.After(checkEnd) {
+		return false
+	}
+
+	completedByDate := make(map[string]bool, len(businessDays))
+	for _, businessDay := range businessDays {
+		dateKey := strings.TrimSpace(businessDay.BusinessDate)
+		if dateKey == "" {
+			continue
+		}
+		completedByDate[dateKey] = businessDay.TotalSales > 0 && businessDay.LaborHours > 0
+	}
+
+	for date := locationStart; !date.After(checkEnd); date = date.AddDate(0, 0, 1) {
+		if date.Weekday() == time.Sunday {
+			continue
+		}
+		dateKey := date.Format("2006-01-02")
+		completed, exists := completedByDate[dateKey]
+		if !exists || !completed {
+			return true
+		}
+	}
+	return false
+}
+
+func parseLocationCreatedAt(value string) (time.Time, bool) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return time.Time{}, false
+	}
+	layouts := []string{
+		"Jan 2, 2006 3:04 PM",
+		"Jan 2, 2006",
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05",
+		"2006-01-02 15:04",
+		"2006-01-02",
+	}
+	for _, layout := range layouts {
+		parsed, err := time.Parse(layout, trimmed)
+		if err != nil {
+			continue
+		}
+		return parsed.In(time.Local), true
+	}
+	return time.Time{}, false
+}
+
+func overdueTimeOffRequestStatus(requests []timeOffRequestView, now time.Time) (bool, int) {
+	if len(requests) == 0 {
+		return false, 0
+	}
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	overdueCutoff := todayStart.AddDate(0, 0, -7)
+	overdueCount := 0
+	for _, request := range requests {
+		endDateText := strings.TrimSpace(request.EndDate)
+		if endDateText == "" {
+			continue
+		}
+		endDate, err := time.Parse("2006-01-02", endDateText)
+		if err != nil {
+			continue
+		}
+		endDateStart := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 0, 0, 0, 0, now.Location())
+		if !endDateStart.After(overdueCutoff) {
+			overdueCount++
+		}
+	}
+	return overdueCount > 0, overdueCount
+}
+
+func upcomingTimeOffRequestStatus(requests []timeOffRequestView, now time.Time, upcomingDays int) (bool, int) {
+	if len(requests) == 0 || upcomingDays <= 0 {
+		return false, 0
+	}
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	upcomingEnd := todayStart.AddDate(0, 0, upcomingDays)
+	upcomingCount := 0
+	for _, request := range requests {
+		startDate, err := time.Parse("2006-01-02", strings.TrimSpace(request.StartDate))
+		if err != nil {
+			continue
+		}
+		endDate, err := time.Parse("2006-01-02", strings.TrimSpace(request.EndDate))
+		if err != nil {
+			continue
+		}
+		startDate = time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, now.Location())
+		endDate = time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 0, 0, 0, 0, now.Location())
+		if endDate.Before(todayStart) {
+			continue
+		}
+		if startDate.After(upcomingEnd) {
+			continue
+		}
+		upcomingCount++
+	}
+	return upcomingCount > 0, upcomingCount
+}
+
+func outstandingUniformChargesStatus(orders []uniformOrderView) (bool, int) {
+	outstandingOrders := 0
+	for _, order := range orders {
+		hasOutstanding := false
+		for _, line := range order.Lines {
+			if line.Remaining > 0.009 {
+				hasOutstanding = true
+				break
+			}
+		}
+		if hasOutstanding {
+			outstandingOrders++
+		}
+	}
+	return outstandingOrders > 0, outstandingOrders
+}
+
+func unpurchasedUniformOrderStatus(orders []uniformOrderView) (bool, int) {
+	unpurchasedOrders := 0
+	for _, order := range orders {
+		hasUnpurchased := false
+		for _, line := range order.Lines {
+			if !line.Purchased {
+				hasUnpurchased = true
+				break
+			}
+		}
+		if hasUnpurchased {
+			unpurchasedOrders++
+		}
+	}
+	return unpurchasedOrders > 0, unpurchasedOrders
+}
+
+func staleInterviewStatus(entries []interviewCalendarEntryView, now time.Time) (bool, int) {
+	if len(entries) == 0 {
+		return false, 0
+	}
+	cutoff := now.Add(-4 * time.Hour)
+	staleCount := 0
+	for _, entry := range entries {
+		if strings.TrimSpace(entry.UsedAt) != "" {
+			continue
+		}
+		scheduledAt, ok := parseDateTimeValue(entry.ScheduledAt)
+		if !ok {
+			continue
+		}
+		if !scheduledAt.After(cutoff) {
+			staleCount++
+		}
+	}
+	return staleCount > 0, staleCount
+}
+
+func parseDateTimeValue(value string) (time.Time, bool) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return time.Time{}, false
+	}
+	layouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05",
+		"2006-01-02 15:04",
+		"Jan 2, 2006 3:04 PM",
+		"Jan 2, 2006",
+	}
+	for _, layout := range layouts {
+		parsed, err := time.Parse(layout, trimmed)
+		if err != nil {
+			continue
+		}
+		return parsed.In(time.Local), true
+	}
+	return time.Time{}, false
+}
+
+func interviewTypesWithoutQuestions(interviewNames []candidateInterviewNameView, interviewQuestions []candidateInterviewQuestionView) []string {
+	if len(interviewNames) == 0 {
+		return nil
+	}
+	hasQuestions := make(map[int64]bool, len(interviewNames))
+	for _, question := range interviewQuestions {
+		if len(question.InterviewNameIDs) > 0 {
+			for _, nameID := range question.InterviewNameIDs {
+				if nameID > 0 {
+					hasQuestions[nameID] = true
+				}
+			}
+			continue
+		}
+		if question.InterviewNameID > 0 {
+			hasQuestions[question.InterviewNameID] = true
+		}
+	}
+	missing := make([]string, 0, len(interviewNames))
+	for _, interviewName := range interviewNames {
+		if interviewName.ID <= 0 || hasQuestions[interviewName.ID] {
+			continue
+		}
+		name := strings.TrimSpace(interviewName.Name)
+		if name == "" {
+			continue
+		}
+		missing = append(missing, name)
+	}
+	return missing
 }
 
 func (s *server) locationCandidatesPage(w http.ResponseWriter, r *http.Request, locationNumber string) {
@@ -2054,15 +2418,20 @@ func (s *server) locationCandidatesPage(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, "unable to load interview calendar", http.StatusBadGateway)
 		return
 	}
+	hasStaleCandidateInterviews, staleCandidateInterviewCount := staleInterviewStatus(calendarEntries, time.Now())
 	if err := renderHTMLTemplate(w, s.candidatesTmpl, pageData{
-		Location:           location,
-		CSRF:               csrfToken,
-		Candidates:         candidates,
-		ArchivedCandidates: archived,
-		InterviewCalendar:  calendarEntries,
-		Search:             archiveSearch,
-		SuccessMessage:     r.URL.Query().Get("message"),
-		Error:              r.URL.Query().Get("error"),
+		Location:                     location,
+		CSRF:                         csrfToken,
+		Candidates:                   candidates,
+		ArchivedCandidates:           archived,
+		InterviewCalendar:            calendarEntries,
+		HasStaleCandidateInterviews:  hasStaleCandidateInterviews,
+		StaleCandidateInterviewCount: staleCandidateInterviewCount,
+		HasActiveCandidates:          len(candidates) > 0,
+		ActiveCandidateCount:         len(candidates),
+		Search:                       archiveSearch,
+		SuccessMessage:               r.URL.Query().Get("message"),
+		Error:                        r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("candidates template render failed: %v", err)
@@ -2095,15 +2464,18 @@ func (s *server) locationInterviewProcessPage(w http.ResponseWriter, r *http.Req
 		http.Error(w, "unable to load interview questions", http.StatusBadGateway)
 		return
 	}
+	interviewTypesMissingQuestions := interviewTypesWithoutQuestions(interviewNames, interviewQuestions)
 	if err := renderHTMLTemplate(w, s.interviewProcessTmpl, pageData{
-		Location:                  location,
-		CSRF:                      csrfToken,
-		CandidateValues:           values,
-		InterviewNames:            interviewNames,
-		InterviewQuestions:        interviewQuestions,
-		InterviewQuestionStarters: interviewQuestionStarterCatalogViews(),
-		SuccessMessage:            r.URL.Query().Get("message"),
-		Error:                     r.URL.Query().Get("error"),
+		Location:                       location,
+		CSRF:                           csrfToken,
+		CandidateValues:                values,
+		InterviewNames:                 interviewNames,
+		InterviewQuestions:             interviewQuestions,
+		InterviewQuestionStarters:      interviewQuestionStarterCatalogViews(),
+		HasInterviewTypes:              len(interviewNames) > 0,
+		InterviewTypesMissingQuestions: interviewTypesMissingQuestions,
+		SuccessMessage:                 r.URL.Query().Get("message"),
+		Error:                          r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("interview process template render failed: %v", err)
@@ -3747,6 +4119,7 @@ func (s *server) locationTimePunchPage(w http.ResponseWriter, r *http.Request, l
 		Employees:                employees,
 		TimePunchEntries:         entries,
 		ArchivedTimePunchEntries: archivedEntries,
+		HasOpenTimePunchEntries:  len(entries) > 0,
 		SuccessMessage:           r.URL.Query().Get("message"),
 		Error:                    r.URL.Query().Get("error"),
 	}); err != nil {
@@ -3781,14 +4154,20 @@ func (s *server) locationTimeOffPage(w http.ResponseWriter, r *http.Request, loc
 		http.Error(w, "unable to load processed vacation requests", http.StatusBadGateway)
 		return
 	}
+	hasOverdueTimeOffRequests, overdueTimeOffRequestCount := overdueTimeOffRequestStatus(requests, time.Now())
+	hasUpcomingTimeOffRequests, upcomingTimeOffRequestCount := upcomingTimeOffRequestStatus(requests, time.Now(), 7)
 	if err := renderHTMLTemplate(w, s.timeOffTmpl, pageData{
-		Location:                location,
-		CSRF:                    csrfToken,
-		Employees:               employees,
-		TimeOffRequests:         requests,
-		ArchivedTimeOffRequests: archivedRequests,
-		SuccessMessage:          r.URL.Query().Get("message"),
-		Error:                   r.URL.Query().Get("error"),
+		Location:                    location,
+		CSRF:                        csrfToken,
+		Employees:                   employees,
+		TimeOffRequests:             requests,
+		ArchivedTimeOffRequests:     archivedRequests,
+		HasOverdueTimeOffRequests:   hasOverdueTimeOffRequests,
+		OverdueTimeOffRequestCount:  overdueTimeOffRequestCount,
+		HasUpcomingTimeOffRequests:  hasUpcomingTimeOffRequests,
+		UpcomingTimeOffRequestCount: upcomingTimeOffRequestCount,
+		SuccessMessage:              r.URL.Query().Get("message"),
+		Error:                       r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("time off template render failed: %v", err)
@@ -3821,14 +4200,25 @@ func (s *server) locationUniformsPage(w http.ResponseWriter, r *http.Request, lo
 		http.Error(w, "unable to load uniform orders", http.StatusBadGateway)
 		return
 	}
+	archivedOrders, err := s.fetchLocationUniformOrders(r, locationNumber, true)
+	if err != nil {
+		http.Error(w, "unable to load archived uniform orders", http.StatusBadGateway)
+		return
+	}
+	hasPendingUniformOrders, pendingUniformOrderCount := unpurchasedUniformOrderStatus(orders)
+	hasOutstandingUniformCharges, outstandingUniformChargeOrderCount := outstandingUniformChargesStatus(append(append([]uniformOrderView{}, orders...), archivedOrders...))
 	if err := renderHTMLTemplate(w, s.uniformsTmpl, pageData{
-		Location:       location,
-		CSRF:           csrfToken,
-		Employees:      employees,
-		UniformItems:   items,
-		UniformOrders:  orders,
-		SuccessMessage: r.URL.Query().Get("message"),
-		Error:          r.URL.Query().Get("error"),
+		Location:                           location,
+		CSRF:                               csrfToken,
+		Employees:                          employees,
+		UniformItems:                       items,
+		UniformOrders:                      orders,
+		HasPendingUniformOrders:            hasPendingUniformOrders,
+		PendingUniformOrderCount:           pendingUniformOrderCount,
+		HasOutstandingUniformCharges:       hasOutstandingUniformCharges,
+		OutstandingUniformChargeOrderCount: outstandingUniformChargeOrderCount,
+		SuccessMessage:                     r.URL.Query().Get("message"),
+		Error:                              r.URL.Query().Get("error"),
 	}); err != nil {
 		http.Error(w, "template render failed", http.StatusInternalServerError)
 		log.Printf("uniforms template render failed: %v", err)

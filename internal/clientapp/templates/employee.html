@@ -80,6 +80,7 @@
     .profile-kicker { color: var(--muted-fg); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
     .profile-name-row { display: flex; gap: 0.625rem; align-items: center; flex-wrap: wrap; }
     .status-pill { display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 999px; padding: 0.2rem 0.625rem; font-size: 0.75rem; font-weight: 700; }
+    .status-pill.new-hire { color: #b45309; border-color: rgba(217, 119, 6, 0.45); background: rgba(217, 119, 6, 0.12); }
     .status-pill.active { color: var(--success); border-color: rgba(22, 163, 74, 0.45); background: rgba(22, 163, 74, 0.1); }
     .status-pill.archived { color: var(--muted-fg); }
     .summary-grid { display: grid; gap: 0.625rem; margin-top: 1rem; }
@@ -203,7 +204,7 @@
           <p class="profile-kicker">Employee Profile</p>
           <div class="profile-name-row">
             <h1>{{ .Employee.FirstName }} {{ .Employee.LastName }}</h1>
-            <span class="status-pill {{ if .IsArchivedEmployee }}archived{{ else }}active{{ end }}">{{ if .IsArchivedEmployee }}Terminated{{ else }}Active{{ end }}</span>
+            <span class="status-pill {{ if .IsArchivedEmployee }}archived{{ else if .Employee.HasCompletedPaperwork }}active{{ else }}new-hire{{ end }}">{{ if .IsArchivedEmployee }}Terminated{{ else if .Employee.HasCompletedPaperwork }}Active{{ else }}New Hire{{ end }}</span>
           </div>
           <p class="sub">Location {{ .Location.Name }} ({{ .Location.Number }}){{ if .IsArchivedEmployee }} &bull; Terminated {{ .Employee.ArchivedAt }}{{ end }}</p>
         </div>
@@ -223,6 +224,10 @@
             <article class="summary-card">
               <p class="summary-label">Time Punch Name</p>
               <p class="summary-value">{{ .Employee.TimePunchName }}</p>
+            </article>
+            <article class="summary-card">
+              <p class="summary-label">Employee Number</p>
+              <p class="summary-value">{{ if .Employee.EmployeeNumber }}{{ .Employee.EmployeeNumber }}{{ else }}-{{ end }}</p>
             </article>
             <article class="summary-card">
               <p class="summary-label">Birthday</p>

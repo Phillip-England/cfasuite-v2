@@ -27,6 +27,15 @@
     .back{font-size:.8125rem;color:var(--muted-fg);text-decoration:none}
     .notice{font-size:.875rem;margin:0}
     .notice.ok{color:var(--success)} .notice.error{color:var(--danger)}
+    .notice.warn{
+      color:var(--danger);
+      border:1px solid var(--danger);
+      border-radius:8px;
+      padding:.65rem .75rem;
+      background:color-mix(in srgb, var(--danger) 10%, var(--bg));
+      font-weight:700;
+      line-height:1.4;
+    }
     form{display:grid;gap:.75rem}
     label{display:block;font-size:.875rem;font-weight:600;margin-bottom:.35rem}
     input,select{width:100%;min-height:2.35rem;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);padding:.55rem .65rem;font:inherit}
@@ -111,6 +120,12 @@
         <p class="text-muted" style="margin-top:.35rem;">{{ .Location.Name }} ({{ .Location.Number }})</p>
         {{ if .SuccessMessage }}<p class="notice ok" style="margin-top:.75rem;">{{ .SuccessMessage }}</p>{{ end }}
         {{ if .Error }}<p class="notice error" style="margin-top:.75rem;">{{ .Error }}</p>{{ end }}
+        {{ if .DepartmentsMissingJobs }}
+          <p class="notice warn" style="margin-top:.75rem;">
+            The following departments need at least one job:
+            {{ range $idx, $name := .DepartmentsMissingJobs }}{{ if $idx }}, {{ end }}{{ $name }}{{ end }}.
+          </p>
+        {{ end }}
       </div>
 
       <div class="card">

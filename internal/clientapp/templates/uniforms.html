@@ -22,14 +22,14 @@
       --bg: #ffffff; --fg: #09090b; --card: #ffffff;
       --muted: #f4f4f5; --muted-fg: #71717a; --border: #e4e4e7;
       --primary: #004f71; --primary-fg: #ffffff;
-      --danger: #dc2626; --success: #16a34a;
+      --danger: #dc2626; --success: #16a34a; --warning: #d97706;
       --shadow: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
     }
     html.dark {
       --bg: #09090b; --fg: #fafafa; --card: #09090b;
       --muted: #27272a; --muted-fg: #a1a1aa; --border: #3f3f46;
       --primary: #004f71; --primary-fg: #ffffff;
-      --danger: #f87171; --success: #4ade80;
+      --danger: #f87171; --success: #4ade80; --warning: #fbbf24;
       --shadow: 0 1px 3px rgba(0,0,0,.4), 0 1px 2px rgba(0,0,0,.3);
     }
     *, *::before, *::after { box-sizing: border-box; }
@@ -71,6 +71,31 @@
     .notice, .msg { font-size: 0.875rem; font-weight: 500; margin-bottom: 0.75rem; }
     .notice.ok, .msg.ok { color: var(--success); }
     .notice.error, .msg.error { color: var(--danger); }
+    .warning-banner {
+      margin: 0.875rem 0 0.75rem;
+      border: 2px solid var(--danger);
+      border-radius: 0.625rem;
+      background: color-mix(in srgb, var(--danger) 12%, var(--bg));
+      color: var(--danger);
+      padding: 0.875rem 1rem;
+    }
+    .warning-banner strong {
+      display: block;
+      font-size: 1rem;
+      line-height: 1.25;
+    }
+    .warning-banner span {
+      display: block;
+      font-size: 0.875rem;
+      margin-top: 0.25rem;
+      color: var(--fg);
+      font-weight: 600;
+    }
+    .warning-banner.warn {
+      border-color: var(--warning);
+      background: color-mix(in srgb, var(--warning) 14%, var(--bg));
+      color: var(--warning);
+    }
     .link-box { border: 1px solid var(--border); border-radius: 0.5rem; background: var(--bg); padding: 1rem; margin-bottom: 1.25rem; }
     .link-box > label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-fg); margin-bottom: 0.5rem; }
     .link-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
@@ -199,6 +224,17 @@
         <p class="text-muted" style="margin-bottom:0.75rem;">{{ .Location.Name }} ({{ .Location.Number }})</p>
         {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
         {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
+        {{ if .HasPendingUniformOrders }}
+          <div class="warning-banner" role="alert">
+            <strong>Warning: Uniform requests are waiting to be placed.</strong>
+            <span>{{ .PendingUniformOrderCount }} order{{ if ne .PendingUniformOrderCount 1 }}s{{ end }} currently require action in Submitted Requests.</span>
+          </div>
+        {{ else if .HasOutstandingUniformCharges }}
+          <div class="warning-banner warn" role="status">
+            <strong>Reminder: Uniform orders still need chargeback settlement.</strong>
+            <span>{{ .OutstandingUniformChargeOrderCount }} archived order{{ if ne .OutstandingUniformChargeOrderCount 1 }}s{{ end }} still have remaining balance to charge back.</span>
+          </div>
+        {{ end }}
 
         <div class="hub">
           <button class="hub-btn" type="button" data-target="new-item">
