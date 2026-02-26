@@ -1916,8 +1916,7 @@
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
         ctx.lineWidth = 2.4;
-        const signatureInk = getComputedStyle(document.documentElement).getPropertyValue("--sig-ink").trim();
-        ctx.strokeStyle = signatureInk || "#1f232a";
+        ctx.strokeStyle = "#1f232a"; // always dark so signatures are visible on white PDF backgrounds
         ctx.beginPath();
         ctx.moveTo(lastX, lastY);
         ctx.lineTo(p.x, p.y);

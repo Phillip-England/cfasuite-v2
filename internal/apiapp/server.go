@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	stddraw "image/draw"
 	"image/png"
 	"io"
@@ -22,6 +23,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -2632,24 +2634,42 @@ type signaturePlacement struct {
 	TopLeftY         float64
 	BottomRightX     float64
 	BottomRightY     float64
+	// FormFieldName is the PDF form-field annotation that covers the signature
+	// box. When set, stampDrawnSignatureOnPDF removes it before stamping so the
+	// empty annotation cannot paint over the image stamp in the content stream.
+	FormFieldName string
 }
 
 var (
+	// w4EmployeeSignaturePlacement positions the drawn signature on the W-4.
+	// Coordinates are derived from the "signature" widget annotation in docs/w4.pdf:
+	//   Rect = [99.0, 92.0, 440.0, 114.0]  (PDF points, y from bottom of page)
+	// Converted to our top-of-page origin system (pageHeight - pdfY):
+	//   TopLeftY    = 791.97 - 114.0 = 677.97  (top edge of the field)
+	//   BottomRightY = 791.97 - 92.0  = 699.97  (bottom edge of the field)
 	w4EmployeeSignaturePlacement = signaturePlacement{
 		Page:             1,
 		PageHeightPoints: 791.97,
-		TopLeftX:         102.00,
-		TopLeftY:         93.97,
-		BottomRightX:     442.00,
-		BottomRightY:     111.30,
+		TopLeftX:         99.00,
+		TopLeftY:         677.97,
+		BottomRightX:     440.00,
+		BottomRightY:     699.97,
+		FormFieldName:    "signature",
 	}
+	// i9EmployeeSignaturePlacement positions the drawn signature on the I-9.
+	// Coordinates are derived from the "signature_box" widget annotation in docs/i9.pdf:
+	//   Rect = [118.0, 422.0, 366.0, 442.0]  (PDF points, y from bottom of page)
+	// Converted to our top-of-page origin system (pageHeight - pdfY):
+	//   TopLeftY    = 792 - 442 = 350.0
+	//   BottomRightY = 792 - 422 = 370.0
 	i9EmployeeSignaturePlacement = signaturePlacement{
 		Page:             1,
 		PageHeightPoints: 792,
-		TopLeftX:         118.67,
-		TopLeftY:         423.33,
-		BottomRightX:     360.00,
-		BottomRightY:     443.33,
+		TopLeftX:         118.00,
+		TopLeftY:         350.00,
+		BottomRightX:     366.00,
+		BottomRightY:     370.00,
+		FormFieldName:    "signature_box",
 	}
 )
 
@@ -2857,7 +2877,8 @@ func convertDocumentToPDF(data []byte, mime, fileName string) ([]byte, string, e
 	default:
 		return nil, "", errors.New("i-9 supporting documents must be a PDF or image file")
 	}
-	if _, err := exec.LookPath("pdfcpu"); err != nil {
+	pdfcpuPath, err := resolvePdfcpuPath()
+	if err != nil {
 		return nil, "", errors.New("pdfcpu is required on the host to convert i-9 supporting documents")
 	}
 	tmpDir, err := os.MkdirTemp("", "cfasuite-i9-doc-*")
@@ -2890,7 +2911,7 @@ func convertDocumentToPDF(data []byte, mime, fileName string) ([]byte, string, e
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
 	defer cancel()
-	if output, err := exec.CommandContext(ctx, "pdfcpu", "import", outputPath, inputPath).CombinedOutput(); err != nil {
+	if output, err := exec.CommandContext(ctx, pdfcpuPath, "import", outputPath, inputPath).CombinedOutput(); err != nil {
 		return nil, "", fmt.Errorf("unable to convert i-9 supporting document to pdf: %s", strings.TrimSpace(string(output)))
 	}
 	converted, err := os.ReadFile(outputPath)
@@ -2901,6 +2922,21 @@ func convertDocumentToPDF(data []byte, mime, fileName string) ([]byte, string, e
 		return nil, "", errors.New("converted i-9 pdf is empty")
 	}
 	return converted, ensurePDFFileName(fileName), nil
+}
+
+// resolvePdfcpuPath returns the path to the pdfcpu binary. It prefers the
+// locally managed binary in ./bin/ (placed there at startup by the CLI) and
+// falls back to whatever is on the system PATH.
+func resolvePdfcpuPath() (string, error) {
+	localName := "pdfcpu"
+	if runtime.GOOS == "windows" {
+		localName = "pdfcpu.exe"
+	}
+	localPath := filepath.Join("bin", localName)
+	if info, err := os.Stat(localPath); err == nil && info.Mode()&0o111 != 0 {
+		return localPath, nil
+	}
+	return exec.LookPath("pdfcpu")
 }
 
 func ensurePDFFileName(name string) string {
@@ -2924,6 +2960,24 @@ func stampDrawnSignatureOnPDF(pdfData, signatureData []byte, placement signature
 	if len(signatureData) == 0 {
 		return nil, errors.New("drawn signature is required")
 	}
+	pdfcpuPath, err := resolvePdfcpuPath()
+	if err != nil {
+		return nil, errors.New("pdfcpu is required on the host to place drawn signatures")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "cfasuite-signature-stamp-*")
+	if err != nil {
+		return nil, errors.New("unable to prepare signature stamping")
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	inPath := filepath.Join(tmpDir, "in.pdf")
+	outPath := filepath.Join(tmpDir, "out.pdf")
+	sigPath := filepath.Join(tmpDir, "signature.png")
+	if err := os.WriteFile(inPath, pdfData, 0o600); err != nil {
+		return nil, errors.New("unable to stage generated pdf")
+	}
+
 	boxWidth := placement.BottomRightX - placement.TopLeftX
 	boxHeight := placement.BottomRightY - placement.TopLeftY
 	if boxWidth <= 0 || boxHeight <= 0 {
@@ -2933,26 +2987,31 @@ func stampDrawnSignatureOnPDF(pdfData, signatureData []byte, placement signature
 	if err != nil {
 		return nil, err
 	}
-	if _, err := exec.LookPath("pdfcpu"); err != nil {
-		return nil, errors.New("pdfcpu is required on the host to place drawn signatures")
-	}
-
-	tmpDir, err := os.MkdirTemp("", "cfasuite-signature-stamp-*")
-	if err != nil {
-		return nil, errors.New("unable to prepare signature stamping")
-	}
-	defer func() {
-		_ = os.RemoveAll(tmpDir)
-	}()
-
-	inPath := filepath.Join(tmpDir, "in.pdf")
-	outPath := filepath.Join(tmpDir, "out.pdf")
-	sigPath := filepath.Join(tmpDir, "signature.png")
-	if err := os.WriteFile(inPath, pdfData, 0o600); err != nil {
-		return nil, errors.New("unable to stage generated pdf")
-	}
 	if err := os.WriteFile(sigPath, preparedSig, 0o600); err != nil {
 		return nil, errors.New("unable to stage drawn signature")
+	}
+
+	// Remove the empty form-field annotation that sits over the signature box.
+	// PDF form annotations render above the page content stream, so they would
+	// paint over the image stamp (which lives in the content stream) and make
+	// the signature invisible. Removing the field annotation first lets the
+	// stamp show through.
+	if placement.FormFieldName != "" {
+		cleanPath := filepath.Join(tmpDir, "clean.pdf")
+		cleanCtx, cleanCancel := context.WithTimeout(context.Background(), 8*time.Second)
+		defer cleanCancel()
+		if output, cleanErr := exec.CommandContext(cleanCtx, pdfcpuPath,
+			"form", "remove", inPath, cleanPath, placement.FormFieldName,
+		).CombinedOutput(); cleanErr == nil {
+			if cleanData, readErr := os.ReadFile(cleanPath); readErr == nil && len(cleanData) > 0 {
+				if writeErr := os.WriteFile(inPath, cleanData, 0o600); writeErr != nil {
+					log.Printf("warning: unable to stage cleaned pdf for signature stamp: %v", writeErr)
+				}
+			}
+		} else {
+			log.Printf("warning: unable to remove signature field %q before stamping: %s",
+				placement.FormFieldName, strings.TrimSpace(string(output)))
+		}
 	}
 
 	bottomLeftY := placement.PageHeightPoints - placement.BottomRightY
@@ -2966,7 +3025,7 @@ func stampDrawnSignatureOnPDF(pdfData, signatureData []byte, placement signature
 	defer cancel()
 	cmd := exec.CommandContext(
 		ctx,
-		"pdfcpu",
+		pdfcpuPath,
 		"stamp",
 		"add",
 		"-p",
@@ -3000,6 +3059,9 @@ func prepareSignatureImageForBox(signatureData []byte, boxWidth, boxHeight int) 
 	if err != nil {
 		return nil, errors.New("unable to decode drawn signature")
 	}
+	// Normalize ink: force all opaque/semi-opaque pixels to dark ink so signatures drawn
+	// in dark-mode browsers (where the CSS ink variable is near-white) appear on white PDF.
+	src = normalizeSignatureInkColor(src)
 	cropRect := detectSignatureBounds(src)
 	if cropRect.Empty() {
 		cropRect = src.Bounds()
@@ -3095,6 +3157,30 @@ func detectSignatureBounds(img image.Image) image.Rectangle {
 		return image.Rectangle{}
 	}
 	return image.Rect(minX, minY, maxX+1, maxY+1)
+}
+
+// normalizeSignatureInkColor converts all opaque/semi-opaque pixels in a signature
+// image to a standard dark ink color (#1f232a), preserving their alpha values.
+// This ensures signatures drawn with a light ink color (e.g. from dark-mode browsers)
+// are always visible when stamped onto a white PDF background.
+func normalizeSignatureInkColor(src image.Image) image.Image {
+	const (
+		inkR = 31
+		inkG = 35
+		inkB = 42
+	)
+	bounds := src.Bounds()
+	dst := image.NewNRGBA(bounds)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			_, _, _, a := src.At(x, y).RGBA()
+			if a == 0 {
+				continue
+			}
+			dst.SetNRGBA(x, y, color.NRGBA{R: inkR, G: inkG, B: inkB, A: uint8(a >> 8)})
+		}
+	}
+	return dst
 }
 
 func normalizeUSStateCode(value string) string {
@@ -4297,16 +4383,13 @@ func (s *server) createLocationEmployee(w http.ResponseWriter, r *http.Request, 
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	timePunchName := canonicalTimePunchName(firstName, lastName)
-	if strings.TrimSpace(timePunchName) == "" {
+	if strings.TrimSpace(canonicalTimePunchName(firstName, lastName)) == "" {
 		writeError(w, http.StatusBadRequest, "unable to build time punch name")
 		return
 	}
-	if _, err := s.store.getLocationEmployee(r.Context(), number, timePunchName); err == nil {
-		writeError(w, http.StatusConflict, "employee already exists")
-		return
-	} else if !errors.Is(err, errNotFound) {
-		writeError(w, http.StatusInternalServerError, "unable to check existing employees")
+	timePunchName, err := s.uniqueTimePunchNameForLocation(r.Context(), number, firstName, lastName)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to generate employee time punch name")
 		return
 	}
 
@@ -5618,13 +5701,13 @@ func (s *server) updateLocationCandidateDecision(w http.ResponseWriter, r *http.
 			writeError(w, http.StatusBadRequest, "invalid department")
 			return
 		}
-		timePunchName := canonicalTimePunchName(firstName, lastName)
-		if timePunchName == "" {
+		if canonicalTimePunchName(firstName, lastName) == "" {
 			writeError(w, http.StatusBadRequest, "unable to build employee time punch name")
 			return
 		}
-		if _, err := s.store.getLocationEmployee(r.Context(), number, timePunchName); err == nil {
-			writeError(w, http.StatusConflict, "an employee with this time punch name already exists")
+		timePunchName, err := s.uniqueTimePunchNameForLocation(r.Context(), number, firstName, lastName)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "unable to generate employee time punch name")
 			return
 		}
 		employeeRecord := employee{
@@ -6737,10 +6820,15 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 
 		current, found := employeesByKey[matchKey]
 		if !found {
+			uniqueName, nameErr := s.uniqueTimePunchNameForLocation(r.Context(), number, incoming.FirstName, incoming.LastName)
+			if nameErr != nil {
+				writeError(w, http.StatusInternalServerError, "unable to generate employee time punch name")
+				return
+			}
 			newEmployee := employee{
 				FirstName:      incoming.FirstName,
 				LastName:       incoming.LastName,
-				TimePunchName:  incoming.TimePunchName,
+				TimePunchName:  uniqueName,
 				EmployeeNumber: strings.TrimSpace(incoming.EmployeeNumber),
 				Department:     "INIT",
 			}
@@ -16537,6 +16625,32 @@ func canonicalTimePunchName(firstName, lastName string) string {
 	return strings.ToLower(strings.TrimSpace(lastName)) + ", " + strings.ToLower(strings.TrimSpace(firstName))
 }
 
+// uniqueTimePunchNameForLocation returns a time punch name that is guaranteed to
+// be unused within the given location. If the canonical "lastname, firstname" is
+// already taken by an active employee, it appends a numeric suffix so that
+// multiple employees who share a name can coexist:
+//
+//	doe, john
+//	doe, john (2)
+//	doe, john (3)  …
+func (s *server) uniqueTimePunchNameForLocation(ctx context.Context, locationNumber, firstName, lastName string) (string, error) {
+	base := canonicalTimePunchName(firstName, lastName)
+	if _, err := s.store.getLocationEmployee(ctx, locationNumber, base); errors.Is(err, errNotFound) {
+		return base, nil
+	} else if err != nil {
+		return "", err
+	}
+	for n := 2; n <= 999; n++ {
+		candidate := fmt.Sprintf("%s (%d)", base, n)
+		if _, err := s.store.getLocationEmployee(ctx, locationNumber, candidate); errors.Is(err, errNotFound) {
+			return candidate, nil
+		} else if err != nil {
+			return "", err
+		}
+	}
+	return "", errors.New("unable to generate a unique employee time punch name")
+}
+
 func normalizeBirthday(value string) (string, bool) {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -17148,7 +17262,8 @@ func fillPDFTemplate(templatePath string, textValues map[string]string, checkVal
 	if _, err := os.Stat(templatePath); err != nil {
 		return nil, errors.New("paperwork template is missing")
 	}
-	if _, err := exec.LookPath("pdfcpu"); err != nil {
+	pdfcpuPath, err := resolvePdfcpuPath()
+	if err != nil {
 		return nil, errors.New("pdfcpu is required on the host to generate paperwork")
 	}
 
@@ -17168,7 +17283,7 @@ func fillPDFTemplate(templatePath string, textValues map[string]string, checkVal
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if output, err := exec.CommandContext(ctx, "pdfcpu", "form", "export", templatePath, exportPath).CombinedOutput(); err != nil {
+	if output, err := exec.CommandContext(ctx, pdfcpuPath, "form", "export", templatePath, exportPath).CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("unable to export template fields: %s", strings.TrimSpace(string(output)))
 	}
 
@@ -17219,12 +17334,12 @@ func fillPDFTemplate(templatePath string, textValues map[string]string, checkVal
 	if err := os.WriteFile(fillPath, filledRaw, 0o600); err != nil {
 		return nil, errors.New("unable to stage filled form")
 	}
-	if output, err := exec.CommandContext(ctx, "pdfcpu", "form", "fill", templatePath, fillPath, outPath).CombinedOutput(); err != nil {
+	if output, err := exec.CommandContext(ctx, pdfcpuPath, "form", "fill", templatePath, fillPath, outPath).CombinedOutput(); err != nil {
 		return nil, fmt.Errorf("unable to fill template: %s", strings.TrimSpace(string(output)))
 	}
 	// Lock form fields so checkbox/radio appearances render consistently across PDF viewers.
 	finalPath := outPath
-	if output, err := exec.CommandContext(ctx, "pdfcpu", "form", "lock", outPath, lockedOutPath).CombinedOutput(); err == nil {
+	if output, err := exec.CommandContext(ctx, pdfcpuPath, "form", "lock", outPath, lockedOutPath).CombinedOutput(); err == nil {
 		finalPath = lockedOutPath
 	} else {
 		log.Printf("warning: unable to lock filled pdf %s: %s", templatePath, strings.TrimSpace(string(output)))

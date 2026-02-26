@@ -60,7 +60,7 @@ What run targets do:
   run all     Build assets if needed, start API + client together
 
 Notes:
-  - The CLI auto-builds frontend assets and auto-installs Tailwind binary into ./bin when needed.
+  - The CLI auto-builds frontend assets and auto-installs Tailwind and pdfcpu binaries into ./bin when needed.
   - setup writes .env with sane defaults; rerun with --force to overwrite.
   - Open ports 8080 (API) and 3000 (client) on your VPS/firewall as needed.
 `) + "\n"
@@ -162,6 +162,9 @@ func runCommand(args []string) error {
 }
 
 func runAPI(ctx context.Context) error {
+	if _, err := ensurePdfcpuBinary(ctx); err != nil {
+		fmt.Printf("warning: pdfcpu auto-install failed (%v); paperwork generation may be unavailable\n", err)
+	}
 	cfg := apiapp.DefaultConfigFromEnv()
 	if err := ensureParentDirs(cfg.DBPath); err != nil {
 		return err
@@ -190,6 +193,9 @@ func runClientServer(ctx context.Context) error {
 func runAll(ctx context.Context) error {
 	if err := ensureClientAssets(ctx); err != nil {
 		return err
+	}
+	if _, err := ensurePdfcpuBinary(ctx); err != nil {
+		fmt.Printf("warning: pdfcpu auto-install failed (%v); paperwork generation may be unavailable\n", err)
 	}
 
 	errCh := make(chan error, 2)

@@ -4,6 +4,7 @@ go 1.23.0
 
 require (
 	github.com/extrame/xls v0.0.1
+	github.com/ulikunitz/xz v0.5.15
 	github.com/xuri/excelize/v2 v2.9.1
 	golang.org/x/image v0.25.0
 )
