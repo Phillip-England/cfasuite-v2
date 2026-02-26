@@ -250,11 +250,10 @@
             <span>All new hires need their paperwork completed immediately.</span>
           </div>
         {{ end }}
-
         <section class="hub">
           <button class="hub-btn" type="button" data-target="add-employees">
             <strong>Add Employees</strong>
-            <span>Create a new employee with first and last name only.</span>
+            <span>Create a new employee with full profile details required for paperwork.</span>
           </button>
           <button class="hub-btn" type="button" data-target="bulk-import">
             <strong>Employee Bio Upload</strong>
@@ -274,6 +273,22 @@
             <input id="add-first-name" type="text" name="first_name" placeholder="First Name" required>
             <label for="add-last-name">Last Name</label>
             <input id="add-last-name" type="text" name="last_name" placeholder="Last Name" required>
+            <label for="add-birthday">Birthday</label>
+            <input id="add-birthday" type="date" name="birthday" required>
+            <label for="add-email">Email</label>
+            <input id="add-email" type="email" name="email" placeholder="name@example.com" required>
+            <label for="add-phone">Phone</label>
+            <input id="add-phone" type="text" name="phone" placeholder="Phone Number" required>
+            <label for="add-address">Address</label>
+            <input id="add-address" type="text" name="address" placeholder="Street Address" required>
+            <label for="add-apt-number">Apt Number (Optional)</label>
+            <input id="add-apt-number" type="text" name="apt_number" placeholder="Apartment, suite, etc.">
+            <label for="add-city">City</label>
+            <input id="add-city" type="text" name="city" placeholder="City" required>
+            <label for="add-state">State</label>
+            <input id="add-state" type="text" name="state" placeholder="State (e.g. TN)" required>
+            <label for="add-zip-code">Zip Code</label>
+            <input id="add-zip-code" type="text" name="zip_code" placeholder="Zip Code" required>
             <label for="add-department-id">Department</label>
             <select id="add-department-id" name="department_id" required>
               <option value="">Select department</option>

@@ -16,6 +16,7 @@ import (
 	"math"
 	"mime/multipart"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"os"
 	"os/exec"
@@ -45,6 +46,7 @@ const (
 	userRoleAdmin                    = "admin"
 	userRoleRestaurant               = "restaurant"
 	userRoleTeam                     = "team"
+	teamAccessLevelNoAccess          = "no_access"
 	questionResponseTypeText         = "text"
 	questionResponseTypeMultiple     = "multiple_choice"
 	questionResponseTypeNumber       = "number"
@@ -57,6 +59,9 @@ var (
 	errNotFound                   = errors.New("not found")
 	errPINInUse                   = errors.New("pin in use")
 	shoeStylePattern              = regexp.MustCompile(`^\d{5}$`)
+	zipCodePattern                = regexp.MustCompile(`^\d{5}(-\d{4})?$`)
+	cityPattern                   = regexp.MustCompile(`^[A-Z][A-Z .'-]{0,99}$`)
+	w4CurrencyAmountPattern       = regexp.MustCompile(`^\d+(?:\.\d{1,2})?$`)
 	defaultLocationDepartments    = []string{"FOH", "BOH"}
 	defaultLocationJobs           = []string{"Team Member", "Team Leader", "Manager", "Director"}
 	defaultLocationInterviewTypes = []string{
@@ -231,6 +236,16 @@ type updateCandidateDecisionRequest struct {
 	JobID        int64  `json:"jobId"`
 	PayType      string `json:"payType"`
 	PayAmount    string `json:"payAmount"`
+	FirstName    string `json:"firstName"`
+	LastName     string `json:"lastName"`
+	Birthday     string `json:"birthday"`
+	Email        string `json:"email"`
+	Phone        string `json:"phone"`
+	Address      string `json:"address"`
+	AptNumber    string `json:"aptNumber"`
+	City         string `json:"city"`
+	State        string `json:"state"`
+	ZipCode      string `json:"zipCode"`
 }
 
 type createDepartmentRequest struct {
@@ -299,6 +314,7 @@ type userRecord struct {
 	Username       string
 	IsAdmin        bool
 	Role           string
+	AccessLevel    string
 	LocationNumber string
 	TimePunchName  string
 }
@@ -383,6 +399,13 @@ type employeeI9Document struct {
 	FileName       string    `json:"fileName"`
 	FileMime       string    `json:"fileMime"`
 	CreatedAt      time.Time `json:"createdAt"`
+}
+
+type paperworkHistoryEntry struct {
+	ID        int64     `json:"id"`
+	FileName  string    `json:"fileName"`
+	FileMime  string    `json:"fileMime"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 type archivedEmployeeRecord struct {
@@ -2331,6 +2354,10 @@ func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.R
 			savedAny = true
 		}
 		if saveW4 {
+			if err := normalizeW4DollarFields(r.PostForm); err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
 			w4Data, w4Err := generateFilledW4PDF(r.PostForm)
 			if w4Err != nil {
 				writeError(w, http.StatusBadRequest, w4Err.Error())
@@ -2611,18 +2638,18 @@ var (
 	w4EmployeeSignaturePlacement = signaturePlacement{
 		Page:             1,
 		PageHeightPoints: 791.97,
-		TopLeftX:         101,
-		TopLeftY:         680,
-		BottomRightX:     217,
-		BottomRightY:     700,
+		TopLeftX:         102.00,
+		TopLeftY:         93.97,
+		BottomRightX:     442.00,
+		BottomRightY:     111.30,
 	}
 	i9EmployeeSignaturePlacement = signaturePlacement{
 		Page:             1,
 		PageHeightPoints: 792,
-		TopLeftX:         120,
-		TopLeftY:         350,
-		BottomRightX:     236,
-		BottomRightY:     371,
+		TopLeftX:         118.67,
+		TopLeftY:         423.33,
+		BottomRightX:     360.00,
+		BottomRightY:     443.33,
 	}
 )
 
@@ -3202,13 +3229,68 @@ func paperworkEmployeePatchFromForm(existing *employee, form url.Values) (*emplo
 		}
 		updated.Birthday = normalized
 	}
-	updated.Email = strings.TrimSpace(form.Get("email"))
-	updated.Phone = strings.TrimSpace(form.Get("phone"))
-	updated.Address = strings.TrimSpace(form.Get("address"))
-	updated.AptNumber = strings.TrimSpace(form.Get("apt_number"))
-	updated.City = strings.TrimSpace(form.Get("city"))
-	updated.State = strings.TrimSpace(form.Get("state"))
-	updated.ZipCode = strings.TrimSpace(form.Get("zip_code"))
+
+	email := strings.TrimSpace(form.Get("email"))
+	if email == "" {
+		return nil, errors.New("email is required")
+	}
+	if len([]rune(email)) > 200 {
+		return nil, errors.New("email must be 200 characters or fewer")
+	}
+	if parsed, err := mail.ParseAddress(email); err != nil || strings.TrimSpace(parsed.Address) != email {
+		return nil, errors.New("email must be a valid email address")
+	}
+
+	phoneDigits := strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, form.Get("phone"))
+	if len(phoneDigits) != 10 {
+		return nil, errors.New("phone must contain exactly 10 digits")
+	}
+	phone := phoneDigits[0:3] + "-" + phoneDigits[3:6] + "-" + phoneDigits[6:10]
+
+	address := strings.TrimSpace(form.Get("address"))
+	if address == "" {
+		return nil, errors.New("address is required")
+	}
+	if len([]rune(address)) > 180 {
+		return nil, errors.New("address must be 180 characters or fewer")
+	}
+
+	aptNumber := strings.TrimSpace(form.Get("apt_number"))
+	if len([]rune(aptNumber)) > 40 {
+		return nil, errors.New("apt number must be 40 characters or fewer")
+	}
+
+	city := strings.ToUpper(strings.TrimSpace(form.Get("city")))
+	city = strings.Join(strings.Fields(city), " ")
+	if city == "" {
+		return nil, errors.New("city is required")
+	}
+	if !cityPattern.MatchString(city) {
+		return nil, errors.New("city must use letters and standard punctuation only")
+	}
+
+	state := normalizeUSStateCode(form.Get("state"))
+	if state == "" {
+		return nil, errors.New("state must be a valid US state or territory")
+	}
+
+	zipCode := strings.TrimSpace(form.Get("zip_code"))
+	if !zipCodePattern.MatchString(zipCode) {
+		return nil, errors.New("zip code must be 5 digits or ZIP+4 (e.g. 12345 or 12345-6789)")
+	}
+
+	updated.Email = email
+	updated.Phone = phone
+	updated.Address = address
+	updated.AptNumber = aptNumber
+	updated.City = city
+	updated.State = state
+	updated.ZipCode = zipCode
 	return &updated, nil
 }
 
@@ -4141,6 +4223,42 @@ func (s *server) createLocationEmployee(w http.ResponseWriter, r *http.Request, 
 		writeError(w, http.StatusBadRequest, "first name and last name are required")
 		return
 	}
+	birthday, ok := normalizeBirthday(strings.TrimSpace(r.FormValue("birthday")))
+	if !ok {
+		writeError(w, http.StatusBadRequest, "birthday is required and must be a valid date")
+		return
+	}
+	email := strings.TrimSpace(r.FormValue("email"))
+	if email == "" {
+		writeError(w, http.StatusBadRequest, "email is required")
+		return
+	}
+	phone := strings.TrimSpace(r.FormValue("phone"))
+	if phone == "" {
+		writeError(w, http.StatusBadRequest, "phone is required")
+		return
+	}
+	address := strings.TrimSpace(r.FormValue("address"))
+	if address == "" {
+		writeError(w, http.StatusBadRequest, "address is required")
+		return
+	}
+	aptNumber := strings.TrimSpace(r.FormValue("apt_number"))
+	city := strings.TrimSpace(r.FormValue("city"))
+	if city == "" {
+		writeError(w, http.StatusBadRequest, "city is required")
+		return
+	}
+	state := normalizeUSStateCode(r.FormValue("state"))
+	if state == "" {
+		writeError(w, http.StatusBadRequest, "state is required and must be a valid US state")
+		return
+	}
+	zipCode := strings.TrimSpace(r.FormValue("zip_code"))
+	if zipCode == "" {
+		writeError(w, http.StatusBadRequest, "zip code is required")
+		return
+	}
 	departmentID, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("department_id")), 10, 64)
 	if err != nil || departmentID <= 0 {
 		writeError(w, http.StatusBadRequest, "department is required")
@@ -4179,15 +4297,6 @@ func (s *server) createLocationEmployee(w http.ResponseWriter, r *http.Request, 
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	birthday := strings.TrimSpace(r.FormValue("birthday"))
-	if birthday != "" {
-		if normalized, ok := normalizeBirthday(birthday); ok {
-			birthday = normalized
-		} else {
-			writeError(w, http.StatusBadRequest, "birthday must be a valid date")
-			return
-		}
-	}
 	timePunchName := canonicalTimePunchName(firstName, lastName)
 	if strings.TrimSpace(timePunchName) == "" {
 		writeError(w, http.StatusBadRequest, "unable to build time punch name")
@@ -4212,6 +4321,13 @@ func (s *server) createLocationEmployee(w http.ResponseWriter, r *http.Request, 
 		PayType:        payType,
 		PayAmountCents: payAmountCents,
 		Birthday:       birthday,
+		Email:          email,
+		Phone:          phone,
+		Address:        address,
+		AptNumber:      aptNumber,
+		City:           city,
+		State:          state,
+		ZipCode:        zipCode,
 	}
 	if err := withSQLiteRetry(func() error {
 		return s.store.upsertLocationEmployee(r.Context(), number, newEmployee)
@@ -5428,6 +5544,57 @@ func (s *server) updateLocationCandidateDecision(w http.ResponseWriter, r *http.
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
+		firstName := strings.TrimSpace(req.FirstName)
+		if firstName == "" {
+			firstName = strings.TrimSpace(candidateRecord.FirstName)
+		}
+		lastName := strings.TrimSpace(req.LastName)
+		if lastName == "" {
+			lastName = strings.TrimSpace(candidateRecord.LastName)
+		}
+		if firstName == "" || lastName == "" {
+			writeError(w, http.StatusBadRequest, "first name and last name are required when hiring")
+			return
+		}
+		birthday, ok := normalizeBirthday(strings.TrimSpace(req.Birthday))
+		if !ok {
+			writeError(w, http.StatusBadRequest, "birthday is required and must be a valid date when hiring")
+			return
+		}
+		email := strings.TrimSpace(req.Email)
+		if email == "" {
+			writeError(w, http.StatusBadRequest, "email is required when hiring")
+			return
+		}
+		phone := strings.TrimSpace(req.Phone)
+		if phone == "" {
+			phone = strings.TrimSpace(candidateRecord.Phone)
+		}
+		if phone == "" {
+			writeError(w, http.StatusBadRequest, "phone is required when hiring")
+			return
+		}
+		address := strings.TrimSpace(req.Address)
+		if address == "" {
+			writeError(w, http.StatusBadRequest, "address is required when hiring")
+			return
+		}
+		aptNumber := strings.TrimSpace(req.AptNumber)
+		city := strings.TrimSpace(req.City)
+		if city == "" {
+			writeError(w, http.StatusBadRequest, "city is required when hiring")
+			return
+		}
+		state := normalizeUSStateCode(req.State)
+		if state == "" {
+			writeError(w, http.StatusBadRequest, "state is required and must be a valid US state when hiring")
+			return
+		}
+		zipCode := strings.TrimSpace(req.ZipCode)
+		if zipCode == "" {
+			writeError(w, http.StatusBadRequest, "zip code is required when hiring")
+			return
+		}
 		job, err := s.store.getLocationJobByID(r.Context(), number, req.JobID)
 		if err != nil {
 			if errors.Is(err, errNotFound) {
@@ -5451,7 +5618,7 @@ func (s *server) updateLocationCandidateDecision(w http.ResponseWriter, r *http.
 			writeError(w, http.StatusBadRequest, "invalid department")
 			return
 		}
-		timePunchName := canonicalTimePunchName(candidateRecord.FirstName, candidateRecord.LastName)
+		timePunchName := canonicalTimePunchName(firstName, lastName)
 		if timePunchName == "" {
 			writeError(w, http.StatusBadRequest, "unable to build employee time punch name")
 			return
@@ -5462,9 +5629,16 @@ func (s *server) updateLocationCandidateDecision(w http.ResponseWriter, r *http.
 		}
 		employeeRecord := employee{
 			TimePunchName:  timePunchName,
-			FirstName:      candidateRecord.FirstName,
-			LastName:       candidateRecord.LastName,
-			Phone:          candidateRecord.Phone,
+			FirstName:      firstName,
+			LastName:       lastName,
+			Birthday:       birthday,
+			Email:          email,
+			Phone:          phone,
+			Address:        address,
+			AptNumber:      aptNumber,
+			City:           city,
+			State:          state,
+			ZipCode:        zipCode,
 			Department:     departmentName,
 			DepartmentID:   req.DepartmentID,
 			JobID:          job.ID,
@@ -5965,19 +6139,69 @@ func (s *server) getEmployeeI9(w http.ResponseWriter, r *http.Request, number, t
 		writeError(w, http.StatusInternalServerError, "unable to load i9 documents")
 		return
 	}
+	history, err := s.store.listEmployeeI9FormHistory(r.Context(), number, timePunchName)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load i9 history")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"i9":        form,
 		"paperwork": form,
 		"documents": docs,
+		"history":   history,
 	})
 }
 
 func (s *server) uploadEmployeeI9(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
-	writeError(w, http.StatusForbidden, "admin paperwork upload is disabled; use the employee paperwork link")
+	emp, err := s.store.getLocationEmployee(r.Context(), number, timePunchName)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "employee not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load employee")
+		return
+	}
+	missing := manualPaperworkRequiredFields(emp)
+	if len(missing) > 0 {
+		writeError(w, http.StatusBadRequest, "complete required employee fields before manual paperwork upload: "+strings.Join(missing, ", "))
+		return
+	}
+	data, mime, fileName, err := parseUploadedFileWithField(r, "i9_file", 10<<20, []string{"application/pdf"}, "i9 file is required")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := withSQLiteRetry(func() error {
+		return s.store.upsertEmployeeI9Form(r.Context(), number, timePunchName, data, mime, fileName)
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to persist i9 form")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "i9 uploaded"})
 }
 
 func (s *server) getEmployeeI9File(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
-	data, mime, fileName, err := s.store.getEmployeeI9File(r.Context(), number, timePunchName)
+	versionID := int64(0)
+	if raw := strings.TrimSpace(r.URL.Query().Get("version_id")); raw != "" {
+		parsed, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || parsed <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid version_id")
+			return
+		}
+		versionID = parsed
+	}
+	var (
+		data     []byte
+		mime     string
+		fileName string
+		err      error
+	)
+	if versionID > 0 {
+		data, mime, fileName, err = s.store.getEmployeeI9HistoryFile(r.Context(), number, timePunchName, versionID)
+	} else {
+		data, mime, fileName, err = s.store.getEmployeeI9File(r.Context(), number, timePunchName)
+	}
 	if err != nil {
 		if errors.Is(err, errNotFound) {
 			http.NotFound(w, r)
@@ -6015,7 +6239,63 @@ func (s *server) listEmployeeI9Documents(w http.ResponseWriter, r *http.Request,
 }
 
 func (s *server) uploadEmployeeI9Document(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
-	writeError(w, http.StatusForbidden, "admin paperwork upload is disabled; use the employee paperwork link")
+	emp, err := s.store.getLocationEmployee(r.Context(), number, timePunchName)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "employee not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load employee")
+		return
+	}
+	missing := manualPaperworkRequiredFields(emp)
+	if len(missing) > 0 {
+		writeError(w, http.StatusBadRequest, "complete required employee fields before manual paperwork upload: "+strings.Join(missing, ", "))
+		return
+	}
+	data, mime, fileName, err := parseUploadedFileWithField(
+		r,
+		"document_file",
+		10<<20,
+		[]string{"application/pdf", "image/png", "image/jpeg", "image/webp"},
+		"document file is required",
+	)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	listType := strings.ToLower(strings.TrimSpace(r.FormValue("list_type")))
+	switch listType {
+	case "a", "b", "c", "other":
+	default:
+		listType = "other"
+	}
+	documentTitle := strings.TrimSpace(r.FormValue("document_title"))
+	if documentTitle == "" {
+		documentTitle = fileName
+	}
+	issuingAuthority := strings.TrimSpace(r.FormValue("issuing_authority"))
+	documentNumber := strings.TrimSpace(r.FormValue("document_number"))
+	expirationDate := strings.TrimSpace(r.FormValue("expiration_date"))
+	if err := withSQLiteRetry(func() error {
+		return s.store.addEmployeeI9Document(
+			r.Context(),
+			number,
+			timePunchName,
+			listType,
+			documentTitle,
+			issuingAuthority,
+			documentNumber,
+			expirationDate,
+			data,
+			mime,
+			fileName,
+		)
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to persist i9 document")
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]string{"message": "i9 document uploaded"})
 }
 
 func (s *server) getEmployeeI9DocumentFile(w http.ResponseWriter, r *http.Request, number, timePunchName string, docID int64) {
@@ -6145,13 +6425,44 @@ func (s *server) getEmployeeW4(w http.ResponseWriter, r *http.Request, number, t
 		writeError(w, http.StatusInternalServerError, "unable to load w4 form")
 		return
 	}
+	history, err := s.store.listEmployeeW4FormHistory(r.Context(), number, timePunchName)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load w4 history")
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"paperwork": form,
+		"history":   history,
 	})
 }
 
 func (s *server) uploadEmployeeW4(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
-	writeError(w, http.StatusForbidden, "admin paperwork upload is disabled; use the employee paperwork link")
+	emp, err := s.store.getLocationEmployee(r.Context(), number, timePunchName)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "employee not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load employee")
+		return
+	}
+	missing := manualPaperworkRequiredFields(emp)
+	if len(missing) > 0 {
+		writeError(w, http.StatusBadRequest, "complete required employee fields before manual paperwork upload: "+strings.Join(missing, ", "))
+		return
+	}
+	data, mime, fileName, err := parseUploadedFileWithField(r, "w4_file", 10<<20, []string{"application/pdf"}, "w4 file is required")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := withSQLiteRetry(func() error {
+		return s.store.upsertEmployeeW4Form(r.Context(), number, timePunchName, data, mime, fileName)
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to persist w4 form")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"message": "w4 uploaded"})
 }
 
 func (s *server) applyPaperworkDefaults(ctx context.Context, locationNumber string, values url.Values) {
@@ -6266,7 +6577,26 @@ func splitBusinessAddressParts(address string) (string, string, string) {
 }
 
 func (s *server) getEmployeeW4File(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
-	data, mime, fileName, err := s.store.getEmployeeW4File(r.Context(), number, timePunchName)
+	versionID := int64(0)
+	if raw := strings.TrimSpace(r.URL.Query().Get("version_id")); raw != "" {
+		parsed, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || parsed <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid version_id")
+			return
+		}
+		versionID = parsed
+	}
+	var (
+		data     []byte
+		mime     string
+		fileName string
+		err      error
+	)
+	if versionID > 0 {
+		data, mime, fileName, err = s.store.getEmployeeW4HistoryFile(r.Context(), number, timePunchName, versionID)
+	} else {
+		data, mime, fileName, err = s.store.getEmployeeW4File(r.Context(), number, timePunchName)
+	}
 	if err != nil {
 		if errors.Is(err, errNotFound) {
 			http.NotFound(w, r)
@@ -6868,13 +7198,13 @@ func (s *server) updateLocationEmployeeClockInPIN(w http.ResponseWriter, r *http
 		return
 	}
 	req.PIN = strings.TrimSpace(req.PIN)
-	if len(req.PIN) != 6 {
-		writeError(w, http.StatusBadRequest, "pin must be exactly 6 digits")
+	if len(req.PIN) < 5 || len(req.PIN) > 6 {
+		writeError(w, http.StatusBadRequest, "pin must be 5 or 6 digits")
 		return
 	}
 	for _, ch := range req.PIN {
 		if ch < '0' || ch > '9' {
-			writeError(w, http.StatusBadRequest, "pin must be exactly 6 digits")
+			writeError(w, http.StatusBadRequest, "pin must be 5 or 6 digits")
 			return
 		}
 	}
@@ -6882,7 +7212,7 @@ func (s *server) updateLocationEmployeeClockInPIN(w http.ResponseWriter, r *http
 		return s.store.upsertTeamMemberPIN(r.Context(), number, timePunchName, req.PIN)
 	}); err != nil {
 		if errors.Is(err, errPINInUse) {
-			writeError(w, http.StatusBadRequest, "this 6-digit pin is already assigned to another team member at this location")
+			writeError(w, http.StatusBadRequest, "this pin is already assigned to another team member at this location")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "unable to save clock in pin")
@@ -7275,6 +7605,7 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			password_hash TEXT NOT NULL,
 			is_admin INTEGER NOT NULL DEFAULT 0,
 			role TEXT NOT NULL DEFAULT 'admin',
+			access_level TEXT NOT NULL DEFAULT 'no_access',
 			location_number TEXT NOT NULL DEFAULT '',
 			time_punch_name TEXT NOT NULL DEFAULT '',
 			created_at INTEGER NOT NULL
@@ -7358,6 +7689,17 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			PRIMARY KEY(location_number, time_punch_name),
 			FOREIGN KEY(location_number, time_punch_name) REFERENCES location_employees(location_number, time_punch_name) ON DELETE CASCADE
 		);`,
+		`CREATE TABLE IF NOT EXISTS employee_i9_form_history (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			location_number TEXT NOT NULL,
+			time_punch_name TEXT NOT NULL,
+			file_data TEXT NOT NULL DEFAULT '',
+			file_mime TEXT NOT NULL DEFAULT '',
+			file_name TEXT NOT NULL DEFAULT '',
+			created_at INTEGER NOT NULL,
+			FOREIGN KEY(location_number, time_punch_name) REFERENCES location_employees(location_number, time_punch_name) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_employee_i9_form_history_employee ON employee_i9_form_history(location_number, time_punch_name, created_at DESC);`,
 		`CREATE TABLE IF NOT EXISTS employee_i9_documents (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			location_number TEXT NOT NULL,
@@ -7409,6 +7751,17 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			PRIMARY KEY(location_number, time_punch_name),
 			FOREIGN KEY(location_number, time_punch_name) REFERENCES location_employees(location_number, time_punch_name) ON DELETE CASCADE
 		);`,
+		`CREATE TABLE IF NOT EXISTS employee_w4_form_history (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			location_number TEXT NOT NULL,
+			time_punch_name TEXT NOT NULL,
+			file_data TEXT NOT NULL DEFAULT '',
+			file_mime TEXT NOT NULL DEFAULT '',
+			file_name TEXT NOT NULL DEFAULT '',
+			created_at INTEGER NOT NULL,
+			FOREIGN KEY(location_number, time_punch_name) REFERENCES location_employees(location_number, time_punch_name) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_employee_w4_form_history_employee ON employee_w4_form_history(location_number, time_punch_name, created_at DESC);`,
 		`CREATE TABLE IF NOT EXISTS archived_employee_w4_forms (
 			archived_employee_id INTEGER PRIMARY KEY,
 			file_data TEXT NOT NULL DEFAULT '',
@@ -7620,11 +7973,11 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			interview_id INTEGER NOT NULL,
 			question_id INTEGER NOT NULL,
+			question_text_snapshot TEXT NOT NULL DEFAULT '',
 			answer TEXT NOT NULL,
 			created_at INTEGER NOT NULL,
 			UNIQUE(interview_id, question_id),
-			FOREIGN KEY(interview_id) REFERENCES location_candidate_interviews(id) ON DELETE CASCADE,
-			FOREIGN KEY(question_id) REFERENCES location_candidate_interview_questions(id) ON DELETE CASCADE
+			FOREIGN KEY(interview_id) REFERENCES location_candidate_interviews(id) ON DELETE CASCADE
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_candidate_interview_question_answers_interview ON location_candidate_interview_question_answers(interview_id, id ASC);`,
 		`CREATE TABLE IF NOT EXISTS location_candidate_interview_tokens (
@@ -7738,6 +8091,12 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 	}
 	if _, err := s.exec(ctx, `
 		ALTER TABLE users
+		ADD COLUMN access_level TEXT NOT NULL DEFAULT 'no_access';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE users
 		ADD COLUMN location_number TEXT NOT NULL DEFAULT '';
 	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
 		return err
@@ -7757,6 +8116,17 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 		END
 		WHERE TRIM(COALESCE(role, '')) = '' OR is_admin = 1;
 	`, nil); err != nil {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		UPDATE users
+		SET access_level = @no_access
+		WHERE role = @team_role
+			AND TRIM(COALESCE(access_level, '')) = '';
+	`, map[string]string{
+		"team_role": userRoleTeam,
+		"no_access": teamAccessLevelNoAccess,
+	}); err != nil {
 		return err
 	}
 	if _, err := s.exec(ctx, `
@@ -8153,6 +8523,9 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 	if err := s.ensureCandidateInterviewQuestionTypeMigration(ctx); err != nil {
 		return err
 	}
+	if err := s.ensureCandidateInterviewQuestionAnswerSnapshotMigration(ctx); err != nil {
+		return err
+	}
 	if err := s.ensureUniformOrderLineItemNumberMigration(ctx); err != nil {
 		return err
 	}
@@ -8410,6 +8783,87 @@ func (s *sqliteStore) ensureCandidateInterviewQuestionTypeMigration(ctx context.
 	return nil
 }
 
+func (s *sqliteStore) ensureCandidateInterviewQuestionAnswerSnapshotMigration(ctx context.Context) error {
+	columnRows, err := s.query(ctx, `PRAGMA table_info(location_candidate_interview_question_answers);`, nil)
+	if err != nil {
+		return err
+	}
+	hasSnapshotColumn := false
+	for _, row := range columnRows {
+		name, nameErr := valueAsString(row["name"])
+		if nameErr != nil {
+			return nameErr
+		}
+		if strings.EqualFold(strings.TrimSpace(name), "question_text_snapshot") {
+			hasSnapshotColumn = true
+			break
+		}
+	}
+	fkRows, err := s.query(ctx, `PRAGMA foreign_key_list(location_candidate_interview_question_answers);`, nil)
+	if err != nil {
+		return err
+	}
+	hasQuestionForeignKey := false
+	for _, row := range fkRows {
+		refTable, refErr := valueAsString(row["table"])
+		if refErr != nil {
+			return refErr
+		}
+		if strings.EqualFold(strings.TrimSpace(refTable), "location_candidate_interview_questions") {
+			hasQuestionForeignKey = true
+			break
+		}
+	}
+	if !hasQuestionForeignKey {
+		if hasSnapshotColumn {
+			return nil
+		}
+		_, err := s.exec(ctx, `
+			ALTER TABLE location_candidate_interview_question_answers
+			ADD COLUMN question_text_snapshot TEXT NOT NULL DEFAULT '';
+		`, nil)
+		return err
+	}
+	insertQuery := `
+		INSERT INTO location_candidate_interview_question_answers_new (id, interview_id, question_id, question_text_snapshot, answer, created_at)
+		SELECT a.id, a.interview_id, a.question_id, COALESCE(NULLIF(TRIM(q.question), ''), ''), a.answer, a.created_at
+		FROM location_candidate_interview_question_answers a
+		LEFT JOIN location_candidate_interview_questions q ON q.id = a.question_id;
+	`
+	if hasSnapshotColumn {
+		insertQuery = `
+			INSERT INTO location_candidate_interview_question_answers_new (id, interview_id, question_id, question_text_snapshot, answer, created_at)
+			SELECT a.id, a.interview_id, a.question_id,
+				COALESCE(NULLIF(TRIM(a.question_text_snapshot), ''), COALESCE(NULLIF(TRIM(q.question), ''), '')),
+				a.answer, a.created_at
+			FROM location_candidate_interview_question_answers a
+			LEFT JOIN location_candidate_interview_questions q ON q.id = a.question_id;
+		`
+	}
+	statements := []string{
+		`CREATE TABLE IF NOT EXISTS location_candidate_interview_question_answers_new (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			interview_id INTEGER NOT NULL,
+			question_id INTEGER NOT NULL,
+			question_text_snapshot TEXT NOT NULL DEFAULT '',
+			answer TEXT NOT NULL,
+			created_at INTEGER NOT NULL,
+			UNIQUE(interview_id, question_id),
+			FOREIGN KEY(interview_id) REFERENCES location_candidate_interviews(id) ON DELETE CASCADE
+		);`,
+		insertQuery,
+		`DROP TABLE location_candidate_interview_question_answers;`,
+		`ALTER TABLE location_candidate_interview_question_answers_new RENAME TO location_candidate_interview_question_answers;`,
+		`CREATE INDEX IF NOT EXISTS idx_candidate_interview_question_answers_interview ON location_candidate_interview_question_answers(interview_id, id ASC);`,
+	}
+	for _, stmt := range statements {
+		if _, err := s.exec(ctx, stmt, nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *sqliteStore) ensureUniformOrderLineItemNumberMigration(ctx context.Context) error {
 	rows, err := s.query(ctx, `PRAGMA table_info(location_uniform_order_lines);`, nil)
 	if err != nil {
@@ -8443,14 +8897,15 @@ func (s *sqliteStore) ensureAdminUser(ctx context.Context, username, password st
 	}
 
 	_, err = s.exec(ctx, `
-		INSERT INTO users (username, password_hash, is_admin, role, location_number, time_punch_name, created_at)
-		VALUES (@username, @password_hash, 1, @role, '', '', @created_at)
+		INSERT INTO users (username, password_hash, is_admin, role, access_level, location_number, time_punch_name, created_at)
+		VALUES (@username, @password_hash, 1, @role, @access_level, '', '', @created_at)
 		ON CONFLICT(username)
-		DO UPDATE SET password_hash = excluded.password_hash, is_admin = 1, role = excluded.role, location_number = '', time_punch_name = '';
+		DO UPDATE SET password_hash = excluded.password_hash, is_admin = 1, role = excluded.role, access_level = excluded.access_level, location_number = '', time_punch_name = '';
 	`, map[string]string{
 		"username":      username,
 		"password_hash": hash,
 		"role":          userRoleAdmin,
+		"access_level":  teamAccessLevelNoAccess,
 		"created_at":    strconv.FormatInt(time.Now().UTC().Unix(), 10),
 	})
 	return err
@@ -9785,13 +10240,14 @@ func (s *sqliteStore) createCandidateInterview(ctx context.Context, interview ca
 	}
 	for _, answer := range interview.QuestionAnswers {
 		if _, err := s.exec(ctx, `
-			INSERT INTO location_candidate_interview_question_answers (interview_id, question_id, answer, created_at)
-			VALUES (@interview_id, @question_id, @answer, @created_at);
+			INSERT INTO location_candidate_interview_question_answers (interview_id, question_id, question_text_snapshot, answer, created_at)
+			VALUES (@interview_id, @question_id, @question_text_snapshot, @answer, @created_at);
 		`, map[string]string{
-			"interview_id": strconv.FormatInt(interviewID, 10),
-			"question_id":  strconv.FormatInt(answer.QuestionID, 10),
-			"answer":       strings.TrimSpace(answer.Answer),
-			"created_at":   strconv.FormatInt(now, 10),
+			"interview_id":           strconv.FormatInt(interviewID, 10),
+			"question_id":            strconv.FormatInt(answer.QuestionID, 10),
+			"question_text_snapshot": strings.TrimSpace(answer.QuestionText),
+			"answer":                 strings.TrimSpace(answer.Answer),
+			"created_at":             strconv.FormatInt(now, 10),
 		}); err != nil {
 			return 0, err
 		}
@@ -9932,9 +10388,10 @@ func (s *sqliteStore) listCandidateInterviewGrades(ctx context.Context, intervie
 
 func (s *sqliteStore) listCandidateInterviewQuestionAnswers(ctx context.Context, interviewID int64) ([]candidateInterviewQuestionAnswer, error) {
 	rows, err := s.query(ctx, `
-		SELECT a.id, a.interview_id, a.question_id, a.answer, q.question
+		SELECT a.id, a.interview_id, a.question_id, a.answer,
+			COALESCE(NULLIF(TRIM(a.question_text_snapshot), ''), COALESCE(NULLIF(TRIM(q.question), ''), 'Question #' || a.question_id)) AS question_text
 		FROM location_candidate_interview_question_answers a
-		INNER JOIN location_candidate_interview_questions q ON q.id = a.question_id
+		LEFT JOIN location_candidate_interview_questions q ON q.id = a.question_id
 		WHERE a.interview_id = @interview_id
 		ORDER BY a.id ASC;
 	`, map[string]string{
@@ -9961,7 +10418,7 @@ func (s *sqliteStore) listCandidateInterviewQuestionAnswers(ctx context.Context,
 		if err != nil {
 			return nil, err
 		}
-		questionText, err := valueAsString(row["question"])
+		questionText, err := valueAsString(row["question_text"])
 		if err != nil {
 			return nil, err
 		}
@@ -10176,7 +10633,18 @@ func (s *sqliteStore) getLocationEmployee(ctx context.Context, locationNumber, t
 				WHERE u.role = @team_role
 					AND u.location_number = e.location_number
 					AND u.time_punch_name = e.time_punch_name
-			) THEN 1 ELSE 0 END AS has_clock_in_pin
+			) THEN 1 ELSE 0 END AS has_clock_in_pin,
+			CASE WHEN EXISTS (
+				SELECT 1 FROM employee_i9_forms i
+				WHERE i.location_number = e.location_number
+					AND i.time_punch_name = e.time_punch_name
+					AND LENGTH(COALESCE(i.file_data, '')) > 0
+			) AND EXISTS (
+				SELECT 1 FROM employee_w4_forms w
+				WHERE w.location_number = e.location_number
+					AND w.time_punch_name = e.time_punch_name
+					AND LENGTH(COALESCE(w.file_data, '')) > 0
+			) THEN 1 ELSE 0 END AS has_completed_paperwork
 		FROM location_employees e
 		LEFT JOIN location_jobs j ON j.id = e.job_id AND j.location_number = e.location_number
 		WHERE e.location_number = @location_number
@@ -10273,27 +10741,32 @@ func (s *sqliteStore) getLocationEmployee(ctx context.Context, locationNumber, t
 	if err != nil {
 		return nil, err
 	}
+	hasCompletedPaperworkRaw, err := valueAsInt64(rows[0]["has_completed_paperwork"])
+	if err != nil {
+		return nil, err
+	}
 	return &employee{
-		FirstName:      firstName,
-		LastName:       lastName,
-		TimePunchName:  tpn,
-		EmployeeNumber: strings.TrimSpace(employeeNumber),
-		Department:     normalizeDepartment(departmentName),
-		DepartmentID:   departmentID,
-		JobID:          jobID,
-		JobName:        strings.TrimSpace(jobName),
-		PayType:        strings.TrimSpace(payType),
-		PayAmountCents: payAmountCents,
-		Birthday:       birthday,
-		Email:          email,
-		Phone:          phone,
-		Address:        address,
-		AptNumber:      aptNumber,
-		City:           city,
-		State:          state,
-		ZipCode:        zipCode,
-		HasPhoto:       hasPhotoRaw == 1,
-		HasClockInPIN:  hasClockInPINRaw == 1,
+		FirstName:             firstName,
+		LastName:              lastName,
+		TimePunchName:         tpn,
+		EmployeeNumber:        strings.TrimSpace(employeeNumber),
+		Department:            normalizeDepartment(departmentName),
+		DepartmentID:          departmentID,
+		JobID:                 jobID,
+		JobName:               strings.TrimSpace(jobName),
+		PayType:               strings.TrimSpace(payType),
+		PayAmountCents:        payAmountCents,
+		Birthday:              birthday,
+		Email:                 email,
+		Phone:                 phone,
+		Address:               address,
+		AptNumber:             aptNumber,
+		City:                  city,
+		State:                 state,
+		ZipCode:               zipCode,
+		HasPhoto:              hasPhotoRaw == 1,
+		HasClockInPIN:         hasClockInPINRaw == 1,
+		HasCompletedPaperwork: hasCompletedPaperworkRaw == 1,
 	}, nil
 }
 
@@ -10840,7 +11313,60 @@ func (s *sqliteStore) archiveAndDeleteLocationEmployee(ctx context.Context, loca
 func (s *sqliteStore) upsertEmployeeI9Form(ctx context.Context, locationNumber, timePunchName string, data []byte, mime, fileName string) error {
 	encoded := base64.StdEncoding.EncodeToString(data)
 	now := time.Now().UTC().Unix()
-	_, err := s.exec(ctx, `
+	existingRows, err := s.query(ctx, `
+		SELECT file_data, file_mime, file_name, updated_at
+		FROM employee_i9_forms
+		WHERE location_number = @location_number AND time_punch_name = @time_punch_name
+		LIMIT 1;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+	})
+	if err != nil {
+		return err
+	}
+	if len(existingRows) > 0 {
+		existingData, err := valueAsString(existingRows[0]["file_data"])
+		if err != nil {
+			return err
+		}
+		existingMime, err := valueAsString(existingRows[0]["file_mime"])
+		if err != nil {
+			return err
+		}
+		existingName, err := valueAsString(existingRows[0]["file_name"])
+		if err != nil {
+			return err
+		}
+		existingUpdatedAt, err := valueAsInt64(existingRows[0]["updated_at"])
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(existingData) != "" {
+			historyCreatedAt := now
+			if existingUpdatedAt > 0 {
+				historyCreatedAt = existingUpdatedAt
+			}
+			if _, err := s.exec(ctx, `
+				INSERT INTO employee_i9_form_history (
+					location_number, time_punch_name, file_data, file_mime, file_name, created_at
+				)
+				VALUES (
+					@location_number, @time_punch_name, @file_data, @file_mime, @file_name, @created_at
+				);
+			`, map[string]string{
+				"location_number": locationNumber,
+				"time_punch_name": timePunchName,
+				"file_data":       existingData,
+				"file_mime":       existingMime,
+				"file_name":       existingName,
+				"created_at":      strconv.FormatInt(historyCreatedAt, 10),
+			}); err != nil {
+				return err
+			}
+		}
+	}
+	_, err = s.exec(ctx, `
 		INSERT INTO employee_i9_forms (
 			location_number, time_punch_name, file_data, file_mime, file_name, updated_at, created_at
 		)
@@ -10919,6 +11445,83 @@ func (s *sqliteStore) getEmployeeI9File(ctx context.Context, locationNumber, tim
 		WHERE location_number = @location_number AND time_punch_name = @time_punch_name
 		LIMIT 1;
 	`, map[string]string{
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+	})
+	if err != nil {
+		return nil, "", "", err
+	}
+	if len(rows) == 0 {
+		return nil, "", "", errNotFound
+	}
+	encoded, err := valueAsString(rows[0]["file_data"])
+	if err != nil {
+		return nil, "", "", err
+	}
+	if strings.TrimSpace(encoded) == "" {
+		return nil, "", "", errNotFound
+	}
+	fileBytes, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, "", "", err
+	}
+	fileMime, _ := valueAsString(rows[0]["file_mime"])
+	fileName, _ := valueAsString(rows[0]["file_name"])
+	if strings.TrimSpace(fileMime) == "" {
+		fileMime = "application/pdf"
+	}
+	return fileBytes, fileMime, fileName, nil
+}
+
+func (s *sqliteStore) listEmployeeI9FormHistory(ctx context.Context, locationNumber, timePunchName string) ([]paperworkHistoryEntry, error) {
+	rows, err := s.query(ctx, `
+		SELECT id, file_name, file_mime, created_at
+		FROM employee_i9_form_history
+		WHERE location_number = @location_number AND time_punch_name = @time_punch_name
+		ORDER BY created_at DESC, id DESC;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]paperworkHistoryEntry, 0, len(rows))
+	for _, row := range rows {
+		id, err := valueAsInt64(row["id"])
+		if err != nil {
+			return nil, err
+		}
+		fileName, err := valueAsString(row["file_name"])
+		if err != nil {
+			return nil, err
+		}
+		fileMime, err := valueAsString(row["file_mime"])
+		if err != nil {
+			return nil, err
+		}
+		createdAtUnix, err := valueAsInt64(row["created_at"])
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, paperworkHistoryEntry{
+			ID:        id,
+			FileName:  fileName,
+			FileMime:  fileMime,
+			CreatedAt: time.Unix(createdAtUnix, 0).UTC(),
+		})
+	}
+	return out, nil
+}
+
+func (s *sqliteStore) getEmployeeI9HistoryFile(ctx context.Context, locationNumber, timePunchName string, versionID int64) ([]byte, string, string, error) {
+	rows, err := s.query(ctx, `
+		SELECT file_data, file_mime, file_name
+		FROM employee_i9_form_history
+		WHERE id = @id AND location_number = @location_number AND time_punch_name = @time_punch_name
+		LIMIT 1;
+	`, map[string]string{
+		"id":              strconv.FormatInt(versionID, 10),
 		"location_number": locationNumber,
 		"time_punch_name": timePunchName,
 	})
@@ -11303,7 +11906,60 @@ func (s *sqliteStore) getArchivedEmployeeI9DocumentFile(ctx context.Context, arc
 func (s *sqliteStore) upsertEmployeeW4Form(ctx context.Context, locationNumber, timePunchName string, data []byte, mime, fileName string) error {
 	encoded := base64.StdEncoding.EncodeToString(data)
 	now := time.Now().UTC().Unix()
-	_, err := s.exec(ctx, `
+	existingRows, err := s.query(ctx, `
+		SELECT file_data, file_mime, file_name, updated_at
+		FROM employee_w4_forms
+		WHERE location_number = @location_number AND time_punch_name = @time_punch_name
+		LIMIT 1;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+	})
+	if err != nil {
+		return err
+	}
+	if len(existingRows) > 0 {
+		existingData, err := valueAsString(existingRows[0]["file_data"])
+		if err != nil {
+			return err
+		}
+		existingMime, err := valueAsString(existingRows[0]["file_mime"])
+		if err != nil {
+			return err
+		}
+		existingName, err := valueAsString(existingRows[0]["file_name"])
+		if err != nil {
+			return err
+		}
+		existingUpdatedAt, err := valueAsInt64(existingRows[0]["updated_at"])
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(existingData) != "" {
+			historyCreatedAt := now
+			if existingUpdatedAt > 0 {
+				historyCreatedAt = existingUpdatedAt
+			}
+			if _, err := s.exec(ctx, `
+				INSERT INTO employee_w4_form_history (
+					location_number, time_punch_name, file_data, file_mime, file_name, created_at
+				)
+				VALUES (
+					@location_number, @time_punch_name, @file_data, @file_mime, @file_name, @created_at
+				);
+			`, map[string]string{
+				"location_number": locationNumber,
+				"time_punch_name": timePunchName,
+				"file_data":       existingData,
+				"file_mime":       existingMime,
+				"file_name":       existingName,
+				"created_at":      strconv.FormatInt(historyCreatedAt, 10),
+			}); err != nil {
+				return err
+			}
+		}
+	}
+	_, err = s.exec(ctx, `
 		INSERT INTO employee_w4_forms (
 			location_number, time_punch_name, file_data, file_mime, file_name, updated_at, created_at
 		)
@@ -11382,6 +12038,83 @@ func (s *sqliteStore) getEmployeeW4File(ctx context.Context, locationNumber, tim
 		WHERE location_number = @location_number AND time_punch_name = @time_punch_name
 		LIMIT 1;
 	`, map[string]string{
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+	})
+	if err != nil {
+		return nil, "", "", err
+	}
+	if len(rows) == 0 {
+		return nil, "", "", errNotFound
+	}
+	encoded, err := valueAsString(rows[0]["file_data"])
+	if err != nil {
+		return nil, "", "", err
+	}
+	if strings.TrimSpace(encoded) == "" {
+		return nil, "", "", errNotFound
+	}
+	fileBytes, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, "", "", err
+	}
+	fileMime, _ := valueAsString(rows[0]["file_mime"])
+	fileName, _ := valueAsString(rows[0]["file_name"])
+	if strings.TrimSpace(fileMime) == "" {
+		fileMime = "application/pdf"
+	}
+	return fileBytes, fileMime, fileName, nil
+}
+
+func (s *sqliteStore) listEmployeeW4FormHistory(ctx context.Context, locationNumber, timePunchName string) ([]paperworkHistoryEntry, error) {
+	rows, err := s.query(ctx, `
+		SELECT id, file_name, file_mime, created_at
+		FROM employee_w4_form_history
+		WHERE location_number = @location_number AND time_punch_name = @time_punch_name
+		ORDER BY created_at DESC, id DESC;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"time_punch_name": timePunchName,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]paperworkHistoryEntry, 0, len(rows))
+	for _, row := range rows {
+		id, err := valueAsInt64(row["id"])
+		if err != nil {
+			return nil, err
+		}
+		fileName, err := valueAsString(row["file_name"])
+		if err != nil {
+			return nil, err
+		}
+		fileMime, err := valueAsString(row["file_mime"])
+		if err != nil {
+			return nil, err
+		}
+		createdAtUnix, err := valueAsInt64(row["created_at"])
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, paperworkHistoryEntry{
+			ID:        id,
+			FileName:  fileName,
+			FileMime:  fileMime,
+			CreatedAt: time.Unix(createdAtUnix, 0).UTC(),
+		})
+	}
+	return out, nil
+}
+
+func (s *sqliteStore) getEmployeeW4HistoryFile(ctx context.Context, locationNumber, timePunchName string, versionID int64) ([]byte, string, string, error) {
+	rows, err := s.query(ctx, `
+		SELECT file_data, file_mime, file_name
+		FROM employee_w4_form_history
+		WHERE id = @id AND location_number = @location_number AND time_punch_name = @time_punch_name
+		LIMIT 1;
+	`, map[string]string{
+		"id":              strconv.FormatInt(versionID, 10),
 		"location_number": locationNumber,
 		"time_punch_name": timePunchName,
 	})
@@ -14294,7 +15027,7 @@ func (s *sqliteStore) deleteArchivedUniformOrder(ctx context.Context, locationNu
 
 func (s *sqliteStore) lookupUserByUsername(ctx context.Context, username string) (*userRecord, string, error) {
 	rows, err := s.query(ctx, `
-		SELECT id, username, password_hash, is_admin, role, location_number, time_punch_name
+		SELECT id, username, password_hash, is_admin, role, access_level, location_number, time_punch_name
 		FROM users
 		WHERE username = @username
 		LIMIT 1;
@@ -14326,6 +15059,10 @@ func (s *sqliteStore) lookupUserByUsername(ctx context.Context, username string)
 	if err != nil {
 		return nil, "", err
 	}
+	accessLevel, err := valueAsString(rows[0]["access_level"])
+	if err != nil {
+		return nil, "", err
+	}
 	locationNumber, err := valueAsString(rows[0]["location_number"])
 	if err != nil {
 		return nil, "", err
@@ -14340,6 +15077,7 @@ func (s *sqliteStore) lookupUserByUsername(ctx context.Context, username string)
 		Username:       name,
 		IsAdmin:        isAdminRaw == 1,
 		Role:           strings.TrimSpace(role),
+		AccessLevel:    strings.TrimSpace(accessLevel),
 		LocationNumber: strings.TrimSpace(locationNumber),
 		TimePunchName:  strings.TrimSpace(timePunchName),
 	}, hash, nil
@@ -14347,7 +15085,7 @@ func (s *sqliteStore) lookupUserByUsername(ctx context.Context, username string)
 
 func (s *sqliteStore) lookupTeamUserByLocationAndTimePunch(ctx context.Context, locationNumber, timePunchName string) (*userRecord, string, error) {
 	rows, err := s.query(ctx, `
-		SELECT id, username, password_hash, is_admin, role, location_number, time_punch_name
+		SELECT id, username, password_hash, is_admin, role, access_level, location_number, time_punch_name
 		FROM users
 		WHERE role = @role
 			AND location_number = @location_number
@@ -14376,11 +15114,16 @@ func (s *sqliteStore) lookupTeamUserByLocationAndTimePunch(ctx context.Context, 
 	if err != nil {
 		return nil, "", err
 	}
+	accessLevel, err := valueAsString(rows[0]["access_level"])
+	if err != nil {
+		return nil, "", err
+	}
 	return &userRecord{
 		ID:             id,
 		Username:       strings.TrimSpace(username),
 		IsAdmin:        false,
 		Role:           userRoleTeam,
+		AccessLevel:    strings.TrimSpace(accessLevel),
 		LocationNumber: strings.TrimSpace(locationNumber),
 		TimePunchName:  strings.TrimSpace(timePunchName),
 	}, hash, nil
@@ -14388,7 +15131,7 @@ func (s *sqliteStore) lookupTeamUserByLocationAndTimePunch(ctx context.Context, 
 
 func (s *sqliteStore) lookupRestaurantUserByLocation(ctx context.Context, locationNumber string) (*userRecord, string, error) {
 	rows, err := s.query(ctx, `
-		SELECT id, username, password_hash, is_admin, role, location_number, time_punch_name
+		SELECT id, username, password_hash, is_admin, role, access_level, location_number, time_punch_name
 		FROM users
 		WHERE role = @role
 			AND location_number = @location_number
@@ -14415,6 +15158,10 @@ func (s *sqliteStore) lookupRestaurantUserByLocation(ctx context.Context, locati
 	if err != nil {
 		return nil, "", err
 	}
+	accessLevel, err := valueAsString(rows[0]["access_level"])
+	if err != nil {
+		return nil, "", err
+	}
 	locationNum, err := valueAsString(rows[0]["location_number"])
 	if err != nil {
 		return nil, "", err
@@ -14428,6 +15175,7 @@ func (s *sqliteStore) lookupRestaurantUserByLocation(ctx context.Context, locati
 		Username:       strings.TrimSpace(username),
 		IsAdmin:        false,
 		Role:           userRoleRestaurant,
+		AccessLevel:    strings.TrimSpace(accessLevel),
 		LocationNumber: strings.TrimSpace(locationNum),
 		TimePunchName:  strings.TrimSpace(timePunchName),
 	}, hash, nil
@@ -14435,7 +15183,7 @@ func (s *sqliteStore) lookupRestaurantUserByLocation(ctx context.Context, locati
 
 func (s *sqliteStore) lookupTeamUserByLocationAndPIN(ctx context.Context, locationNumber, pin string) (*userRecord, error) {
 	rows, err := s.query(ctx, `
-		SELECT id, username, password_hash, location_number, time_punch_name
+		SELECT id, username, password_hash, access_level, location_number, time_punch_name
 		FROM users
 		WHERE role = @role
 			AND location_number = @location_number;
@@ -14468,6 +15216,10 @@ func (s *sqliteStore) lookupTeamUserByLocationAndPIN(ctx context.Context, locati
 		if err != nil {
 			return nil, err
 		}
+		accessLevel, err := valueAsString(row["access_level"])
+		if err != nil {
+			return nil, err
+		}
 		timePunchName, err := valueAsString(row["time_punch_name"])
 		if err != nil {
 			return nil, err
@@ -14480,6 +15232,7 @@ func (s *sqliteStore) lookupTeamUserByLocationAndPIN(ctx context.Context, locati
 			Username:       strings.TrimSpace(username),
 			IsAdmin:        false,
 			Role:           userRoleTeam,
+			AccessLevel:    strings.TrimSpace(accessLevel),
 			LocationNumber: strings.TrimSpace(locationNum),
 			TimePunchName:  strings.TrimSpace(timePunchName),
 		}
@@ -14526,22 +15279,60 @@ func (s *sqliteStore) upsertTeamMemberPIN(ctx context.Context, locationNumber, t
 	}
 	username := "team:" + strings.TrimSpace(locationNumber) + ":" + strings.TrimSpace(timePunchName)
 	_, err = s.exec(ctx, `
-		INSERT INTO users (username, password_hash, is_admin, role, location_number, time_punch_name, created_at)
-		VALUES (@username, @password_hash, 0, @role, @location_number, @time_punch_name, @created_at)
+		INSERT INTO users (username, password_hash, is_admin, role, access_level, location_number, time_punch_name, created_at)
+		VALUES (@username, @password_hash, 0, @role, @access_level, @location_number, @time_punch_name, @created_at)
 		ON CONFLICT(username)
 		DO UPDATE SET
 			password_hash = excluded.password_hash,
 			is_admin = 0,
 			role = excluded.role,
+			access_level = CASE
+				WHEN TRIM(COALESCE(users.access_level, '')) = '' THEN excluded.access_level
+				ELSE users.access_level
+			END,
 			location_number = excluded.location_number,
 			time_punch_name = excluded.time_punch_name;
 	`, map[string]string{
 		"username":        username,
 		"password_hash":   hash,
 		"role":            userRoleTeam,
+		"access_level":    teamAccessLevelNoAccess,
 		"location_number": strings.TrimSpace(locationNumber),
 		"time_punch_name": strings.TrimSpace(timePunchName),
 		"created_at":      strconv.FormatInt(time.Now().UTC().Unix(), 10),
+	})
+	return err
+}
+
+func normalizeTeamAccessLevel(raw string) (string, error) {
+	level := strings.ToLower(strings.TrimSpace(raw))
+	switch level {
+	case teamAccessLevelNoAccess:
+		return level, nil
+	default:
+		return "", errors.New("invalid team access level")
+	}
+}
+
+func (s *sqliteStore) updateTeamMemberAccessLevel(ctx context.Context, locationNumber, timePunchName, accessLevel string) error {
+	normalized, err := normalizeTeamAccessLevel(accessLevel)
+	if err != nil {
+		return err
+	}
+	if _, _, err := s.lookupTeamUserByLocationAndTimePunch(ctx, strings.TrimSpace(locationNumber), strings.TrimSpace(timePunchName)); err != nil {
+		return err
+	}
+	_, err = s.exec(ctx, `
+		UPDATE users
+		SET access_level = @access_level
+		WHERE role = @role
+			AND location_number = @location_number
+			AND time_punch_name = @time_punch_name;
+	`, map[string]string{
+		"access_level":    normalized,
+		"role":            userRoleTeam,
+		"location_number": strings.TrimSpace(locationNumber),
+		"time_punch_name": strings.TrimSpace(timePunchName),
 	})
 	return err
 }
@@ -14557,19 +15348,21 @@ func (s *sqliteStore) upsertRestaurantUser(ctx context.Context, locationNumber, 
 		DELETE FROM users
 		WHERE role = @role
 			AND location_number = @location_number;
-		INSERT INTO users (username, password_hash, is_admin, role, location_number, time_punch_name, created_at)
-		VALUES (@username, @password_hash, 0, @role, @location_number, '', @created_at)
+		INSERT INTO users (username, password_hash, is_admin, role, access_level, location_number, time_punch_name, created_at)
+		VALUES (@username, @password_hash, 0, @role, @access_level, @location_number, '', @created_at)
 		ON CONFLICT(username)
 		DO UPDATE SET
 			password_hash = excluded.password_hash,
 			is_admin = 0,
 			role = excluded.role,
+			access_level = excluded.access_level,
 			location_number = excluded.location_number,
 			time_punch_name = '';
 	`, map[string]string{
 		"username":        username,
 		"password_hash":   hash,
 		"role":            userRoleRestaurant,
+		"access_level":    teamAccessLevelNoAccess,
 		"location_number": locationNumber,
 		"created_at":      strconv.FormatInt(time.Now().UTC().Unix(), 10),
 	})
@@ -14645,7 +15438,7 @@ func (s *sqliteStore) createSession(ctx context.Context, id string, userID int64
 
 func (s *sqliteStore) lookupSession(ctx context.Context, id string) (*sessionRecord, *userRecord, error) {
 	rows, err := s.query(ctx, `
-		SELECT s.id, s.user_id, s.csrf_token, s.expires_at, u.username, u.is_admin, u.role, u.location_number, u.time_punch_name
+		SELECT s.id, s.user_id, s.csrf_token, s.expires_at, u.username, u.is_admin, u.role, u.access_level, u.location_number, u.time_punch_name
 		FROM sessions s
 		INNER JOIN users u ON u.id = s.user_id
 		WHERE s.id = @id
@@ -14692,6 +15485,10 @@ func (s *sqliteStore) lookupSession(ctx context.Context, id string) (*sessionRec
 	if err != nil {
 		return nil, nil, err
 	}
+	accessLevel, err := valueAsString(rows[0]["access_level"])
+	if err != nil {
+		return nil, nil, err
+	}
 	locationNumber, err := valueAsString(rows[0]["location_number"])
 	if err != nil {
 		return nil, nil, err
@@ -14711,6 +15508,7 @@ func (s *sqliteStore) lookupSession(ctx context.Context, id string) (*sessionRec
 		Username:       username,
 		IsAdmin:        isAdminRaw == 1,
 		Role:           strings.TrimSpace(role),
+		AccessLevel:    strings.TrimSpace(accessLevel),
 		LocationNumber: strings.TrimSpace(locationNumber),
 		TimePunchName:  strings.TrimSpace(timePunchName),
 	}, nil
@@ -15824,6 +16622,44 @@ func parseAndValidateEmployeePay(payTypeRaw, payAmountRaw string) (string, int64
 	return payType, cents, nil
 }
 
+func manualPaperworkRequiredFields(emp *employee) []string {
+	if emp == nil {
+		return []string{"Employee record"}
+	}
+	missing := make([]string, 0, 12)
+	require := func(value, label string) {
+		if strings.TrimSpace(value) == "" {
+			missing = append(missing, label)
+		}
+	}
+	require(emp.FirstName, "First Name")
+	require(emp.LastName, "Last Name")
+	require(emp.TimePunchName, "Time Punch Name")
+	require(emp.Department, "Department")
+	if emp.JobID <= 0 {
+		missing = append(missing, "Job")
+	}
+	payType := strings.ToLower(strings.TrimSpace(emp.PayType))
+	if payType != "hourly" && payType != "salary" {
+		missing = append(missing, "Pay Type")
+	}
+	if emp.PayAmountCents <= 0 {
+		missing = append(missing, "Pay Amount")
+	}
+	if _, ok := normalizeBirthday(emp.Birthday); !ok {
+		missing = append(missing, "Birthday")
+	}
+	require(emp.Email, "Email")
+	require(emp.Phone, "Phone")
+	require(emp.Address, "Address")
+	require(emp.City, "City")
+	if normalizeUSStateCode(emp.State) == "" {
+		missing = append(missing, "State")
+	}
+	require(emp.ZipCode, "Zip Code")
+	return missing
+}
+
 func normalizeNameText(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	var b strings.Builder
@@ -16172,11 +17008,11 @@ func generateFilledW4PDF(values url.Values) ([]byte, error) {
 		"city_state_zip":     "topmostSubform[0].Page1[0].Step1a[0].f1_04[0]",
 		"ssn":                "topmostSubform[0].Page1[0].f1_05[0]",
 		"dependents_under17": "topmostSubform[0].Page1[0].Step3_ReadOrder[0].f1_06[0]",
-		"other_dependents":   "topmostSubform[0].Page1[0].f1_11[0]",
+		"other_dependents":   "topmostSubform[0].Page1[0].f1_10[0]",
 		"dependents_total":   "topmostSubform[0].Page1[0].Step3_ReadOrder[0].f1_07[0]",
 		"other_income":       "topmostSubform[0].Page1[0].f1_08[0]",
 		"deductions":         "topmostSubform[0].Page1[0].f1_09[0]",
-		"extra_withholding":  "topmostSubform[0].Page1[0].f1_10[0]",
+		"extra_withholding":  "topmostSubform[0].Page1[0].f1_11[0]",
 		"employer_name_addr": "topmostSubform[0].Page1[0].f1_12[0]",
 		"employer_date":      "topmostSubform[0].Page1[0].f1_13[0]",
 		"employer_ein":       "topmostSubform[0].Page1[0].f1_14[0]",
@@ -16260,6 +17096,52 @@ func parseWholeDollarAmount(raw string) (int64, bool) {
 		return 0, false
 	}
 	return amount, true
+}
+
+func normalizeW4DollarFields(values url.Values) error {
+	fieldLabels := map[string]string{
+		"other_income":      "other income",
+		"deductions":        "deductions",
+		"extra_withholding": "extra withholding",
+	}
+	for key, label := range fieldLabels {
+		normalized, err := normalizeDollarAmount(values.Get(key))
+		if err != nil {
+			return fmt.Errorf("%s must be a valid dollar amount (example: 100, 100.00, or $100.00)", label)
+		}
+		values.Set(key, normalized)
+	}
+	return nil
+}
+
+func normalizeDollarAmount(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", nil
+	}
+	sanitized := strings.NewReplacer(",", "", "$", "", " ", "").Replace(trimmed)
+	if sanitized == "" {
+		return "", errors.New("invalid amount")
+	}
+	if strings.HasPrefix(sanitized, "-") {
+		return "", errors.New("amount cannot be negative")
+	}
+	if !w4CurrencyAmountPattern.MatchString(sanitized) {
+		return "", errors.New("invalid amount")
+	}
+	if dot := strings.IndexByte(sanitized, '.'); dot >= 0 {
+		whole := strings.TrimLeft(sanitized[:dot], "0")
+		if whole == "" {
+			whole = "0"
+		}
+		fraction := sanitized[dot+1:]
+		return whole + "." + fraction, nil
+	}
+	whole := strings.TrimLeft(sanitized, "0")
+	if whole == "" {
+		whole = "0"
+	}
+	return whole, nil
 }
 
 func fillPDFTemplate(templatePath string, textValues map[string]string, checkValues map[string]bool) ([]byte, error) {

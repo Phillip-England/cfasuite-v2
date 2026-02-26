@@ -47,6 +47,9 @@
     input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]):focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,79,113,.15); }
     html.dark input:focus, html.dark select:focus, html.dark textarea:focus { box-shadow: 0 0 0 3px rgba(0,79,113,.15); }
     label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.375rem; }
+    .label-missing { color: var(--danger); }
+    .label-missing::after { content: " *required"; font-size: 0.75rem; font-weight: 700; margin-left: 0.25rem; }
+    .input-missing { border-color: var(--danger) !important; background: rgba(220, 38, 38, 0.06); }
     .text-muted { color: var(--muted-fg); font-size: 0.875rem; }
     .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; min-height: 2.375rem; padding: 0.5rem 0.875rem; font: 600 0.875rem/1.25 inherit; border-radius: 0.375rem; border: 1px solid transparent; cursor: pointer; transition: 150ms; white-space: nowrap; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -209,14 +212,41 @@
           <p class="sub">Location {{ .Location.Name }} ({{ .Location.Number }}){{ if .IsArchivedEmployee }} &bull; Terminated {{ .Employee.ArchivedAt }}{{ end }}</p>
         </div>
 
+        {{ if not .IsNewHireEmployee }}
         <section class="submenu">
           <button class="submenu-btn" type="button" data-target="employee">Employee</button>
-          <button class="submenu-btn" type="button" data-target="paperwork-upload">Paperwork Link</button>
+          {{ if not .IsArchivedEmployee }}
+            <button class="submenu-btn" type="button" data-target="paperwork-upload">{{ if .IsNewHireEmployee }}Paperwork Link{{ else if .IsActiveEmployee }}Update Paperwork{{ end }}</button>
+          {{ end }}
           <button class="submenu-btn" type="button" data-target="paperwork-view">View Paperwork</button>
         </section>
+        {{ end }}
 
         {{ if or .SuccessMessage .Error }}
         <div class="message {{ if .Error }}error{{ else }}ok{{ end }}">{{ if .Error }}{{ .Error }}{{ else }}{{ .SuccessMessage }}{{ end }}</div>
+        {{ end }}
+        {{ if and (not .IsArchivedEmployee) .HasEmployeeMissingProfileFields }}
+        <div class="message error" style="margin-top:0.5rem;">
+          {{ if .IsNewHireEmployee }}
+          This new hire must complete paperwork before becoming active.
+          {{ else }}
+          Employee profile is missing required fields: {{ range $idx, $field := .EmployeeMissingProfileFields }}{{ if $idx }}, {{ end }}{{ $field }}{{ end }}.
+          {{ end }}
+        </div>
+        {{ end }}
+        {{ if and (not .IsArchivedEmployee) .IsNewHireEmployee }}
+        <div class="section-card" style="margin-top:0.75rem;">
+          <h2 class="section-card-title">Complete New-Hire Paperwork</h2>
+          <p class="section-card-sub">This profile is read-only until paperwork is completed. Use the paperwork link to move this team member to Active.</p>
+          <div style="margin-top:0.625rem;">
+            <div class="copy-row">
+              <input id="paperwork-link-input" type="text" value="{{ .EmployeePaperworkLink }}" readonly>
+              <button id="copy-paperwork-link" class="btn btn-secondary btn-sm" type="button">Copy Link</button>
+              <button id="view-paperwork-link" class="btn btn-secondary btn-sm" type="button">View Form</button>
+            </div>
+            <div id="paperwork-link-box" class="upload-link-box"></div>
+          </div>
+        </div>
         {{ end }}
 
         <section class="panel" data-panel="employee">
@@ -253,12 +283,14 @@
 
           {{ if .IsArchivedEmployee }}
           <p class="hint" style="margin-top:0.75rem;">Terminated employee profiles are read-only.</p>
+          {{ else if .IsNewHireEmployee }}
+          <p class="hint" style="margin-top:0.75rem;">New hire profiles are read-only. Complete paperwork to activate this employee.</p>
           {{ else }}
           <p class="hint" style="margin-top:0.75rem;">You can review and edit this employee in this section.</p>
           {{ end }}
         </section>
 
-        {{ if not .IsArchivedEmployee }}
+        {{ if .IsActiveEmployee }}
         <section class="panel" data-panel="employee">
           <section class="section-card">
             <h2 class="section-card-title">Edit Employee Details</h2>
@@ -275,47 +307,47 @@
 
               <div class="edit-form-grid two-col">
                 <div>
-                  <label for="edit-first-name">First Name</label>
-                  <input id="edit-first-name" name="first_name" value="{{ .Employee.FirstName }}" required>
+                  <label for="edit-first-name" class="{{ if index .EmployeeMissingProfileFieldSet "First Name" }}label-missing{{ end }}">First Name</label>
+                  <input id="edit-first-name" name="first_name" value="{{ .Employee.FirstName }}" required class="{{ if index .EmployeeMissingProfileFieldSet "First Name" }}input-missing{{ end }}">
                 </div>
                 <div>
-                  <label for="edit-last-name">Last Name</label>
-                  <input id="edit-last-name" name="last_name" value="{{ .Employee.LastName }}" required>
-                </div>
-              </div>
-
-              <div class="edit-form-grid two-col">
-                <div>
-                  <label for="edit-email">Email</label>
-                  <input id="edit-email" name="email" type="email" value="{{ .Employee.Email }}">
-                </div>
-                <div>
-                  <label for="edit-phone">Phone</label>
-                  <input id="edit-phone" name="phone" value="{{ .Employee.Phone }}">
+                  <label for="edit-last-name" class="{{ if index .EmployeeMissingProfileFieldSet "Last Name" }}label-missing{{ end }}">Last Name</label>
+                  <input id="edit-last-name" name="last_name" value="{{ .Employee.LastName }}" required class="{{ if index .EmployeeMissingProfileFieldSet "Last Name" }}input-missing{{ end }}">
                 </div>
               </div>
 
               <div class="edit-form-grid two-col">
                 <div>
-                  <label>Birthday</label>
+                  <label for="edit-email" class="{{ if index .EmployeeMissingProfileFieldSet "Email" }}label-missing{{ end }}">Email</label>
+                  <input id="edit-email" name="email" type="email" value="{{ .Employee.Email }}" class="{{ if index .EmployeeMissingProfileFieldSet "Email" }}input-missing{{ end }}">
+                </div>
+                <div>
+                  <label for="edit-phone" class="{{ if index .EmployeeMissingProfileFieldSet "Phone" }}label-missing{{ end }}">Phone</label>
+                  <input id="edit-phone" name="phone" value="{{ .Employee.Phone }}" class="{{ if index .EmployeeMissingProfileFieldSet "Phone" }}input-missing{{ end }}">
+                </div>
+              </div>
+
+              <div class="edit-form-grid two-col">
+                <div>
+                  <label class="{{ if index .EmployeeMissingProfileFieldSet "Birthday" }}label-missing{{ end }}">Birthday</label>
                   <div class="edit-form-grid three-col">
                     <div>
                       <label for="edit-birthday-month" class="text-muted" style="margin-bottom:0.25rem;">Month</label>
-                      <select id="edit-birthday-month" name="birthday_month" data-selected="{{ .EmployeeBirthMonthInput }}"></select>
+                      <select id="edit-birthday-month" name="birthday_month" data-selected="{{ .EmployeeBirthMonthInput }}" class="{{ if index .EmployeeMissingProfileFieldSet "Birthday" }}input-missing{{ end }}"></select>
                     </div>
                     <div>
                       <label for="edit-birthday-day" class="text-muted" style="margin-bottom:0.25rem;">Day</label>
-                      <select id="edit-birthday-day" name="birthday_day" data-selected="{{ .EmployeeBirthDayInput }}"></select>
+                      <select id="edit-birthday-day" name="birthday_day" data-selected="{{ .EmployeeBirthDayInput }}" class="{{ if index .EmployeeMissingProfileFieldSet "Birthday" }}input-missing{{ end }}"></select>
                     </div>
                     <div>
                       <label for="edit-birthday-year" class="text-muted" style="margin-bottom:0.25rem;">Year</label>
-                      <select id="edit-birthday-year" name="birthday_year" data-selected="{{ .EmployeeBirthYearInput }}"></select>
+                      <select id="edit-birthday-year" name="birthday_year" data-selected="{{ .EmployeeBirthYearInput }}" class="{{ if index .EmployeeMissingProfileFieldSet "Birthday" }}input-missing{{ end }}"></select>
                     </div>
                   </div>
                 </div>
                 <div>
-                  <label for="edit-address">Address</label>
-                  <input id="edit-address" name="address" value="{{ .Employee.Address }}">
+                  <label for="edit-address" class="{{ if index .EmployeeMissingProfileFieldSet "Address" }}label-missing{{ end }}">Address</label>
+                  <input id="edit-address" name="address" value="{{ .Employee.Address }}" class="{{ if index .EmployeeMissingProfileFieldSet "Address" }}input-missing{{ end }}">
                 </div>
               </div>
 
@@ -325,35 +357,35 @@
                   <input id="edit-apt-number" name="apt_number" value="{{ .Employee.AptNumber }}">
                 </div>
                 <div>
-                  <label for="edit-city">City</label>
-                  <input id="edit-city" name="city" value="{{ .Employee.City }}">
+                  <label for="edit-city" class="{{ if index .EmployeeMissingProfileFieldSet "City" }}label-missing{{ end }}">City</label>
+                  <input id="edit-city" name="city" value="{{ .Employee.City }}" class="{{ if index .EmployeeMissingProfileFieldSet "City" }}input-missing{{ end }}">
                 </div>
                 <div>
-                  <label for="edit-state">State</label>
-                  <input id="edit-state" name="state" value="{{ .Employee.State }}">
+                  <label for="edit-state" class="{{ if index .EmployeeMissingProfileFieldSet "State" }}label-missing{{ end }}">State</label>
+                  <input id="edit-state" name="state" value="{{ .Employee.State }}" class="{{ if index .EmployeeMissingProfileFieldSet "State" }}input-missing{{ end }}">
                 </div>
               </div>
 
               <div class="edit-form-grid two-col">
                 <div>
-                  <label for="edit-zip-code">Zip Code</label>
-                  <input id="edit-zip-code" name="zip_code" value="{{ .Employee.ZipCode }}">
+                  <label for="edit-zip-code" class="{{ if index .EmployeeMissingProfileFieldSet "Zip Code" }}label-missing{{ end }}">Zip Code</label>
+                  <input id="edit-zip-code" name="zip_code" value="{{ .Employee.ZipCode }}" class="{{ if index .EmployeeMissingProfileFieldSet "Zip Code" }}input-missing{{ end }}">
                 </div>
                 <div></div>
               </div>
 
               <div class="edit-form-grid two-col">
                 <div>
-                  <label for="edit-pay-type">Pay Type</label>
-                  <select id="edit-pay-type" name="pay_type" required>
+                  <label for="edit-pay-type" class="{{ if index .EmployeeMissingProfileFieldSet "Pay Type" }}label-missing{{ end }}">Pay Type</label>
+                  <select id="edit-pay-type" name="pay_type" required class="{{ if index .EmployeeMissingProfileFieldSet "Pay Type" }}input-missing{{ end }}">
                     <option value="">Select pay type</option>
                     <option value="hourly" {{ if eq .Employee.PayType "hourly" }}selected{{ end }}>Hourly</option>
                     <option value="salary" {{ if eq .Employee.PayType "salary" }}selected{{ end }}>Salary</option>
                   </select>
                 </div>
                 <div>
-                  <label for="edit-pay-amount">Pay Amount</label>
-                  <input id="edit-pay-amount" name="pay_amount" value="{{ .EmployeePayAmountInput }}" inputmode="decimal" placeholder="Enter dollars (e.g. 18.50 or 52000)" required>
+                  <label for="edit-pay-amount" class="{{ if index .EmployeeMissingProfileFieldSet "Pay Amount" }}label-missing{{ end }}">Pay Amount</label>
+                  <input id="edit-pay-amount" name="pay_amount" value="{{ .EmployeePayAmountInput }}" inputmode="decimal" placeholder="Enter dollars (e.g. 18.50 or 52000)" required class="{{ if index .EmployeeMissingProfileFieldSet "Pay Amount" }}input-missing{{ end }}">
                 </div>
               </div>
 
@@ -369,8 +401,8 @@
               <p class="section-card-sub">Manage where this team member is assigned.</p>
               <div class="field-grid">
                 <div>
-                  <label for="department-name">Department</label>
-                  <select id="department-name" {{ if not .LocationDepartments }}disabled{{ end }}>
+                  <label for="department-name" class="{{ if index .EmployeeMissingProfileFieldSet "Department" }}label-missing{{ end }}">Department</label>
+                  <select id="department-name" {{ if not .LocationDepartments }}disabled{{ end }} class="{{ if index .EmployeeMissingProfileFieldSet "Department" }}input-missing{{ end }}">
                     <option value="">Select department</option>
                     {{ $currentDepartment := .Employee.Department }}
                     {{ range .LocationDepartments }}
@@ -379,8 +411,8 @@
                   </select>
                 </div>
                 <div>
-                  <label for="job-id">Job</label>
-                  <select id="job-id" {{ if not .LocationJobs }}disabled{{ end }}>
+                  <label for="job-id" class="{{ if index .EmployeeMissingProfileFieldSet "Job" }}label-missing{{ end }}">Job</label>
+                  <select id="job-id" {{ if not .LocationJobs }}disabled{{ end }} class="{{ if index .EmployeeMissingProfileFieldSet "Job" }}input-missing{{ end }}">
                     <option value="">Select department first</option>
                     {{ $currentJobID := .Employee.JobID }}
                     {{ range .LocationJobs }}
@@ -399,8 +431,11 @@
             <section class="section-card">
               <h2 class="section-card-title">Access</h2>
               <p class="section-card-sub">Set or replace the team member clock-in PIN.</p>
-              <label for="clock-in-pin">Clock In PIN</label>
-              <input id="clock-in-pin" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" maxlength="6" placeholder="{{ if .Employee.HasClockInPIN }}Enter new PIN to replace existing{{ else }}Set a 6-digit PIN{{ end }}">
+              <label for="clock-in-pin" class="{{ if index .EmployeeMissingProfileFieldSet "Clock In PIN" }}label-missing{{ end }}">Clock In PIN</label>
+              <input id="clock-in-pin" type="text" inputmode="numeric" pattern="[0-9]{5,6}" minlength="5" maxlength="6" autocomplete="off" placeholder="{{ if .Employee.HasClockInPIN }}Enter new PIN to replace existing{{ else }}Set a 5-6 digit PIN{{ end }}" class="{{ if index .EmployeeMissingProfileFieldSet "Clock In PIN" }}input-missing{{ end }}">
+              {{ if index .EmployeeMissingProfileFieldSet "Clock In PIN" }}
+              <p class="notice error">Clock in PIN is required for employees with completed paperwork.</p>
+              {{ end }}
               <div class="button-row" style="margin-top:0.625rem;">
                 <button id="save-clock-in-pin" type="button" class="btn btn-secondary btn-sm">Save Clock In PIN</button>
                 <span id="clock-in-pin-status" class="hint">{{ if .Employee.HasClockInPIN }}Clock in PIN is set.{{ else }}No clock in PIN assigned yet.{{ end }}</span>
@@ -463,10 +498,11 @@
         </section>
         {{ end }}
 
+        {{ if not .IsNewHireEmployee }}
         <section class="panel" data-panel="paperwork-upload">
-          <label style="margin-bottom:0.5rem;">Employee Paperwork Link</label>
+          <label style="margin-bottom:0.5rem;">{{ if .IsNewHireEmployee }}Employee Paperwork Link{{ else if .IsActiveEmployee }}Update Paperwork Link{{ else }}Employee Paperwork{{ end }}</label>
           {{ if .IsArchivedEmployee }}
-            <p class="hint">Terminated employee paperwork is read-only.</p>
+            <p class="hint">Terminated employees do not have access to paperwork submission links.</p>
           {{ else }}
             <div style="margin-bottom:0.625rem;">
               <div class="copy-row">
@@ -476,11 +512,59 @@
               </div>
               <div id="paperwork-link-box" class="upload-link-box"></div>
             </div>
-            <p class="hint">Paperwork submission is only available through this employee link.</p>
-            <p class="hint">Admin upload forms are disabled for security and consistency.</p>
+            {{ if .IsNewHireEmployee }}
+              <p class="hint">Send this link to complete new-hire paperwork.</p>
+            {{ else if .IsActiveEmployee }}
+              <p class="hint">Send this update link to resubmit paperwork. Previous versions remain in employee files for audit history.</p>
+            {{ end }}
+            {{ if .CanManualPaperworkUpload }}
+              <div class="paperwork-cards" style="margin-top:0.75rem;">
+                <article class="paperwork-card">
+                  <p class="paperwork-card-title">Manual I-9 Upload</p>
+                  <p class="paperwork-meta">Upload a completed I-9 PDF directly to this employee file.</p>
+                  <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/i9" enctype="multipart/form-data" style="display:grid;gap:0.5rem;">
+                    <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+                    <input type="file" name="i9_file" accept="application/pdf" required>
+                    <button class="btn btn-secondary btn-sm" type="submit">Upload I-9 PDF</button>
+                  </form>
+                </article>
+
+                <article class="paperwork-card">
+                  <p class="paperwork-card-title">Manual W-4 Upload</p>
+                  <p class="paperwork-meta">Upload a completed W-4 PDF directly to this employee file.</p>
+                  <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/w4" enctype="multipart/form-data" style="display:grid;gap:0.5rem;">
+                    <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+                    <input type="file" name="w4_file" accept="application/pdf" required>
+                    <button class="btn btn-secondary btn-sm" type="submit">Upload W-4 PDF</button>
+                  </form>
+                </article>
+
+                <article class="paperwork-card">
+                  <p class="paperwork-card-title">Other Paperwork Upload</p>
+                  <p class="paperwork-meta">Upload additional supporting paperwork (PDF or image).</p>
+                  <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/i9/documents" enctype="multipart/form-data" style="display:grid;gap:0.5rem;">
+                    <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+                    <input type="text" name="document_title" placeholder="Document title (optional)">
+                    <select name="list_type">
+                      <option value="other">Other</option>
+                      <option value="a">List A</option>
+                      <option value="b">List B</option>
+                      <option value="c">List C</option>
+                    </select>
+                    <input type="file" name="document_file" accept="application/pdf,image/png,image/jpeg,image/webp" required>
+                    <button class="btn btn-secondary btn-sm" type="submit">Upload Supporting Document</button>
+                  </form>
+                </article>
+              </div>
+            {{ else }}
+              <p class="hint" style="color: var(--danger); margin-top:0.625rem;">Manual paperwork upload is blocked until all required employee fields are complete.</p>
+              <p class="hint" style="margin-top:0.25rem;">Missing fields: {{ range $idx, $field := .ManualPaperworkUploadMissing }}{{ if $idx }}, {{ end }}{{ $field }}{{ end }}</p>
+            {{ end }}
           {{ end }}
         </section>
+        {{ end }}
 
+        {{ if not .IsNewHireEmployee }}
         <section class="panel" data-panel="paperwork-view">
           <label style="margin-bottom:0.5rem;">View Employee Paperwork</label>
           <div class="paperwork-cards">
@@ -498,6 +582,18 @@
                 <p class="paperwork-meta">No I-9 uploaded yet.</p>
               </article>
             {{ end }}
+            {{ if .EmployeeI9History }}
+              {{ range .EmployeeI9History }}
+                <article class="paperwork-card">
+                  <p class="paperwork-card-title">I-9 Previous Version</p>
+                  <p class="paperwork-meta">Document Title: {{ .FileName }}</p>
+                  <p class="paperwork-meta">Submitted: {{ .CreatedAt }}</p>
+                  <div class="paperwork-actions">
+                    <a class="doc-link" href="/admin/locations/{{ $.Location.Number }}/employees/{{ $.Employee.TimePunchName }}/i9/file?version_id={{ .ID }}" target="_blank" rel="noreferrer">View Previous Version</a>
+                  </div>
+                </article>
+              {{ end }}
+            {{ end }}
 
             {{ if and .EmployeeW4 .EmployeeW4.HasFile }}
               <article class="paperwork-card">
@@ -512,6 +608,18 @@
                 <p class="paperwork-card-title">W-4 Form</p>
                 <p class="paperwork-meta">No W-4 uploaded yet.</p>
               </article>
+            {{ end }}
+            {{ if .EmployeeW4History }}
+              {{ range .EmployeeW4History }}
+                <article class="paperwork-card">
+                  <p class="paperwork-card-title">W-4 Previous Version</p>
+                  <p class="paperwork-meta">Document Title: {{ .FileName }}</p>
+                  <p class="paperwork-meta">Submitted: {{ .CreatedAt }}</p>
+                  <div class="paperwork-actions">
+                    <a class="doc-link" href="/admin/locations/{{ $.Location.Number }}/employees/{{ $.Employee.TimePunchName }}/w4/file?version_id={{ .ID }}" target="_blank" rel="noreferrer">View Previous Version</a>
+                  </div>
+                </article>
+              {{ end }}
             {{ end }}
 
             {{ if .EmployeeScorecards }}
@@ -556,6 +664,7 @@
             {{ end }}
           </div>
         </section>
+        {{ end }}
 
       </div>
     </div>
@@ -582,7 +691,7 @@
     const cropTools = document.getElementById("crop-tools");
     const cropResultBox = document.getElementById("crop-result-box");
     const cropCanvas = document.getElementById("crop-result");
-    const cropCtx = cropCanvas.getContext("2d");
+    const cropCtx = cropCanvas ? cropCanvas.getContext("2d") : null;
     const confirmCropBtn = document.getElementById("confirm-crop");
     const uploadPhotoBtn = document.getElementById("upload-photo-btn");
     const cancelUploadBtn = document.getElementById("cancel-upload");
@@ -605,7 +714,7 @@
     const editBirthdayMonth = document.getElementById("edit-birthday-month");
     const editBirthdayDay = document.getElementById("edit-birthday-day");
     const editBirthdayYear = document.getElementById("edit-birthday-year");
-    const originalPreviewSrc = preview.getAttribute("src") || "";
+    const originalPreviewSrc = preview ? (preview.getAttribute("src") || "") : "";
     let naturalWidth = 0;
     let naturalHeight = 0;
     let fileSelected = false;
@@ -719,43 +828,45 @@
       });
     }
 
-    jobSelect.addEventListener("change", async () => {
-      const previous = jobSelect.dataset.prev || jobSelect.defaultValue || "";
-      const nextJobID = (jobSelect.value || "").trim();
-      if (!nextJobID) {
-        message.textContent = "Please select a job.";
-        message.className = "message error";
-        jobSelect.value = previous;
-        return;
-      }
-      jobSelect.disabled = true;
-      message.textContent = "";
-      message.className = "message";
-      try {
-        const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/employees/${encodeURIComponent(timePunchName)}/job`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "X-CSRF-Token": csrfToken
-          },
-          body: JSON.stringify({ jobId: Number(nextJobID) })
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(result.error || "Unable to update job.");
+    if (jobSelect && message) {
+      jobSelect.addEventListener("change", async () => {
+        const previous = jobSelect.dataset.prev || jobSelect.defaultValue || "";
+        const nextJobID = (jobSelect.value || "").trim();
+        if (!nextJobID) {
+          message.textContent = "Please select a job.";
+          message.className = "message error";
+          jobSelect.value = previous;
+          return;
         }
-        jobSelect.dataset.prev = nextJobID;
-        jobSelect.defaultValue = nextJobID;
-        message.textContent = "Job updated.";
-        message.classList.add("ok");
-      } catch (error) {
-        jobSelect.value = previous;
-        message.textContent = error.message || "Unable to update job.";
-        message.classList.add("error");
-      } finally {
-        jobSelect.disabled = false;
-      }
-    });
+        jobSelect.disabled = true;
+        message.textContent = "";
+        message.className = "message";
+        try {
+          const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/employees/${encodeURIComponent(timePunchName)}/job`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": csrfToken
+            },
+            body: JSON.stringify({ jobId: Number(nextJobID) })
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(result.error || "Unable to update job.");
+          }
+          jobSelect.dataset.prev = nextJobID;
+          jobSelect.defaultValue = nextJobID;
+          message.textContent = "Job updated.";
+          message.classList.add("ok");
+        } catch (error) {
+          jobSelect.value = previous;
+          message.textContent = error.message || "Unable to update job.";
+          message.classList.add("error");
+        } finally {
+          jobSelect.disabled = false;
+        }
+      });
+    }
 
     if (saveClockInPinBtn && clockInPinInput && clockInPinStatus) {
       clockInPinInput.addEventListener("input", () => {
@@ -764,8 +875,8 @@
       saveClockInPinBtn.addEventListener("click", async () => {
         const pin = (clockInPinInput.value || "").replace(/\D+/g, "").slice(0, 6);
         clockInPinInput.value = pin;
-        if (!/^\d{6}$/.test(pin)) {
-          clockInPinStatus.textContent = "PIN must be exactly 6 digits.";
+        if (!/^\d{5,6}$/.test(pin)) {
+          clockInPinStatus.textContent = "PIN must be 5 or 6 digits.";
           return;
         }
         saveClockInPinBtn.disabled = true;
@@ -900,69 +1011,71 @@
       window.removeEventListener("pointerup", onPointerUp);
     }
 
-    cropSelection.addEventListener("pointerdown", (event) => {
-      if (!fileSelected || cropLocked) return;
-      dragMode = event.target === cropHandle ? "resize" : "move";
-      pointerStart = { x: event.clientX, y: event.clientY };
-      rectStart = { x: cropRect.x, y: cropRect.y, size: cropRect.size };
-      window.addEventListener("pointermove", onPointerMove);
-      window.addEventListener("pointerup", onPointerUp);
-      event.preventDefault();
-    });
+    if (preview && photoFile && cropSelection && cropHandle && cropX && cropY && cropSize && cropTools && cropResultBox && cropCanvas && cropCtx && confirmCropBtn && uploadPhotoBtn && cancelUploadBtn && generateLinkBtn && uploadLinkBox) {
+      cropSelection.addEventListener("pointerdown", (event) => {
+        if (!fileSelected || cropLocked) return;
+        dragMode = event.target === cropHandle ? "resize" : "move";
+        pointerStart = { x: event.clientX, y: event.clientY };
+        rectStart = { x: cropRect.x, y: cropRect.y, size: cropRect.size };
+        window.addEventListener("pointermove", onPointerMove);
+        window.addEventListener("pointerup", onPointerUp);
+        event.preventDefault();
+      });
 
-    photoFile.addEventListener("change", () => {
-      const file = photoFile.files && photoFile.files[0];
-      if (!file) {
-        cancelUpload();
-        return;
-      }
-      fileSelected = true;
-      setCropModeActive(true);
-      const reader = new FileReader();
-      reader.onload = () => {
-        preview.src = reader.result;
-      };
-      reader.readAsDataURL(file);
-    });
-
-    preview.addEventListener("load", () => {
-      if (!fileSelected) return;
-      naturalWidth = preview.naturalWidth || 0;
-      naturalHeight = preview.naturalHeight || 0;
-      if (naturalWidth > 0 && naturalHeight > 0) {
-        initializeCropControls();
-      }
-      setCropConfirmed(false);
-    });
-
-    confirmCropBtn.addEventListener("click", () => {
-      if (!fileSelected) return;
-      drawCropPreview();
-      setCropConfirmed(true);
-    });
-    cancelUploadBtn.addEventListener("click", cancelUpload);
-    setCropModeActive(false);
-
-    generateLinkBtn.addEventListener("click", async () => {
-      uploadLinkBox.textContent = "";
-      try {
-        const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/employees/${encodeURIComponent(timePunchName)}/photo-link`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-CSRF-Token": csrfToken
-          },
-          body: "{}"
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(result.error || "Unable to generate link.");
+      photoFile.addEventListener("change", () => {
+        const file = photoFile.files && photoFile.files[0];
+        if (!file) {
+          cancelUpload();
+          return;
         }
-        uploadLinkBox.innerHTML = `Share this link with employee:<br><a href="${result.uploadLink}" target="_blank" rel="noreferrer">${result.uploadLink}</a>`;
-      } catch (error) {
-        uploadLinkBox.textContent = error.message || "Unable to generate link.";
-      }
-    });
+        fileSelected = true;
+        setCropModeActive(true);
+        const reader = new FileReader();
+        reader.onload = () => {
+          preview.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      preview.addEventListener("load", () => {
+        if (!fileSelected) return;
+        naturalWidth = preview.naturalWidth || 0;
+        naturalHeight = preview.naturalHeight || 0;
+        if (naturalWidth > 0 && naturalHeight > 0) {
+          initializeCropControls();
+        }
+        setCropConfirmed(false);
+      });
+
+      confirmCropBtn.addEventListener("click", () => {
+        if (!fileSelected) return;
+        drawCropPreview();
+        setCropConfirmed(true);
+      });
+      cancelUploadBtn.addEventListener("click", cancelUpload);
+      setCropModeActive(false);
+
+      generateLinkBtn.addEventListener("click", async () => {
+        uploadLinkBox.textContent = "";
+        try {
+          const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/employees/${encodeURIComponent(timePunchName)}/photo-link`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": csrfToken
+            },
+            body: "{}"
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(result.error || "Unable to generate link.");
+          }
+          uploadLinkBox.innerHTML = `Share this link with employee:<br><a href="${result.uploadLink}" target="_blank" rel="noreferrer">${result.uploadLink}</a>`;
+        } catch (error) {
+          uploadLinkBox.textContent = error.message || "Unable to generate link.";
+        }
+      });
+    }
 
     if (copyPaperworkLinkBtn && paperworkLinkInput) {
       copyPaperworkLinkBtn.addEventListener("click", async () => {
@@ -1150,7 +1263,7 @@
       btn.addEventListener("click", () => showPanel(btn.dataset.target));
     });
 
-    let initialPanel = (window.location.hash || "").replace("#", "");
+        let initialPanel = (window.location.hash || "").replace("#", "");
     if (initialPanel === "employee-view" || initialPanel === "employee-edit") {
       initialPanel = "employee";
     }

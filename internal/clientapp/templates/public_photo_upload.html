@@ -8,60 +8,80 @@
   <title>Upload Profile Photo</title>
   <style>
     :root {
-      --bg: #f4f1ec;
+      --bg: #ffffff;
       --card: #ffffff;
-      --line: #e2d5c4;
-      --ink: #1f232a;
-      --muted: #68707b;
-      --accent: #b2472a;
-      --soft: #faf6f1;
+      --line: #e4e4e7;
+      --ink: #09090b;
+      --muted: #71717a;
+      --accent: #004f71;
+      --accent-hover: #003a55;
+      --accent-fg: #ffffff;
+      --soft: #f4f4f5;
+      --shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
+    }
+    html.dark {
+      --bg: #000000;
+      --card: #09090b;
+      --line: #27272a;
+      --ink: #f4f4f5;
+      --muted: #a1a1aa;
+      --accent: #004f71;
+      --accent-hover: #2f8fb8;
+      --accent-fg: #f4f4f5;
+      --soft: #18181b;
+      --shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       padding: 14px;
-      background: radial-gradient(50rem 25rem at 110% -10%, #f1d9bf 0, transparent 52%), var(--bg);
+      background:
+        radial-gradient(52rem 28rem at 110% -10%, rgba(249, 115, 22, 0.12) 0, transparent 55%),
+        radial-gradient(40rem 22rem at -15% 120%, rgba(14, 165, 233, 0.08) 0, transparent 52%),
+        var(--bg);
       color: var(--ink);
       font-family: "Manrope", "Segoe UI", sans-serif;
     }
     .card {
       width: 100%;
-      max-width: 620px;
+      max-width: 760px;
       margin: 0 auto;
       background: var(--card);
       border: 1px solid var(--line);
       border-radius: 14px;
-      padding: 16px;
-      box-shadow: 0 12px 28px rgba(33, 28, 23, 0.08);
+      padding: 18px 16px 20px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(6px);
     }
-    h1 { margin: 0 0 4px; font-size: clamp(1.28rem, 5vw, 1.6rem); line-height: 1.15; }
+    h1 { margin: 0 0 4px; font-size: clamp(1.3rem, 5vw, 1.65rem); line-height: 1.15; }
     .sub { margin: 0 0 12px; color: var(--muted); font-size: 0.9rem; }
     .msg { margin: 0 0 10px; font-weight: 700; font-size: 0.9rem; }
-    .msg.error { color: #9f1e1e; }
-    .msg.ok { color: #186243; }
+    .msg.error { color: #dc2626; }
+    .msg.ok { color: #16a34a; }
 
     form { display: grid; gap: 11px; }
     .field { display: grid; gap: 6px; }
-    .label { font-size: 0.8rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #404854; }
+    .label { font-size: 0.8rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
 
     input[type="file"], input[type="range"] {
       width: 100%;
     }
     input[type="file"] {
-      border: 1px solid #d7c9b6;
+      border: 1px solid var(--line);
       border-radius: 10px;
       padding: 10px;
-      background: #fffefc;
+      background: var(--card);
+      color: var(--ink);
       min-height: 44px;
     }
 
     .preview-row {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 10px;
     }
     .preview-box {
-      border: 1px solid #e4d6c5;
+      border: 1px solid var(--line);
       border-radius: 10px;
       background: var(--soft);
       padding: 8px;
@@ -75,15 +95,15 @@
       font-weight: 800;
       letter-spacing: 0.05em;
       text-transform: uppercase;
-      color: #616a76;
+      color: var(--muted);
     }
     .preview {
       width: 100%;
       max-height: 320px;
       border-radius: 10px;
-      border: 1px solid #d9cab8;
+      border: 1px solid var(--line);
       object-fit: contain;
-      background: #f7f3ed;
+      background: var(--card);
       display: block;
     }
     .crop-stage {
@@ -110,7 +130,7 @@
       bottom: -9px;
       border-radius: 999px;
       border: 2px solid #fff;
-      background: #b2472a;
+      background: var(--accent);
       cursor: nwse-resize;
       touch-action: none;
     }
@@ -118,26 +138,39 @@
     .crop-tools { display: none; gap: 10px; position: relative; z-index: 20; }
     .crop-tools.is-active { display: grid; }
     .button-row { display: grid; gap: 8px; }
-    button {
-      border: 0;
+    .btn {
+      border: 1px solid transparent;
       border-radius: 10px;
       min-height: 44px;
       padding: 10px 12px;
       background: var(--accent);
-      color: #fff;
+      color: var(--accent-fg);
       font: 800 0.94rem/1 "Manrope", sans-serif;
       cursor: pointer;
+      transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
     }
-    .btn-secondary {
-      border: 1px solid #d7c9b6;
-      background: #fff;
-      color: #1f232a;
+    .btn:hover { background: var(--accent-hover); }
+    .btn.secondary {
+      border-color: var(--line);
+      background: var(--card);
+      color: var(--ink);
+    }
+    .btn.secondary:hover {
+      background: var(--soft);
+    }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    html.dark input[type="file"],
+    html.dark .card {
+      background-color: #09090b !important;
+      color: var(--ink) !important;
+      border-color: var(--line) !important;
     }
 
     @media (min-width: 720px) {
       body { padding: 22px; }
       .card { padding: 20px; }
-      .button-row { grid-template-columns: 1fr 1fr; }
+      .button-row { grid-template-columns: 1fr 1fr 1fr; }
     }
 </style>
   <script>
@@ -149,48 +182,12 @@
     })();
   </script>
 
-  <style>
-    :root {
-      --bg: #ffffff;
-      --surface: #ffffff;
-      --paper: #ffffff;
-      --ink: #0f172a;
-      --muted: #52525b;
-      --line: #e4e4e7;
-      --brand: #004f71;
-      --brand-dark: #003a55;
-      --accent: #004f71;
-      --shadow: 0 16px 34px rgba(15, 23, 42, 0.10);
-    }
-
-    html.dark {
-      --bg: #000000;
-      --surface: #09090b;
-      --paper: #09090b;
-      --ink: #f4f4f5;
-      --muted: #a1a1aa;
-      --line: #27272a;
-      --brand: #004f71;
-      --brand-dark: #2f8fb8;
-      --accent: #004f71;
-      --shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
-    }
-
-    html.dark input,
-    html.dark select,
-    html.dark textarea,
-    html.dark table,
-    html.dark .card,
-    html.dark .panel {
-      background-color: #09090b !important;
-      color: var(--ink) !important;
-      border-color: var(--line) !important;
-    }
-  </style>
-
 </head>
 <body class="min-h-screen pt-20 bg-white text-zinc-900 dark:bg-black dark:text-zinc-100 transition-colors duration-200">
-  <button id="theme-toggle" type="button" class="fixed top-3 right-3 z-[1200] rounded-full border border-zinc-300/80 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.08em] text-zinc-700 dark:text-zinc-200 shadow-sm backdrop-blur">Dark</button>
+  <button id="theme-toggle" type="button" aria-label="Toggle theme" class="fixed top-3 right-3 z-[1200] h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors backdrop-blur">
+    <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+  </button>
   <nav id="app-nav" class="fixed top-3 left-3 right-20 z-[1100]">
     <div class="mx-auto max-w-6xl rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur px-3 py-2">
       <div class="flex items-center justify-between gap-3">
@@ -203,7 +200,6 @@
         </button>
       </div>
       <div id="nav-links" class="mt-2 hidden flex-col gap-1 text-xs font-semibold md:mt-2 md:flex md:flex-row md:flex-wrap md:items-center md:gap-2">
-        <a href="/employee/paperwork/{{ .Token }}" class="block px-2.5 py-1 rounded-md text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800">Paperwork</a>
         <a href="/employee/photo-upload/{{ .Token }}" class="block px-2.5 py-1 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black">Photo Upload</a>
       
       </div>
@@ -221,7 +217,7 @@
       <div class="preview-box">
         <span class="preview-label">Selected Image</span>
         <div class="crop-stage">
-          <img id="preview" class="preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Crect width='100%25' height='100%25' fill='%23f7f3ed'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2369717c' font-size='13'%3EPreview%3C/text%3E%3C/svg%3E" alt="Preview">
+          <img id="preview" class="preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%2371717a' font-size='13'%3EPreview%3C/text%3E%3C/svg%3E" alt="Preview">
           <div id="crop_selection" class="crop-selection">
             <div id="crop_handle" class="crop-handle"></div>
           </div>
@@ -243,12 +239,12 @@
         <input id="photo_file" type="file" name="photo_file" accept="image/png,image/jpeg,image/webp" required>
       </div>
 
-      <div id="crop_tools" class="crop-tools">
+        <div id="crop_tools" class="crop-tools">
         <p class="sub" style="margin:0;">Drag the crop box. Use the bottom-right handle to resize.</p>
         <div class="button-row">
-          <button id="confirm_crop" type="button" class="btn-secondary">Confirm Crop</button>
-          <button id="upload_btn" type="submit" disabled>Upload Photo</button>
-          <button id="cancel_upload" type="button" class="btn-secondary">Cancel Upload</button>
+          <button id="confirm_crop" type="button" class="btn secondary">Confirm Crop</button>
+          <button id="upload_btn" type="submit" class="btn" disabled>Upload Photo</button>
+          <button id="cancel_upload" type="button" class="btn secondary">Cancel Upload</button>
         </div>
       </div>
     </form>
@@ -435,23 +431,20 @@
       function currentTheme() {
         return root.classList.contains("dark") ? "dark" : "light";
       }
-
-      function updateLabel() {
+      function updateThemeA11y() {
         if (!toggle) return;
         const next = currentTheme() === "dark" ? "light" : "dark";
-        toggle.textContent = next === "dark" ? "Dark" : "Light";
         toggle.setAttribute("aria-label", "Switch to " + next + " mode");
         toggle.title = "Switch to " + next + " mode";
       }
-
-      updateLabel();
+      updateThemeA11y();
 
       if (toggle) {
         toggle.addEventListener("click", function () {
           const next = currentTheme() === "dark" ? "light" : "dark";
           root.classList.toggle("dark", next === "dark");
           window.localStorage.setItem(storageKey, next);
-          updateLabel();
+          updateThemeA11y();
         });
       }
 

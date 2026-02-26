@@ -120,7 +120,7 @@
 
         <section class="apps">
           <a class="app-card" href="/admin/locations/{{ .Location.Number }}/employees">
-            <span class="app-status-dot {{ if .NewHireEmployees }}bad{{ else }}good{{ end }}" aria-hidden="true"></span>
+            <span class="app-status-dot {{ if or .NewHireEmployees .HasEmployeesMissingProfile }}bad{{ else }}good{{ end }}" aria-hidden="true"></span>
             <div class="app-title">Employees</div>
             <p class="app-desc">Create team members, manage job assignments, update photos, and manage employee details.</p>
           </a>

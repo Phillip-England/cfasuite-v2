@@ -201,34 +201,86 @@
           <h2 style="font-size:1.05rem;">Candidate Decision</h2>
           {{ if eq .Candidate.Status "active" }}
             <div class="row">
-              <form method="post" action="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/decision">
+              <form method="post" action="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/decision" class="stack" style="width:100%;">
                 <input type="hidden" name="csrf_token" value="{{ .CSRF }}"><input type="hidden" name="decision" value="hire">
-                <label for="hire-department-id" style="margin-right:.5rem;">Assign Department</label>
-                <select id="hire-department-id" name="department_id" required style="margin-right:.5rem;">
-                  <option value="">Select department</option>
-                  {{ range .LocationDepartments }}
-                    <option value="{{ .ID }}">{{ .Name }}</option>
-                  {{ end }}
-                </select>
-                <label for="hire-job-id" style="margin-right:.5rem;">Assign Job</label>
-                <select id="hire-job-id" name="job_id" required style="margin-right:.5rem;">
-                  <option value="">Select department first</option>
-                  {{ range .LocationJobs }}
-                    <option
-                      value="{{ .ID }}"
-                      data-department-ids="{{ if .DepartmentIDs }}{{ range $idx, $id := .DepartmentIDs }}{{ if $idx }},{{ end }}{{ $id }}{{ end }}{{ else if gt .DepartmentID 0 }}{{ .DepartmentID }}{{ end }}"
-                    >{{ .Name }}{{ if .DepartmentName }} ({{ .DepartmentName }}){{ end }}</option>
-                  {{ end }}
-                </select>
-                <label for="hire-pay-type" style="margin-right:.5rem;">Pay Type</label>
-                <select id="hire-pay-type" name="pay_type" required style="margin-right:.5rem;">
-                  <option value="">Select pay type</option>
-                  <option value="hourly">Hourly</option>
-                  <option value="salary">Salary</option>
-                </select>
-                <label for="hire-pay-amount" style="margin-right:.5rem;">Pay Amount</label>
-                <input id="hire-pay-amount" name="pay_amount" type="number" min="0.01" step="0.01" required style="margin-right:.5rem;max-width:10rem;">
-                <button class="btn btn-primary" type="submit" {{ if or (not .LocationJobs) (not .LocationDepartments) }}disabled{{ end }}>Hire Candidate</button>
+                <div class="grid-2">
+                  <div>
+                    <label for="hire-first-name">First Name</label>
+                    <input id="hire-first-name" name="first_name" type="text" value="{{ .Candidate.FirstName }}" required>
+                  </div>
+                  <div>
+                    <label for="hire-last-name">Last Name</label>
+                    <input id="hire-last-name" name="last_name" type="text" value="{{ .Candidate.LastName }}" required>
+                  </div>
+                  <div>
+                    <label for="hire-birthday">Birthday</label>
+                    <input id="hire-birthday" name="birthday" type="date" required>
+                  </div>
+                  <div>
+                    <label for="hire-email">Email</label>
+                    <input id="hire-email" name="email" type="email" placeholder="name@example.com" required>
+                  </div>
+                  <div>
+                    <label for="hire-phone">Phone</label>
+                    <input id="hire-phone" name="phone" type="text" value="{{ .Candidate.Phone }}" required>
+                  </div>
+                  <div>
+                    <label for="hire-address">Address</label>
+                    <input id="hire-address" name="address" type="text" required>
+                  </div>
+                  <div>
+                    <label for="hire-apt-number">Apt Number (Optional)</label>
+                    <input id="hire-apt-number" name="apt_number" type="text">
+                  </div>
+                  <div>
+                    <label for="hire-city">City</label>
+                    <input id="hire-city" name="city" type="text" required>
+                  </div>
+                  <div>
+                    <label for="hire-state">State</label>
+                    <input id="hire-state" name="state" type="text" placeholder="e.g. TN" required>
+                  </div>
+                  <div>
+                    <label for="hire-zip-code">Zip Code</label>
+                    <input id="hire-zip-code" name="zip_code" type="text" required>
+                  </div>
+                  <div>
+                    <label for="hire-department-id">Assign Department</label>
+                    <select id="hire-department-id" name="department_id" required>
+                      <option value="">Select department</option>
+                      {{ range .LocationDepartments }}
+                        <option value="{{ .ID }}">{{ .Name }}</option>
+                      {{ end }}
+                    </select>
+                  </div>
+                  <div>
+                    <label for="hire-job-id">Assign Job</label>
+                    <select id="hire-job-id" name="job_id" required>
+                      <option value="">Select department first</option>
+                      {{ range .LocationJobs }}
+                        <option
+                          value="{{ .ID }}"
+                          data-department-ids="{{ if .DepartmentIDs }}{{ range $idx, $id := .DepartmentIDs }}{{ if $idx }},{{ end }}{{ $id }}{{ end }}{{ else if gt .DepartmentID 0 }}{{ .DepartmentID }}{{ end }}"
+                        >{{ .Name }}{{ if .DepartmentName }} ({{ .DepartmentName }}){{ end }}</option>
+                      {{ end }}
+                    </select>
+                  </div>
+                  <div>
+                    <label for="hire-pay-type">Pay Type</label>
+                    <select id="hire-pay-type" name="pay_type" required>
+                      <option value="">Select pay type</option>
+                      <option value="hourly">Hourly</option>
+                      <option value="salary">Salary</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="hire-pay-amount">Pay Amount</label>
+                    <input id="hire-pay-amount" name="pay_amount" type="number" min="0.01" step="0.01" required>
+                  </div>
+                </div>
+                <div class="row">
+                  <button class="btn btn-primary" type="submit" {{ if or (not .LocationJobs) (not .LocationDepartments) }}disabled{{ end }}>Hire Candidate</button>
+                </div>
               </form>
               <form method="post" action="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/decision">
                 <input type="hidden" name="csrf_token" value="{{ .CSRF }}"><input type="hidden" name="decision" value="pass">

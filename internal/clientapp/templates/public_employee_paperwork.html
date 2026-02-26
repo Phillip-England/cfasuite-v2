@@ -160,6 +160,7 @@
     }
     .label.required-empty { color: #dc2626; }
     .label.required-complete { color: #16a34a; }
+    .label.required-invalid { color: #dc2626; }
     input, select, textarea {
       width: 100%;
       min-height: 46px;
@@ -175,6 +176,26 @@
       outline: none;
       border-color: #004f71;
       box-shadow: 0 0 0 3px var(--focus);
+    }
+    .control-invalid {
+      border-color: #dc2626 !important;
+      box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15);
+    }
+    .section-errors {
+      border: 1px solid #fca5a5;
+      background: #fff1f2;
+      color: #9f1239;
+      border-radius: 10px;
+      padding: 9px 10px;
+      display: grid;
+      gap: 4px;
+      font-size: 0.83rem;
+      font-weight: 700;
+    }
+    html.dark .section-errors {
+      border-color: #7f1d1d;
+      background: #2b0a0f;
+      color: #fda4af;
     }
     .segment-row {
       display: grid;
@@ -291,13 +312,75 @@
       background: var(--soft);
     }
     .doc-upload-grid { margin-top: 8px; }
+    .legal-help {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--card);
+      overflow: hidden;
+    }
+    .legal-help summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 10px 12px;
+      font: 800 0.86rem/1.3 "Manrope", sans-serif;
+      color: var(--ink);
+      background: var(--soft);
+    }
+    .legal-help summary::-webkit-details-marker { display: none; }
+    .legal-help summary::after {
+      content: "Show";
+      float: right;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 0.73rem;
+    }
+    .legal-help[open] summary::after { content: "Hide"; }
+    .legal-help-body {
+      display: grid;
+      gap: 8px;
+      padding: 10px 12px 12px;
+      font-size: 0.83rem;
+      color: var(--muted);
+    }
+    .legal-help-list {
+      margin: 0;
+      padding-left: 16px;
+      display: grid;
+      gap: 5px;
+    }
+    .legal-help-list li { line-height: 1.35; }
     .doc-upload-row {
       display: grid;
       gap: 8px;
       grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
       align-items: end;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: var(--card);
     }
     .doc-upload-row .field { min-width: 0; }
+    .doc-upload-row .field-file {
+      grid-column: 1 / -1;
+    }
+    .doc-row-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .doc-list-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--soft);
+      color: var(--ink);
+      font: 700 0.84rem/1.2 "Manrope", sans-serif;
+    }
     .doc-remove-btn {
       min-height: 46px;
       font: 700 0.9rem/1 "Manrope", sans-serif;
@@ -318,6 +401,56 @@
       letter-spacing: 0.06em;
       min-height: 42px;
       padding: 8px;
+    }
+    .file-dropzone {
+      position: relative;
+      border: 2px dashed var(--line);
+      border-radius: 12px;
+      min-height: 110px;
+      padding: 12px;
+      background: var(--soft);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      gap: 5px;
+      cursor: pointer;
+      transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+    }
+    .file-dropzone:hover {
+      border-color: #2f8fb8;
+      background: var(--warn-bg);
+    }
+    .file-dropzone:focus-within {
+      border-color: #004f71;
+      box-shadow: 0 0 0 3px var(--focus);
+    }
+    .file-dropzone.is-dragging {
+      border-color: #2f8fb8;
+      background: var(--warn-bg);
+      box-shadow: 0 0 0 3px var(--focus);
+    }
+    .file-dropzone-title {
+      font: 900 0.86rem/1 "Manrope", sans-serif;
+      color: var(--ink);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .file-dropzone-text {
+      font: 700 0.82rem/1.35 "Manrope", sans-serif;
+      color: var(--muted);
+      max-width: 260px;
+      word-break: break-word;
+    }
+    .file-dropzone-input {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+      min-height: 0;
+      padding: 0;
+      border: 0;
     }
     .panel.panel-grid { display: none; }
     .panel.panel-grid.active {
@@ -340,6 +473,8 @@
     }
     @media (max-width: 680px) {
       .doc-upload-row { grid-template-columns: 1fr; }
+      .doc-upload-row .field-file,
+      .doc-row-actions { grid-column: auto; }
     }
   </style>
   <script>
@@ -353,11 +488,11 @@
 
 </head>
 <body class="min-h-screen pt-6 bg-white text-zinc-900 dark:bg-black dark:text-zinc-100 transition-colors duration-200">
-  <button id="theme-toggle" type="button" aria-label="Toggle theme" class="fixed top-3 right-3 z-[1200] h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors backdrop-blur">
-    <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-    <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-  </button>
-  <section class="card mx-auto w-full max-w-[760px] rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 md:p-6">
+  <section class="card relative mx-auto w-full max-w-[760px] rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 md:p-6">
+    <button id="theme-toggle" type="button" aria-label="Toggle theme" class="absolute top-3 right-3 z-20 h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors backdrop-blur">
+      <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
     <h1>Employee Paperwork</h1>
     <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})<br>Employee: <strong>{{ .Employee.FirstName }} {{ .Employee.LastName }}</strong></p>
     {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
@@ -374,6 +509,7 @@
     <form id="paperwork-form" method="post" action="/employee/paperwork/{{ .Token }}" enctype="multipart/form-data">
       <input id="paperwork_target" type="hidden" name="paperwork_target" value="all">
       <section id="panel-i9" class="panel panel-grid active">
+        <div id="i9-errors" class="section-errors" hidden></div>
         <section class="personal-card">
           <h2>I-9 Personal Info</h2>
           <div class="personal-grid">
@@ -399,10 +535,71 @@
             </div>
             <div class="field"><label class="label" for="personal_address">Street Address<span class="req">*</span></label><input id="personal_address" type="text"></div>
             <div class="field"><label class="label" for="personal_apt">Apt Number</label><input id="personal_apt" type="text"></div>
-            <div class="field"><label class="label" for="personal_city">City<span class="req">*</span></label><input id="personal_city" type="text"></div>
-            <div class="field"><label class="label" for="personal_state">State<span class="req">*</span></label><input id="personal_state" type="text"></div>
-            <div class="field"><label class="label" for="personal_zip">ZIP Code<span class="req">*</span></label><input id="personal_zip" type="text"></div>
-            <div class="field"><label class="label" for="personal_email">Email<span class="req">*</span></label><input id="personal_email" type="email"></div>
+            <div class="field"><label class="label" for="personal_city">City<span class="req">*</span></label><input id="personal_city" type="text" maxlength="100"></div>
+            <div class="field">
+              <label class="label" for="personal_state">State<span class="req">*</span></label>
+              <select id="personal_state">
+                <option value="">Select State</option>
+                <option value="AL">AL - Alabama</option>
+                <option value="AK">AK - Alaska</option>
+                <option value="AZ">AZ - Arizona</option>
+                <option value="AR">AR - Arkansas</option>
+                <option value="CA">CA - California</option>
+                <option value="CO">CO - Colorado</option>
+                <option value="CT">CT - Connecticut</option>
+                <option value="DE">DE - Delaware</option>
+                <option value="DC">DC - District of Columbia</option>
+                <option value="FL">FL - Florida</option>
+                <option value="GA">GA - Georgia</option>
+                <option value="HI">HI - Hawaii</option>
+                <option value="ID">ID - Idaho</option>
+                <option value="IL">IL - Illinois</option>
+                <option value="IN">IN - Indiana</option>
+                <option value="IA">IA - Iowa</option>
+                <option value="KS">KS - Kansas</option>
+                <option value="KY">KY - Kentucky</option>
+                <option value="LA">LA - Louisiana</option>
+                <option value="ME">ME - Maine</option>
+                <option value="MD">MD - Maryland</option>
+                <option value="MA">MA - Massachusetts</option>
+                <option value="MI">MI - Michigan</option>
+                <option value="MN">MN - Minnesota</option>
+                <option value="MS">MS - Mississippi</option>
+                <option value="MO">MO - Missouri</option>
+                <option value="MT">MT - Montana</option>
+                <option value="NE">NE - Nebraska</option>
+                <option value="NV">NV - Nevada</option>
+                <option value="NH">NH - New Hampshire</option>
+                <option value="NJ">NJ - New Jersey</option>
+                <option value="NM">NM - New Mexico</option>
+                <option value="NY">NY - New York</option>
+                <option value="NC">NC - North Carolina</option>
+                <option value="ND">ND - North Dakota</option>
+                <option value="OH">OH - Ohio</option>
+                <option value="OK">OK - Oklahoma</option>
+                <option value="OR">OR - Oregon</option>
+                <option value="PA">PA - Pennsylvania</option>
+                <option value="RI">RI - Rhode Island</option>
+                <option value="SC">SC - South Carolina</option>
+                <option value="SD">SD - South Dakota</option>
+                <option value="TN">TN - Tennessee</option>
+                <option value="TX">TX - Texas</option>
+                <option value="UT">UT - Utah</option>
+                <option value="VT">VT - Vermont</option>
+                <option value="VA">VA - Virginia</option>
+                <option value="WA">WA - Washington</option>
+                <option value="WV">WV - West Virginia</option>
+                <option value="WI">WI - Wisconsin</option>
+                <option value="WY">WY - Wyoming</option>
+                <option value="AS">AS - American Samoa</option>
+                <option value="GU">GU - Guam</option>
+                <option value="MP">MP - Northern Mariana Islands</option>
+                <option value="PR">PR - Puerto Rico</option>
+                <option value="VI">VI - U.S. Virgin Islands</option>
+              </select>
+            </div>
+            <div class="field"><label class="label" for="personal_zip">ZIP Code<span class="req">*</span></label><input id="personal_zip" type="text" inputmode="numeric" maxlength="10" placeholder="12345 or 12345-6789"></div>
+            <div class="field"><label class="label" for="personal_email">Email<span class="req">*</span></label><input id="personal_email" type="email" maxlength="200"></div>
             <div class="field">
               <label class="label" for="personal_phone_1">Phone<span class="req">*</span></label>
               <input id="personal_phone" type="hidden">
@@ -440,19 +637,48 @@
       </section>
 
       <section id="panel-legal" class="panel panel-grid">
+        <div id="legal-errors" class="section-errors" hidden></div>
         <section class="wizard-step">
           <section class="doc-upload-grid">
             <p class="instruction-title" style="margin:0;">Legal Documents<span class="req">*</span></p>
-            <p class="instruction-text">Upload at least one List A document, or one List B and one List C document. Add document title, issuing authority, and document number so your I-9 can be fully completed.</p>
+            <p class="instruction-text">Choose the document type you have and upload it. The form auto-maps each file to List A, B, or C. You need either one List A document, or one List B and one List C document.</p>
+            <details class="legal-help">
+              <summary>I-9 Accepted Document Guide</summary>
+              <section class="legal-help-body">
+                <p class="instruction-text">Reference from Form I-9 acceptable documents.</p>
+                <p class="instruction-title">List A (Identity and Employment Authorization)</p>
+                <ul class="legal-help-list">
+                  <li>U.S. Passport or U.S. Passport Card</li>
+                  <li>Permanent Resident Card (Form I-551)</li>
+                  <li>Employment Authorization Document with photo (Form I-766)</li>
+                  <li>Foreign passport with temporary I-551 stamp or MRIV</li>
+                </ul>
+                <p class="instruction-title">List B (Identity Only)</p>
+                <ul class="legal-help-list">
+                  <li>Driver's license or state ID card with photo/identifying details</li>
+                  <li>School ID card with a photograph</li>
+                  <li>Voter's registration card</li>
+                  <li>U.S. military card or draft record</li>
+                  <li>Military dependent's ID card</li>
+                  <li>Native American tribal document</li>
+                </ul>
+                <p class="instruction-title">List C (Employment Authorization Only)</p>
+                <ul class="legal-help-list">
+                  <li>Social Security card (without restrictive legend)</li>
+                  <li>Original or certified U.S. birth certificate</li>
+                  <li>Consular Report of Birth Abroad (FS-240)</li>
+                  <li>U.S. Citizen ID Card (I-197/I-179)</li>
+                  <li>Employment authorization document issued by DHS</li>
+                </ul>
+              </section>
+            </details>
             <div id="i9-doc-rows"></div>
-            <div class="row" style="gap:8px;">
-              <button id="i9-add-doc-row" type="button" class="btn secondary">Add Another Document</button>
-            </div>
           </section>
         </section>
       </section>
 
       <section id="panel-signature" class="panel panel-grid">
+        <div id="signature-errors" class="section-errors" hidden></div>
         <section class="wizard-step">
         <p class="sub" style="margin:0;">Draw your signature to sign all submitted paperwork and confirm the attestation below.</p>
         <input id="i9_last_name" type="hidden" name="last_name" value="{{ .Employee.LastName }}">
@@ -488,6 +714,7 @@
       </section>
 
       <section id="panel-w4" class="panel panel-grid">
+        <div id="w4-errors" class="section-errors" hidden></div>
         <section class="wizard-step">
         <p class="sub" style="margin:0;">Name, address, and SSN are pulled from Personal Info. Employer defaults come from this location's settings.</p>
         <input id="w4_first_name_middle" type="hidden" name="first_name_middle" value="{{ .Employee.FirstName }}">
@@ -542,9 +769,9 @@
           <label class="label">Step 3(b) Total ($500 x count)</label>
           <div id="w4_other_dep_total" class="total-value" aria-live="polite">$0</div>
         </div>
-        <div class="field"><label class="label" for="w4_other_income">Other income</label><input id="w4_other_income" type="text" name="other_income"></div>
-        <div class="field"><label class="label" for="w4_deductions">Deductions</label><input id="w4_deductions" type="text" name="deductions"></div>
-        <div class="field"><label class="label" for="w4_extra">Extra withholding per pay period</label><input id="w4_extra" type="text" name="extra_withholding"></div>
+        <div class="field"><label class="label" for="w4_other_income">Other income</label><input id="w4_other_income" type="text" name="other_income" inputmode="decimal" placeholder="$0.00"></div>
+        <div class="field"><label class="label" for="w4_deductions">Deductions</label><input id="w4_deductions" type="text" name="deductions" inputmode="decimal" placeholder="$0.00"></div>
+        <div class="field"><label class="label" for="w4_extra">Extra withholding per pay period</label><input id="w4_extra" type="text" name="extra_withholding" inputmode="decimal" placeholder="$0.00"></div>
         <div class="field"><label class="label" for="w4_exempt">Exempt</label><select id="w4_exempt" name="exempt"><option value="">No</option><option value="1">Yes</option></select></div>
         </section>
       </section>
@@ -564,7 +791,19 @@
       const signaturePanel = document.getElementById("panel-signature");
       const paperworkTarget = document.getElementById("paperwork_target");
       const paperworkSubmitBtn = document.getElementById("paperwork-submit-btn");
+      const paperworkForm = document.getElementById("paperwork-form");
+      const draftKey = `cfasuite-paperwork-draft:{{ .Location.Number }}:{{ .Employee.TimePunchName }}`;
+      const i9ErrorsEl = document.getElementById("i9-errors");
+      const legalErrorsEl = document.getElementById("legal-errors");
+      const w4ErrorsEl = document.getElementById("w4-errors");
+      const signatureErrorsEl = document.getElementById("signature-errors");
+      const emailPattern = /^[A-Za-z0-9._%+\-']+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+      const zipPattern = /^\d{5}(-\d{4})?$/;
+      const cityPattern = /^[A-Z][A-Z .'-]{0,99}$/;
+      const currencyPattern = /^\d+(\.\d{1,2})?$/;
       let ink = false;
+      let draftSaveTimer = null;
+      let invalidControlIDs = new Set();
       function hasText(id) {
         return (document.getElementById(id)?.value || "").trim() !== "";
       }
@@ -575,6 +814,124 @@
         if (!btn) return;
         btn.classList.toggle("section-complete", complete);
         btn.classList.toggle("section-incomplete", !complete);
+      }
+      function clearInvalidControlStyles() {
+        document.querySelectorAll(".control-invalid").forEach((control) => {
+          control.classList.remove("control-invalid");
+          control.removeAttribute("aria-invalid");
+        });
+      }
+      function markInvalidControls(ids) {
+        ids.forEach((id) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.classList.add("control-invalid");
+          el.setAttribute("aria-invalid", "true");
+        });
+      }
+      function renderSectionErrors(container, errors) {
+        if (!container) return;
+        const filtered = Array.from(new Set((errors || []).map((v) => String(v || "").trim()).filter((v) => v !== "")));
+        if (filtered.length === 0) {
+          container.hidden = true;
+          container.innerHTML = "";
+          return;
+        }
+        container.hidden = false;
+        container.innerHTML = filtered.map((msg) => `<div>${msg}</div>`).join("");
+      }
+      function isValidCurrencyAmount(value) {
+        const sanitized = (value || "").trim().replace(/\$/g, "").replace(/,/g, "").replace(/\s+/g, "");
+        if (sanitized === "") return true;
+        return currencyPattern.test(sanitized);
+      }
+      function collectSectionValidation() {
+        const invalidIDs = new Set();
+        const i9Errors = [];
+        const legalErrors = [];
+        const w4Errors = [];
+        const signatureErrors = [];
+
+        const emailValue = (document.getElementById("personal_email")?.value || "").trim();
+        const zipValue = (document.getElementById("personal_zip")?.value || "").trim();
+        const cityValue = (document.getElementById("personal_city")?.value || "").trim();
+        const phoneDigits = [
+          document.getElementById("personal_phone_1")?.value || "",
+          document.getElementById("personal_phone_2")?.value || "",
+          document.getElementById("personal_phone_3")?.value || ""
+        ].join("").replace(/\D+/g, "");
+        const ssnDigits = [
+          document.getElementById("personal_ssn_1")?.value || "",
+          document.getElementById("personal_ssn_2")?.value || "",
+          document.getElementById("personal_ssn_3")?.value || ""
+        ].join("").replace(/\D+/g, "");
+
+        if (emailValue !== "" && !emailPattern.test(emailValue)) {
+          i9Errors.push("Email must be a valid email address.");
+          invalidIDs.add("personal_email");
+        }
+        if (zipValue !== "" && !zipPattern.test(zipValue)) {
+          i9Errors.push("ZIP code must be 5 digits or ZIP+4 (example: 12345 or 12345-6789).");
+          invalidIDs.add("personal_zip");
+        }
+        if (cityValue !== "" && !cityPattern.test(cityValue)) {
+          i9Errors.push("City must use letters and standard punctuation only.");
+          invalidIDs.add("personal_city");
+        }
+        if (phoneDigits.length > 0 && phoneDigits.length !== 10) {
+          i9Errors.push("Phone number must include exactly 10 digits.");
+          invalidIDs.add("personal_phone_1");
+          invalidIDs.add("personal_phone_2");
+          invalidIDs.add("personal_phone_3");
+        }
+        if (ssnDigits.length > 0 && ssnDigits.length !== 9) {
+          i9Errors.push("SSN must include exactly 9 digits.");
+          invalidIDs.add("personal_ssn_1");
+          invalidIDs.add("personal_ssn_2");
+          invalidIDs.add("personal_ssn_3");
+        }
+
+        const w4AmountFields = [
+          { id: "w4_other_income", label: "Other income" },
+          { id: "w4_deductions", label: "Deductions" },
+          { id: "w4_extra", label: "Extra withholding" }
+        ];
+        w4AmountFields.forEach((field) => {
+          const value = document.getElementById(field.id)?.value || "";
+          if (!isValidCurrencyAmount(value)) {
+            w4Errors.push(`${field.label} must be a valid dollar amount (example: 100, 100.00, or $100.00).`);
+            invalidIDs.add(field.id);
+          }
+        });
+
+        const legalCompletion = getLegalDocsCompletion();
+        if (!legalCompletion.complete && legalCompletion.reason) {
+          legalErrors.push(legalCompletion.reason);
+        }
+        const i9Completion = getI9Completion();
+        if (!i9Completion.complete) {
+          i9Errors.push(`Complete all required I-9 fields (${i9Completion.missing} remaining).`);
+        }
+        const w4Completion = getW4Completion();
+        if (!w4Completion.complete) {
+          w4Errors.push(`Complete required W-4 fields (${w4Completion.missing} remaining).`);
+        }
+        const signatureCompletion = getSignatureCompletion();
+        if (!signatureCompletion.complete) {
+          signatureErrors.push(`Complete required signature fields (${signatureCompletion.missing} remaining).`);
+        }
+
+        return {
+          invalidIDs,
+          i9Errors,
+          legalErrors,
+          w4Errors,
+          signatureErrors,
+          i9Complete: i9Completion.complete && i9Errors.length === 0,
+          legalComplete: legalCompletion.complete && legalErrors.length === 0,
+          w4Complete: w4Completion.complete && w4Errors.length === 0,
+          signatureComplete: signatureCompletion.complete && signatureErrors.length === 0
+        };
       }
       function isControlComplete(control) {
         if (!control || control.disabled) return true;
@@ -600,29 +957,40 @@
             && (document.getElementById("personal_dob_year")?.value || "") !== "";
         }
         if (targetId === "personal_phone_1") {
+          if (invalidControlIDs.has("personal_phone_1") || invalidControlIDs.has("personal_phone_2") || invalidControlIDs.has("personal_phone_3")) {
+            return false;
+          }
           return hasSegmented(["personal_phone_1", "personal_phone_2", "personal_phone_3"], [3, 3, 4]);
         }
         if (targetId === "personal_ssn_1") {
+          if (invalidControlIDs.has("personal_ssn_1") || invalidControlIDs.has("personal_ssn_2") || invalidControlIDs.has("personal_ssn_3")) {
+            return false;
+          }
           return hasSegmented(["personal_ssn_1", "personal_ssn_2", "personal_ssn_3"], [3, 2, 4]);
         }
         if (targetId !== "") {
+          if (invalidControlIDs.has(targetId)) return false;
           return isControlComplete(document.getElementById(targetId));
         }
         const field = label.closest(".field");
         if (!field) return true;
         const controls = Array.from(field.querySelectorAll("input, select, textarea"));
         if (controls.length === 0) return true;
+        if (controls.some((control) => invalidControlIDs.has(control.id))) return false;
         return controls.every((control) => isControlComplete(control));
       }
       function updateRequiredLabelStates() {
         document.querySelectorAll("label.label").forEach((label) => {
           if (!label.querySelector(".req")) {
-            label.classList.remove("required-empty", "required-complete");
+            label.classList.remove("required-empty", "required-complete", "required-invalid");
             return;
           }
           const complete = isRequiredLabelComplete(label);
-          label.classList.toggle("required-empty", !complete);
-          label.classList.toggle("required-complete", complete);
+          const targetId = (label.getAttribute("for") || "").trim();
+          const invalid = targetId !== "" && invalidControlIDs.has(targetId);
+          label.classList.toggle("required-empty", !complete || invalid);
+          label.classList.toggle("required-complete", complete && !invalid);
+          label.classList.toggle("required-invalid", invalid);
         });
       }
       function getI9Completion() {
@@ -660,23 +1028,31 @@
         let hasC = false;
         let validRowCount = 0;
         for (const row of rows) {
-          const listSelect = row.querySelector("select[name='i9_document_list[]']");
+          const typeSelect = row.querySelector("select[name='i9_document_type[]']");
+          const listInput = row.querySelector("input[name='i9_document_list[]']");
           const titleInput = row.querySelector("input[name='i9_document_title[]']");
           const issuingInput = row.querySelector("input[name='i9_document_issuing_authority[]']");
           const numberInput = row.querySelector("input[name='i9_document_number[]']");
+          const expirationInput = row.querySelector("input[name='i9_document_expiration[]']");
           const fileInput = row.querySelector("input[name='i9_document_file[]']");
-          const list = (listSelect?.value || "").trim().toLowerCase();
+          const type = (typeSelect?.value || "").trim();
+          const list = (listInput?.value || "").trim().toLowerCase();
           const title = (titleInput?.value || "").trim();
           const issuing = (issuingInput?.value || "").trim();
           const number = (numberInput?.value || "").trim();
+          const expiration = (expirationInput?.value || "").trim();
           const hasFile = (fileInput?.files?.length || 0) > 0;
-          const hasAnyData = list !== "" || title !== "" || issuing !== "" || number !== "" || hasFile;
+          const hasAnyData = type !== "" || list !== "" || title !== "" || issuing !== "" || number !== "" || expiration !== "" || hasFile;
           if (!hasAnyData) {
             continue;
           }
           validRowCount += 1;
-          if (!list || !hasFile || !title || !issuing || !number) {
-            return { complete: false, reason: "Each legal document row must include list, title, issuing authority, document number, and file." };
+          if (!type || !list || !hasFile || !title || !issuing || !number) {
+            return { complete: false, reason: "Each legal document row must include document type, title, issuing authority, document number, and file." };
+          }
+          const typeConfig = i9DocumentTypes[type] || null;
+          if (typeConfig && typeConfig.requiresExpiration && expiration === "") {
+            return { complete: false, reason: "Expiration date is required for selected document types." };
           }
           if (list === "a") hasA = true;
           if (list === "b") hasB = true;
@@ -769,13 +1145,14 @@
       function disableCompletelyEmptyLegalDocRows() {
         const rows = Array.from(document.querySelectorAll(".doc-upload-row"));
         for (const row of rows) {
-          const list = (row.querySelector("select[name='i9_document_list[]']")?.value || "").trim();
+          const type = (row.querySelector("select[name='i9_document_type[]']")?.value || "").trim();
+          const list = (row.querySelector("input[name='i9_document_list[]']")?.value || "").trim();
           const title = (row.querySelector("input[name='i9_document_title[]']")?.value || "").trim();
           const issuing = (row.querySelector("input[name='i9_document_issuing_authority[]']")?.value || "").trim();
           const number = (row.querySelector("input[name='i9_document_number[]']")?.value || "").trim();
           const expiration = (row.querySelector("input[name='i9_document_expiration[]']")?.value || "").trim();
           const hasFile = (row.querySelector("input[name='i9_document_file[]']")?.files?.length || 0) > 0;
-          const hasAnyData = list !== "" || title !== "" || issuing !== "" || number !== "" || expiration !== "" || hasFile;
+          const hasAnyData = type !== "" || list !== "" || title !== "" || issuing !== "" || number !== "" || expiration !== "" || hasFile;
           if (hasAnyData) {
             continue;
           }
@@ -798,14 +1175,18 @@
         return { complete: missing === 0, missing };
       }
       function updateCompletionStatus() {
-        const i9 = getI9Completion();
-        const legal = getLegalDocsCompletion();
-        const w4 = getW4Completion();
-        const signature = getSignatureCompletion();
-        setSectionButtonState(i9Btn, i9.complete);
-        setSectionButtonState(legalBtn, legal.complete);
-        setSectionButtonState(w4Btn, w4.complete);
-        setSectionButtonState(signatureBtn, signature.complete);
+        const validation = collectSectionValidation();
+        invalidControlIDs = validation.invalidIDs;
+        clearInvalidControlStyles();
+        markInvalidControls(invalidControlIDs);
+        renderSectionErrors(i9ErrorsEl, validation.i9Errors);
+        renderSectionErrors(legalErrorsEl, validation.legalErrors);
+        renderSectionErrors(w4ErrorsEl, validation.w4Errors);
+        renderSectionErrors(signatureErrorsEl, validation.signatureErrors);
+        setSectionButtonState(i9Btn, validation.i9Complete);
+        setSectionButtonState(legalBtn, validation.legalComplete);
+        setSectionButtonState(w4Btn, validation.w4Complete);
+        setSectionButtonState(signatureBtn, validation.signatureComplete);
         updateRequiredLabelStates();
       }
       function show(panel) {
@@ -831,22 +1212,173 @@
       if (legalBtn) legalBtn.addEventListener("click", () => show("legal"));
       w4Btn.addEventListener("click", () => show("w4"));
       if (signatureBtn) signatureBtn.addEventListener("click", () => show("signature"));
-      show("i9");
 
       const i9DocRows = document.getElementById("i9-doc-rows");
-      const i9AddDocRowBtn = document.getElementById("i9-add-doc-row");
+      const i9DocumentTypes = {
+        us_passport: { list: "a", title: "U.S. Passport", authority: "U.S. Department of State", requiresExpiration: true },
+        us_passport_card: { list: "a", title: "U.S. Passport Card", authority: "U.S. Department of State", requiresExpiration: true },
+        permanent_resident_card: { list: "a", title: "Permanent Resident Card (Form I-551)", authority: "USCIS", requiresExpiration: true },
+        employment_auth_card: { list: "a", title: "Employment Authorization Document (Form I-766)", authority: "USCIS", requiresExpiration: true },
+        foreign_passport_i551: { list: "a", title: "Foreign Passport with I-551 Stamp or MRIV", authority: "Government Issuer", requiresExpiration: true },
+        drivers_license: { list: "b", title: "Driver's License", authority: "State Issuing Authority", requiresExpiration: true },
+        state_id: { list: "b", title: "State ID Card", authority: "State Issuing Authority", requiresExpiration: true },
+        school_id: { list: "b", title: "School ID Card", authority: "School Issuing Authority", requiresExpiration: false },
+        voter_registration: { list: "b", title: "Voter's Registration Card", authority: "State/Local Election Authority", requiresExpiration: false },
+        military_card: { list: "b", title: "U.S. Military Card or Draft Record", authority: "U.S. Department of Defense", requiresExpiration: false },
+        military_dependent_id: { list: "b", title: "Military Dependent's ID Card", authority: "U.S. Department of Defense", requiresExpiration: true },
+        tribal_document: { list: "b", title: "Native American Tribal Document", authority: "Tribal Authority", requiresExpiration: false },
+        ssn_card: { list: "c", title: "Social Security Account Number Card", authority: "Social Security Administration", requiresExpiration: false },
+        birth_certificate: { list: "c", title: "Birth Certificate", authority: "Vital Records Authority", requiresExpiration: false },
+        fs240: { list: "c", title: "Consular Report of Birth Abroad (FS-240)", authority: "U.S. Department of State", requiresExpiration: false },
+        i197_i179: { list: "c", title: "U.S. Citizen ID Card (I-197/I-179)", authority: "USCIS", requiresExpiration: false },
+        dhs_auth_doc: { list: "c", title: "Employment Authorization Document Issued by DHS", authority: "DHS", requiresExpiration: true },
+        custom_a: { list: "a", title: "", authority: "", requiresExpiration: false },
+        custom_b: { list: "b", title: "", authority: "", requiresExpiration: false },
+        custom_c: { list: "c", title: "", authority: "", requiresExpiration: false }
+      };
+      function buildI9DocumentTypeOptions() {
+        return `
+          <option value="">Choose document type</option>
+          <optgroup label="List A">
+            <option value="us_passport">U.S. Passport</option>
+            <option value="us_passport_card">U.S. Passport Card</option>
+            <option value="permanent_resident_card">Permanent Resident Card (I-551)</option>
+            <option value="employment_auth_card">Employment Authorization Card (I-766)</option>
+            <option value="foreign_passport_i551">Foreign Passport with I-551 Stamp/MRIV</option>
+            <option value="custom_a">Other List A Document</option>
+          </optgroup>
+          <optgroup label="List B">
+            <option value="drivers_license">Driver's License</option>
+            <option value="state_id">State Identification Card</option>
+            <option value="school_id">School ID with Photograph</option>
+            <option value="voter_registration">Voter's Registration Card</option>
+            <option value="military_card">U.S. Military Card or Draft Record</option>
+            <option value="military_dependent_id">Military Dependent's ID Card</option>
+            <option value="tribal_document">Native American Tribal Document</option>
+            <option value="custom_b">Other List B Document</option>
+          </optgroup>
+          <optgroup label="List C">
+            <option value="ssn_card">Social Security Card</option>
+            <option value="birth_certificate">Birth Certificate</option>
+            <option value="fs240">Consular Report of Birth Abroad (FS-240)</option>
+            <option value="i197_i179">U.S. Citizen ID Card (I-197/I-179)</option>
+            <option value="dhs_auth_doc">DHS Employment Authorization Document</option>
+            <option value="custom_c">Other List C Document</option>
+          </optgroup>
+        `;
+      }
+      function applyI9DocumentTypeSelection(row) {
+        if (!row) return;
+        const typeSelect = row.querySelector("select[name='i9_document_type[]']");
+        const listInput = row.querySelector("input[name='i9_document_list[]']");
+        const listBadge = row.querySelector("[data-doc-list-badge]");
+        const titleInput = row.querySelector("input[name='i9_document_title[]']");
+        const issuingInput = row.querySelector("input[name='i9_document_issuing_authority[]']");
+        const expirationFieldLabel = row.querySelector("[data-exp-label]");
+        const selectedType = (typeSelect?.value || "").trim();
+        const config = i9DocumentTypes[selectedType];
+        if (!config) {
+          if (listInput) listInput.value = "";
+          if (listBadge) listBadge.textContent = "Auto-list: Not selected";
+          if (expirationFieldLabel) expirationFieldLabel.innerHTML = "Expiration Date";
+          return;
+        }
+        if (listInput) listInput.value = config.list;
+        if (listBadge) listBadge.textContent = `Auto-list: ${config.list.toUpperCase()}`;
+        if (expirationFieldLabel) {
+          expirationFieldLabel.innerHTML = config.requiresExpiration ? "Expiration Date<span class=\"req\">*</span>" : "Expiration Date";
+        }
+        if (titleInput && titleInput.value.trim() === "") {
+          titleInput.value = config.title || "";
+        }
+      }
+      function getI9DocRowState(row) {
+        const type = (row.querySelector("select[name='i9_document_type[]']")?.value || "").trim();
+        const list = (row.querySelector("input[name='i9_document_list[]']")?.value || "").trim().toLowerCase();
+        const title = (row.querySelector("input[name='i9_document_title[]']")?.value || "").trim();
+        const issuing = (row.querySelector("input[name='i9_document_issuing_authority[]']")?.value || "").trim();
+        const number = (row.querySelector("input[name='i9_document_number[]']")?.value || "").trim();
+        const expiration = (row.querySelector("input[name='i9_document_expiration[]']")?.value || "").trim();
+        const hasFile = (row.querySelector("input[name='i9_document_file[]']")?.files?.length || 0) > 0;
+        const hasAnyData = type !== "" || list !== "" || title !== "" || issuing !== "" || number !== "" || expiration !== "" || hasFile;
+        return { type, list, hasFile, hasAnyData };
+      }
+      function setI9DocRowPreferredList(row, list) {
+        if (!row || (list !== "b" && list !== "c")) return;
+        const typeSelect = row.querySelector("select[name='i9_document_type[]']");
+        if (!typeSelect) return;
+        if ((typeSelect.value || "").trim() !== "") return;
+        typeSelect.value = list === "b" ? "custom_b" : "custom_c";
+        applyI9DocumentTypeSelection(row);
+      }
+      function ensureAutoRequiredLegalRows() {
+        if (!i9DocRows) return;
+        let rows = Array.from(i9DocRows.querySelectorAll(".doc-upload-row"));
+        if (rows.length === 0) {
+          i9DocRows.appendChild(buildI9DocRow());
+          return;
+        }
+        let hasA = false;
+        let hasB = false;
+        let hasC = false;
+        let uploadedCount = 0;
+        rows.forEach((row) => {
+          const state = getI9DocRowState(row);
+          if (!state.hasFile) return;
+          uploadedCount += 1;
+          if (state.list === "a") hasA = true;
+          if (state.list === "b") hasB = true;
+          if (state.list === "c") hasC = true;
+        });
+        if (uploadedCount === 0) {
+          const emptyRows = rows.filter((row) => !getI9DocRowState(row).hasAnyData);
+          emptyRows.slice(1).forEach((row) => row.remove());
+          if (i9DocRows.querySelectorAll(".doc-upload-row").length === 0) {
+            i9DocRows.appendChild(buildI9DocRow());
+          }
+          return;
+        }
+        if (!hasA && hasB !== hasC) {
+          const neededList = hasB ? "c" : "b";
+          rows = Array.from(i9DocRows.querySelectorAll(".doc-upload-row"));
+          let candidate = rows.find((row) => {
+            const state = getI9DocRowState(row);
+            if (state.hasFile) return false;
+            return state.list === "" || state.list === neededList;
+          });
+          if (!candidate) {
+            candidate = buildI9DocRow();
+            i9DocRows.appendChild(candidate);
+          }
+          setI9DocRowPreferredList(candidate, neededList);
+        }
+        rows = Array.from(i9DocRows.querySelectorAll(".doc-upload-row"));
+        if (hasA || (hasB && hasC)) {
+          rows.filter((row) => !getI9DocRowState(row).hasAnyData).forEach((row) => row.remove());
+        } else {
+          const empties = rows.filter((row) => !getI9DocRowState(row).hasAnyData);
+          empties.slice(1).forEach((row) => row.remove());
+        }
+      }
+      function handleLegalRowsChanged() {
+        ensureAutoRequiredLegalRows();
+        updateCompletionStatus();
+        scheduleDraftSave();
+      }
       function buildI9DocRow() {
         const row = document.createElement("div");
         row.className = "doc-upload-row";
         row.innerHTML = `
           <div class="field">
-            <label class="label">Document List<span class="req">*</span></label>
-            <select name="i9_document_list[]">
-              <option value="">Choose</option>
-              <option value="a">List A</option>
-              <option value="b">List B</option>
-              <option value="c">List C</option>
+            <label class="label">Document Type<span class="req">*</span></label>
+            <select name="i9_document_type[]">
+              ${buildI9DocumentTypeOptions()}
             </select>
+            <input name="i9_document_list[]" type="hidden" value="">
+          </div>
+          <div class="field">
+            <label class="label">I-9 List</label>
+            <div class="doc-list-badge" data-doc-list-badge>Auto-list: Not selected</div>
           </div>
           <div class="field">
             <label class="label">Document Title<span class="req">*</span></label>
@@ -861,7 +1393,7 @@
             <input name="i9_document_number[]" type="text" placeholder="Ex: 123456789">
           </div>
           <div class="field">
-            <label class="label">Expiration Date</label>
+            <label class="label" data-exp-label>Expiration Date</label>
             <input name="i9_document_expiration[]" type="hidden" value="">
             <div class="doc-date-row">
               <select data-exp-part="month" class="doc-date-part">
@@ -877,13 +1409,16 @@
               </select>
             </div>
           </div>
-          <div class="field">
+          <div class="field field-file">
             <label class="label">Document File<span class="req">*</span></label>
             <input name="i9_document_file[]" type="file" accept=".pdf,image/png,image/jpeg,image/webp,application/pdf">
           </div>
-          <button type="button" class="doc-remove-btn">Remove</button>
+          <div class="doc-row-actions">
+            <button type="button" class="doc-remove-btn">Remove</button>
+          </div>
         `;
-        const select = row.querySelector("select[name='i9_document_list[]']");
+        const documentType = row.querySelector("select[name='i9_document_type[]']");
+        const listInput = row.querySelector("input[name='i9_document_list[]']");
         const title = row.querySelector("input[name='i9_document_title[]']");
         const issuing = row.querySelector("input[name='i9_document_issuing_authority[]']");
         const number = row.querySelector("input[name='i9_document_number[]']");
@@ -893,43 +1428,48 @@
         const file = row.querySelector("input[name='i9_document_file[]']");
         const removeBtn = row.querySelector(".doc-remove-btn");
         populateLegalExpirationDropdowns(row);
-        select?.addEventListener("change", updateCompletionStatus);
-        title?.addEventListener("input", updateCompletionStatus);
-        issuing?.addEventListener("input", updateCompletionStatus);
-        number?.addEventListener("input", updateCompletionStatus);
+        documentType?.addEventListener("change", () => {
+          applyI9DocumentTypeSelection(row);
+          handleLegalRowsChanged();
+        });
+        listInput?.addEventListener("change", handleLegalRowsChanged);
+        title?.addEventListener("input", handleLegalRowsChanged);
+        issuing?.addEventListener("input", handleLegalRowsChanged);
+        number?.addEventListener("input", handleLegalRowsChanged);
         expirationMonth?.addEventListener("change", () => {
           rebuildLegalExpirationDayDropdown(row);
           syncLegalDocumentExpirationForRow(row);
-          updateCompletionStatus();
+          handleLegalRowsChanged();
         });
         expirationYear?.addEventListener("change", () => {
           rebuildLegalExpirationDayDropdown(row);
           syncLegalDocumentExpirationForRow(row);
-          updateCompletionStatus();
+          handleLegalRowsChanged();
         });
         expirationDay?.addEventListener("change", () => {
           syncLegalDocumentExpirationForRow(row);
-          updateCompletionStatus();
+          handleLegalRowsChanged();
         });
-        file?.addEventListener("change", updateCompletionStatus);
+        file?.addEventListener("change", handleLegalRowsChanged);
         removeBtn?.addEventListener("click", () => {
           row.remove();
           if (i9DocRows && i9DocRows.children.length === 0) {
             i9DocRows.appendChild(buildI9DocRow());
           }
-          updateCompletionStatus();
+          handleLegalRowsChanged();
         });
+        applyI9DocumentTypeSelection(row);
         return row;
       }
       function addI9DocRow() {
         if (!i9DocRows) return;
         i9DocRows.appendChild(buildI9DocRow());
-        updateCompletionStatus();
+        handleLegalRowsChanged();
       }
       if (i9DocRows && i9DocRows.children.length === 0) {
         addI9DocRow();
       }
-      i9AddDocRowBtn?.addEventListener("click", addI9DocRow);
+      show("i9");
 
       function digitsOnly(value) {
         return (value || "").replace(/\D+/g, "");
@@ -1005,6 +1545,156 @@
         under17Hidden.value = under17Total > 0 ? String(under17Total) : "";
         otherHidden.value = otherTotal > 0 ? String(otherTotal) : "";
         totalHidden.value = combinedTotal > 0 ? String(combinedTotal) : "";
+      }
+      function applySignatureDataURL(dataURL) {
+        const canvas = document.getElementById("i9-signature-pad");
+        const hidden = document.getElementById("i9_employee_signature_drawn");
+        const status = document.getElementById("i9-signature-status");
+        if (!canvas || !hidden) return;
+        const raw = String(dataURL || "").trim();
+        if (!raw.startsWith("data:image/")) return;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        const image = new Image();
+        image.onload = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+          hidden.value = raw;
+          ink = true;
+          if (status) status.textContent = "Drawn signature restored from draft.";
+          updateCompletionStatus();
+        };
+        image.src = raw;
+      }
+      function collectDraftData() {
+        const read = (id) => document.getElementById(id)?.value || "";
+        const checked = (id) => !!document.getElementById(id)?.checked;
+        const rows = Array.from(document.querySelectorAll(".doc-upload-row")).map((row) => ({
+          type: row.querySelector("select[name='i9_document_type[]']")?.value || "",
+          list: row.querySelector("input[name='i9_document_list[]']")?.value || "",
+          title: row.querySelector("input[name='i9_document_title[]']")?.value || "",
+          issuing: row.querySelector("input[name='i9_document_issuing_authority[]']")?.value || "",
+          number: row.querySelector("input[name='i9_document_number[]']")?.value || "",
+          expMonth: row.querySelector("select[data-exp-part='month']")?.value || "",
+          expDay: row.querySelector("select[data-exp-part='day']")?.value || "",
+          expYear: row.querySelector("select[data-exp-part='year']")?.value || ""
+        }));
+        return {
+          panel:
+            i9Panel?.classList.contains("active") ? "i9" :
+            legalPanel?.classList.contains("active") ? "legal" :
+            w4Panel?.classList.contains("active") ? "w4" : "signature",
+          fields: {
+            personal_first_name: read("personal_first_name"),
+            personal_middle_initial: read("personal_middle_initial"),
+            personal_last_name: read("personal_last_name"),
+            personal_dob_month: read("personal_dob_month"),
+            personal_dob_day: read("personal_dob_day"),
+            personal_dob_year: read("personal_dob_year"),
+            personal_address: read("personal_address"),
+            personal_apt: read("personal_apt"),
+            personal_city: read("personal_city"),
+            personal_state: read("personal_state"),
+            personal_zip: read("personal_zip"),
+            personal_email: read("personal_email"),
+            personal_phone_1: read("personal_phone_1"),
+            personal_phone_2: read("personal_phone_2"),
+            personal_phone_3: read("personal_phone_3"),
+            personal_ssn_1: read("personal_ssn_1"),
+            personal_ssn_2: read("personal_ssn_2"),
+            personal_ssn_3: read("personal_ssn_3"),
+            i9_status: read("i9_status"),
+            w4_filing_status: read("w4_filing_status"),
+            w4_multiple_jobs: read("w4_multiple_jobs"),
+            w4_other_income: read("w4_other_income"),
+            w4_deductions: read("w4_deductions"),
+            w4_extra: read("w4_extra"),
+            w4_exempt: read("w4_exempt"),
+            w4_dep_under17_count: read("w4_dep_under17_count"),
+            w4_other_dep_count: read("w4_other_dep_count"),
+            employee_esign_attestation: checked("employee_esign_attestation") ? "1" : "",
+            i9_employee_signature_drawn: read("i9_employee_signature_drawn")
+          },
+          legalRows: rows
+        };
+      }
+      function saveDraftNow() {
+        try {
+          localStorage.setItem(draftKey, JSON.stringify(collectDraftData()));
+        } catch (_) {}
+      }
+      function scheduleDraftSave() {
+        if (draftSaveTimer) {
+          window.clearTimeout(draftSaveTimer);
+        }
+        draftSaveTimer = window.setTimeout(saveDraftNow, 160);
+      }
+      function restoreDraft() {
+        let raw = "";
+        try {
+          raw = localStorage.getItem(draftKey) || "";
+        } catch (_) {
+          return;
+        }
+        if (raw === "") return;
+        let parsed = null;
+        try {
+          parsed = JSON.parse(raw);
+        } catch (_) {
+          return;
+        }
+        if (!parsed || typeof parsed !== "object") return;
+        const fields = parsed.fields && typeof parsed.fields === "object" ? parsed.fields : {};
+        Object.keys(fields).forEach((id) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          if (el.type === "checkbox") {
+            el.checked = fields[id] === "1";
+            return;
+          }
+          if (el.type === "file") return;
+          el.value = String(fields[id] || "");
+        });
+        if (Array.isArray(parsed.legalRows) && i9DocRows) {
+          i9DocRows.innerHTML = "";
+          if (parsed.legalRows.length === 0) {
+            i9DocRows.appendChild(buildI9DocRow());
+          }
+          parsed.legalRows.forEach((entry) => {
+            const row = buildI9DocRow();
+            const type = row.querySelector("select[name='i9_document_type[]']");
+            const list = row.querySelector("input[name='i9_document_list[]']");
+            const title = row.querySelector("input[name='i9_document_title[]']");
+            const issuing = row.querySelector("input[name='i9_document_issuing_authority[]']");
+            const number = row.querySelector("input[name='i9_document_number[]']");
+            const expMonth = row.querySelector("select[data-exp-part='month']");
+            const expDay = row.querySelector("select[data-exp-part='day']");
+            const expYear = row.querySelector("select[data-exp-part='year']");
+            const restoredType = String(entry?.type || "");
+            const restoredList = String(entry?.list || "").toLowerCase();
+            const fallbackType = restoredList === "a" ? "custom_a" : restoredList === "b" ? "custom_b" : restoredList === "c" ? "custom_c" : "";
+            if (type) type.value = restoredType || fallbackType;
+            applyI9DocumentTypeSelection(row);
+            if (list && restoredList !== "") list.value = restoredList;
+            if (title) title.value = String(entry?.title || "");
+            if (issuing) issuing.value = String(entry?.issuing || "");
+            if (number) number.value = String(entry?.number || "");
+            if (expMonth) expMonth.value = String(entry?.expMonth || "");
+            if (expYear) expYear.value = String(entry?.expYear || "");
+            rebuildLegalExpirationDayDropdown(row);
+            if (expDay) expDay.value = String(entry?.expDay || "");
+            syncLegalDocumentExpirationForRow(row);
+            i9DocRows.appendChild(row);
+          });
+        }
+        rebuildDOBDayOptions();
+        updateW4DependentTotals();
+        syncPersonalInfoToForms();
+        syncAllLegalDocumentExpirations();
+        applySignatureDataURL(fields.i9_employee_signature_drawn || "");
+        if (parsed.panel === "i9" || parsed.panel === "legal" || parsed.panel === "w4" || parsed.panel === "signature") {
+          show(parsed.panel);
+        }
       }
       setupSegmentedInputs(["personal_phone_1", "personal_phone_2", "personal_phone_3"]);
       setupSegmentedInputs(["personal_ssn_1", "personal_ssn_2", "personal_ssn_3"]);
@@ -1089,18 +1779,25 @@
       populateDOBDropdowns();
       rebuildDOBDayOptions();
       function syncPersonalInfoToForms() {
+        function normalizeCityInput(value) {
+          return String(value || "").toUpperCase().replace(/\s+/g, " ").trim();
+        }
         const firstName = personalValue("personal_first_name");
         const middleInitial = personalValue("personal_middle_initial");
         const lastName = personalValue("personal_last_name");
         const dob = segmentedValue(personalDOBSegments, "/");
         const address = personalValue("personal_address");
         const apt = personalValue("personal_apt");
-        const city = personalValue("personal_city");
-        const state = personalValue("personal_state");
+        const cityInput = document.getElementById("personal_city");
+        const stateInput = document.getElementById("personal_state");
+        const city = normalizeCityInput(personalValue("personal_city"));
+        const state = String(personalValue("personal_state") || "").toUpperCase().trim();
         const zip = personalValue("personal_zip");
         const email = personalValue("personal_email");
         const phone = segmentedValue(personalPhoneSegments);
         const ssn = segmentedValue(personalSSNSegments);
+        if (cityInput && cityInput.value !== city) cityInput.value = city;
+        if (stateInput && stateInput.value !== state) stateInput.value = state;
         const personalDOBHidden = document.getElementById("personal_dob");
         const personalPhoneHidden = document.getElementById("personal_phone");
         const personalSSNHidden = document.getElementById("personal_ssn");
@@ -1157,6 +1854,12 @@
         input.addEventListener("input", () => {
           syncPersonalInfoToForms();
           updateCompletionStatus();
+          scheduleDraftSave();
+        });
+        input.addEventListener("change", () => {
+          syncPersonalInfoToForms();
+          updateCompletionStatus();
+          scheduleDraftSave();
         });
       });
       [...personalDOBSegments, ...personalPhoneSegments, ...personalSSNSegments].forEach((id) => {
@@ -1169,15 +1872,18 @@
             }
             syncPersonalInfoToForms();
             updateCompletionStatus();
+            scheduleDraftSave();
           });
           return;
         }
         input.addEventListener("input", () => {
           syncPersonalInfoToForms();
           updateCompletionStatus();
+          scheduleDraftSave();
         });
       });
       syncPersonalInfoToForms();
+      restoreDraft();
 
       const canvas = document.getElementById("i9-signature-pad");
       const clearBtn = document.getElementById("i9-signature-clear");
@@ -1229,6 +1935,7 @@
         hidden.value = canvas.toDataURL("image/png");
         if (status) status.textContent = "Drawn signature will be submitted automatically.";
         updateCompletionStatus();
+        scheduleDraftSave();
       });
       clearBtn.addEventListener("click", () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1236,18 +1943,31 @@
         hidden.value = "";
         if (status) status.textContent = "Signature cleared.";
         updateCompletionStatus();
+        scheduleDraftSave();
       });
-      if (attestation) attestation.addEventListener("change", updateCompletionStatus);
-      document.getElementById("i9_status")?.addEventListener("change", updateCompletionStatus);
-      document.getElementById("w4_filing_status")?.addEventListener("change", updateCompletionStatus);
+      if (attestation) attestation.addEventListener("change", () => {
+        updateCompletionStatus();
+        scheduleDraftSave();
+      });
+      document.getElementById("i9_status")?.addEventListener("change", () => {
+        updateCompletionStatus();
+        scheduleDraftSave();
+      });
+      document.getElementById("w4_filing_status")?.addEventListener("change", () => {
+        updateCompletionStatus();
+        scheduleDraftSave();
+      });
       [
         "w4_filing_status", "w4_multiple_jobs", "w4_other_income", "w4_deductions", "w4_extra", "w4_exempt"
       ].forEach((id) => {
         const el = document.getElementById(id);
         if (!el) return;
-        el.addEventListener("input", updateCompletionStatus);
+        el.addEventListener("input", () => {
+          updateCompletionStatus();
+          scheduleDraftSave();
+        });
       });
-      document.getElementById("paperwork-form").addEventListener("submit", (event) => {
+      paperworkForm?.addEventListener("submit", (event) => {
         syncPersonalInfoToForms();
         syncAllLegalDocumentExpirations();
         if (ink && hidden.value === "") {
@@ -1255,27 +1975,53 @@
         }
         if (paperworkTarget) paperworkTarget.value = "all";
         updateW4DependentTotals();
-        const i9Completion = getI9Completion();
-        const legalCompletion = getLegalDocsCompletion();
-        const w4Completion = getW4Completion();
-        const signatureCompletion = getSignatureCompletion();
-        if (!i9Completion.complete || !legalCompletion.complete || !w4Completion.complete || !signatureCompletion.complete) {
+        updateCompletionStatus();
+        const validation = collectSectionValidation();
+        const hasErrors =
+          !validation.i9Complete ||
+          !validation.legalComplete ||
+          !validation.w4Complete ||
+          !validation.signatureComplete;
+        if (hasErrors) {
           event.preventDefault();
-          const parts = [];
-          if (!i9Completion.complete) parts.push(`I-9 (${i9Completion.missing} remaining)`);
-          if (!legalCompletion.complete) parts.push("Legal Documents (incomplete)");
-          if (!w4Completion.complete) parts.push(`W-4 (${w4Completion.missing} remaining)`);
-          if (!signatureCompletion.complete) parts.push(`Signature (${signatureCompletion.missing} remaining)`);
-          let msg = `Please complete required fields in: ${parts.join(", ")}.`;
-          if (!legalCompletion.complete && legalCompletion.reason) {
-            msg += `\n\nLegal documents: ${legalCompletion.reason}`;
+          if (!validation.i9Complete) {
+            show("i9");
+          } else if (!validation.legalComplete) {
+            show("legal");
+          } else if (!validation.w4Complete) {
+            show("w4");
+          } else if (!validation.signatureComplete) {
+            show("signature");
           }
-          window.alert(msg);
+          const firstInvalidID = Array.from(validation.invalidIDs)[0] || "";
+          if (firstInvalidID !== "") {
+            document.getElementById(firstInvalidID)?.focus();
+          }
           return;
         }
         disableCompletelyEmptyLegalDocRows();
         updateCompletionStatus();
+        try { localStorage.removeItem(draftKey); } catch (_) {}
       });
+      paperworkForm?.addEventListener("input", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) {
+          return;
+        }
+        if (target.type === "file") return;
+        scheduleDraftSave();
+      });
+      paperworkForm?.addEventListener("change", (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) {
+          return;
+        }
+        if (target.type === "file") return;
+        scheduleDraftSave();
+      });
+      if (document.querySelector(".msg.ok")) {
+        try { localStorage.removeItem(draftKey); } catch (_) {}
+      }
     })();
   </script>
     <script>
