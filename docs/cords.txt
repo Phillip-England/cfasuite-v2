@@ -1,0 +1,6 @@
+Okay, these x,y cords show us where to place employee signatures on the w4 and i9 documents.
+
+These represent the top left-handed and bottom right-handed points so we can use these cords to figure out exactly where we can draw the signature on the page.
+
+I9: (121.4, 350.4) (358.8, 363.4)
+W4: (107, 681.8) (431.9, 693.5)

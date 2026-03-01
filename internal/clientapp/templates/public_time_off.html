@@ -74,6 +74,8 @@
       background: #fffefc;
       color: var(--ink);
     }
+    input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }
+    html.dark input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: .9; }
     .search-note { margin: -1px 0 2px; color: var(--muted); font-size: 0.78rem; font-weight: 600; }
     .range-wrap { display:flex; align-items:center; gap:8px; font-size:.84rem; font-weight:700; }
     .submit-btn {

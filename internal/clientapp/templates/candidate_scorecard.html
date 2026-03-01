@@ -48,7 +48,7 @@
 <body>
   <div class="wrap stack">
     <div class="row no-print" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;">
-      <a class="back" href="/admin/locations/{{ .Location.Number }}/candidates">&#8592; Back to Candidates</a>
+      <a id="scorecard-back-link" class="back" href="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}#view-interviews">&#8592; Back</a>
       <button class="pill" type="button" onclick="window.print()" style="cursor:pointer;">Download PDF</button>
     </div>
     <section class="card stack">
@@ -112,5 +112,17 @@
       {{ end }}
     </section>
   </div>
+  <script>
+    (function () {
+      var backLink = document.getElementById("scorecard-back-link");
+      if (!backLink) return;
+      backLink.addEventListener("click", function (event) {
+        if (window.history.length > 1) {
+          event.preventDefault();
+          window.history.back();
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

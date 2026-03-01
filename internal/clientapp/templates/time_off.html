@@ -45,6 +45,8 @@
     input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]), select, textarea { display: block; width: 100%; min-height: 2.375rem; padding: 0.5rem 0.75rem; font: 0.875rem/1.5 inherit; color: var(--fg); background-color: var(--bg); border: 1px solid var(--border); border-radius: 0.375rem; transition: border-color 150ms, box-shadow 150ms; }
     input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="reset"]):focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,79,113,.15); }
     html.dark input:focus, html.dark select:focus, html.dark textarea:focus { box-shadow: 0 0 0 3px rgba(0,79,113,.15); }
+    input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }
+    html.dark input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); opacity: .9; }
     label { display: block; font-size: 0.875rem; font-weight: 600; margin-bottom: 0.375rem; }
     .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 0.5rem; }
     table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }

@@ -47,8 +47,8 @@
     table{width:100%;border-collapse:collapse}
     th,td{text-align:left;padding:.55rem;border-bottom:1px solid var(--border);vertical-align:top}
     th{color:var(--muted-fg);font-size:.75rem;text-transform:uppercase;letter-spacing:.04em}
-    .session-actions{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
-    .session-link{min-width:260px;flex:1}
+    .session-actions{display:flex;gap:.5rem;align-items:center;flex-wrap:nowrap;white-space:nowrap}
+    .session-actions form{margin:0}
   </style>
 </head>
 <body>
@@ -132,11 +132,9 @@
                   </div>
                 </div>
                 <div class="row">
-                  <button type="submit" class="btn btn-primary" {{ if or (not .CandidateValues) (not .InterviewNames) }}disabled{{ end }}>Create Interview</button>
-                  <a class="btn btn-outline" href="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/scorecard">View Scorecard</a>
+                  <button type="submit" class="btn btn-primary" {{ if not .InterviewNames }}disabled{{ end }}>Create Interview</button>
                 </div>
               </form>
-              {{ if not .CandidateValues }}<p class="meta">Create candidate values first.</p>{{ end }}
               {{ if not .InterviewNames }}<p class="meta">Create interview types first.</p>{{ end }}
             </div>
           {{ else }}
@@ -154,7 +152,6 @@
                     <th>Interview Type</th>
                     <th>Interviewer</th>
                     <th>Scheduled</th>
-                    <th>Created</th>
                     <th>Status</th>
                     <th>Actions</th>
                   </tr>
@@ -165,13 +162,11 @@
                       <td>{{ .InterviewType }}</td>
                       <td>{{ .InterviewerTimePunchName }}</td>
                       <td>{{ .ScheduledAt }}</td>
-                      <td>{{ .CreatedAt }}</td>
                       <td>{{ if .UsedAt }}Completed{{ else }}Active{{ end }}</td>
                       <td>
                         <div class="session-actions">
                           {{ if not .UsedAt }}
-                            <input class="session-link" type="text" readonly value="{{ .Link }}">
-                            <button class="btn btn-outline copy-session-link" type="button">Copy Link</button>
+                            <button class="btn btn-outline copy-session-link" type="button" data-link="{{ .Link }}">Copy Link</button>
                             <a class="btn btn-outline" href="{{ .Link }}" target="_blank" rel="noreferrer">Conduct Interview</a>
                             <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidates/{{ $.Candidate.ID }}/interview-links/{{ .Token }}/delete">
                               <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
@@ -201,49 +196,10 @@
           <h2 style="font-size:1.05rem;">Candidate Decision</h2>
           {{ if eq .Candidate.Status "active" }}
             <div class="row">
-              <form method="post" action="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/decision" class="stack" style="width:100%;">
+              <form id="candidate-hire-form" method="post" action="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/decision" class="stack" style="width:100%;">
                 <input type="hidden" name="csrf_token" value="{{ .CSRF }}"><input type="hidden" name="decision" value="hire">
+                <p class="meta">Set role and compensation only. Contact and profile details are completed during new hire paperwork.</p>
                 <div class="grid-2">
-                  <div>
-                    <label for="hire-first-name">First Name</label>
-                    <input id="hire-first-name" name="first_name" type="text" value="{{ .Candidate.FirstName }}" required>
-                  </div>
-                  <div>
-                    <label for="hire-last-name">Last Name</label>
-                    <input id="hire-last-name" name="last_name" type="text" value="{{ .Candidate.LastName }}" required>
-                  </div>
-                  <div>
-                    <label for="hire-birthday">Birthday</label>
-                    <input id="hire-birthday" name="birthday" type="date" required>
-                  </div>
-                  <div>
-                    <label for="hire-email">Email</label>
-                    <input id="hire-email" name="email" type="email" placeholder="name@example.com" required>
-                  </div>
-                  <div>
-                    <label for="hire-phone">Phone</label>
-                    <input id="hire-phone" name="phone" type="text" value="{{ .Candidate.Phone }}" required>
-                  </div>
-                  <div>
-                    <label for="hire-address">Address</label>
-                    <input id="hire-address" name="address" type="text" required>
-                  </div>
-                  <div>
-                    <label for="hire-apt-number">Apt Number (Optional)</label>
-                    <input id="hire-apt-number" name="apt_number" type="text">
-                  </div>
-                  <div>
-                    <label for="hire-city">City</label>
-                    <input id="hire-city" name="city" type="text" required>
-                  </div>
-                  <div>
-                    <label for="hire-state">State</label>
-                    <input id="hire-state" name="state" type="text" placeholder="e.g. TN" required>
-                  </div>
-                  <div>
-                    <label for="hire-zip-code">Zip Code</label>
-                    <input id="hire-zip-code" name="zip_code" type="text" required>
-                  </div>
                   <div>
                     <label for="hire-department-id">Assign Department</label>
                     <select id="hire-department-id" name="department_id" required>
@@ -254,46 +210,32 @@
                     </select>
                   </div>
                   <div>
-                    <label for="hire-job-id">Assign Job</label>
-                    <select id="hire-job-id" name="job_id" required>
-                      <option value="">Select department first</option>
+                    <label for="hire-pay-band-id">Assign Pay Band</label>
+                    <select id="hire-pay-band-id" name="pay_band_id" required>
+                      <option value="">Select pay band</option>
                       {{ range .LocationJobs }}
                         <option
                           value="{{ .ID }}"
-                          data-department-ids="{{ if .DepartmentIDs }}{{ range $idx, $id := .DepartmentIDs }}{{ if $idx }},{{ end }}{{ $id }}{{ end }}{{ else if gt .DepartmentID 0 }}{{ .DepartmentID }}{{ end }}"
-                        >{{ .Name }}{{ if .DepartmentName }} ({{ .DepartmentName }}){{ end }}</option>
+                        >{{ .Name }}</option>
                       {{ end }}
                     </select>
                   </div>
-                  <div>
-                    <label for="hire-pay-type">Pay Type</label>
-                    <select id="hire-pay-type" name="pay_type" required>
-                      <option value="">Select pay type</option>
-                      <option value="hourly">Hourly</option>
-                      <option value="salary">Salary</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label for="hire-pay-amount">Pay Amount</label>
-                    <input id="hire-pay-amount" name="pay_amount" type="number" min="0.01" step="0.01" required>
-                  </div>
-                </div>
-                <div class="row">
-                  <button class="btn btn-primary" type="submit" {{ if or (not .LocationJobs) (not .LocationDepartments) }}disabled{{ end }}>Hire Candidate</button>
                 </div>
               </form>
-              <form method="post" action="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/decision">
+              <div class="row" style="flex-wrap:nowrap;">
+                <button class="btn btn-primary" type="submit" form="candidate-hire-form" {{ if or (not .LocationJobs) (not .LocationDepartments) }}disabled{{ end }}>Hire Candidate</button>
+                <form method="post" action="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/decision" style="margin:0;">
                 <input type="hidden" name="csrf_token" value="{{ .CSRF }}"><input type="hidden" name="decision" value="pass">
                 <button class="btn btn-danger" type="submit">Pass Candidate</button>
-              </form>
+                </form>
+              </div>
             </div>
           {{ else }}
             <p class="meta">Decision already made: {{ .Candidate.Status }}.</p>
           {{ end }}
           {{ if and (eq .Candidate.Status "active") (or (not .LocationJobs) (not .LocationDepartments)) }}
-            <p class="meta">Create at least one department and job before hiring candidates.</p>
+            <p class="meta">Create at least one department and pay band before hiring candidates.</p>
           {{ end }}
-          <a class="btn btn-outline" href="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/scorecard">View Full Scorecard</a>
         </div>
       </section>
     </section>
@@ -321,11 +263,8 @@
 
       Array.from(document.querySelectorAll(".copy-session-link")).forEach(function (btn) {
         btn.addEventListener("click", async function (event) {
-          var wrapper = btn.closest(".session-actions");
-          if (!wrapper) return;
-          var input = wrapper.querySelector(".session-link");
-          if (!input) return;
-          var value = (input.value || "").trim();
+          var value = (btn.getAttribute("data-link") || "").trim();
+          if (!value) return;
           var absolute = value.startsWith("http://") || value.startsWith("https://")
             ? value
             : (window.location.origin + value);
@@ -340,42 +279,10 @@
         });
       });
 
-      function syncJobsByDepartment(departmentSelect, jobSelect) {
-        if (!departmentSelect || !jobSelect) return;
-        var selectedDepartment = (departmentSelect.value || "").trim();
-        var options = Array.from(jobSelect.options || []);
-        var placeholder = options[0] || null;
-        var visibleCount = 0;
-        options.forEach(function (option, index) {
-          if (index === 0) return;
-          var departmentIDs = (option.getAttribute("data-department-ids") || "")
-            .split(",")
-            .map(function (value) { return value.trim(); })
-            .filter(function (value) { return value !== ""; });
-          var match = selectedDepartment !== "" && departmentIDs.indexOf(selectedDepartment) >= 0;
-          option.hidden = !match;
-          if (match) visibleCount += 1;
-        });
-        if (!selectedDepartment) {
-          if (placeholder) placeholder.textContent = "Select department first";
-        } else if (visibleCount === 0) {
-          if (placeholder) placeholder.textContent = "No jobs in this department";
-        } else {
-          if (placeholder) placeholder.textContent = "Select job";
-        }
-        if (!selectedDepartment || (jobSelect.selectedOptions[0] && jobSelect.selectedOptions[0].hidden)) {
-          jobSelect.value = "";
-        }
-        jobSelect.disabled = !selectedDepartment || visibleCount === 0;
-      }
-
       var hireDepartment = document.getElementById("hire-department-id");
-      var hireJob = document.getElementById("hire-job-id");
-      if (hireDepartment && hireJob) {
-        hireDepartment.addEventListener("change", function () {
-          syncJobsByDepartment(hireDepartment, hireJob);
-        });
-        syncJobsByDepartment(hireDepartment, hireJob);
+      var hirePayBand = document.getElementById("hire-pay-band-id");
+      if (hireDepartment && hirePayBand) {
+        hirePayBand.disabled = false;
       }
 
       var scheduledDateInput = document.getElementById("scheduled_date");

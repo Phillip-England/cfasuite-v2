@@ -376,16 +376,12 @@
 
               <div class="edit-form-grid two-col">
                 <div>
-                  <label for="edit-pay-type" class="{{ if index .EmployeeMissingProfileFieldSet "Pay Type" }}label-missing{{ end }}">Pay Type</label>
-                  <select id="edit-pay-type" name="pay_type" required class="{{ if index .EmployeeMissingProfileFieldSet "Pay Type" }}input-missing{{ end }}">
-                    <option value="">Select pay type</option>
-                    <option value="hourly" {{ if eq .Employee.PayType "hourly" }}selected{{ end }}>Hourly</option>
-                    <option value="salary" {{ if eq .Employee.PayType "salary" }}selected{{ end }}>Salary</option>
-                  </select>
+                  <label for="edit-pay-type">Pay Type (from Pay Band)</label>
+                  <input id="edit-pay-type" value="{{ .Employee.PayType }}" disabled>
                 </div>
                 <div>
-                  <label for="edit-pay-amount" class="{{ if index .EmployeeMissingProfileFieldSet "Pay Amount" }}label-missing{{ end }}">Pay Amount</label>
-                  <input id="edit-pay-amount" name="pay_amount" value="{{ .EmployeePayAmountInput }}" inputmode="decimal" placeholder="Enter dollars (e.g. 18.50 or 52000)" required class="{{ if index .EmployeeMissingProfileFieldSet "Pay Amount" }}input-missing{{ end }}">
+                  <label for="edit-pay-amount">Base Pay Amount (from Pay Band)</label>
+                  <input id="edit-pay-amount" value="{{ .EmployeePayAmountInput }}" disabled>
                 </div>
               </div>
 
@@ -398,7 +394,7 @@
           <div class="section-stack">
             <section class="section-card">
               <h2 class="section-card-title">Role Assignment</h2>
-              <p class="section-card-sub">Manage where this team member is assigned.</p>
+              <p class="section-card-sub">Manage department, pay band, and stacked additional compensations.</p>
               <div class="field-grid">
                 <div>
                   <label for="department-name" class="{{ if index .EmployeeMissingProfileFieldSet "Department" }}label-missing{{ end }}">Department</label>
@@ -411,19 +407,69 @@
                   </select>
                 </div>
                 <div>
-                  <label for="job-id" class="{{ if index .EmployeeMissingProfileFieldSet "Job" }}label-missing{{ end }}">Job</label>
-                  <select id="job-id" {{ if not .LocationJobs }}disabled{{ end }} class="{{ if index .EmployeeMissingProfileFieldSet "Job" }}input-missing{{ end }}">
-                    <option value="">Select department first</option>
+                  <label for="job-id" class="{{ if index .EmployeeMissingProfileFieldSet "Pay Band" }}label-missing{{ end }}">Pay Band</label>
+                  <select id="job-id" {{ if not .LocationJobs }}disabled{{ end }} class="{{ if index .EmployeeMissingProfileFieldSet "Pay Band" }}input-missing{{ end }}">
+                    <option value="">Select pay band</option>
                     {{ $currentJobID := .Employee.JobID }}
                     {{ range .LocationJobs }}
                       <option
                         value="{{ .ID }}"
-                        data-department-names="{{ if .DepartmentNames }}{{ range $idx, $name := .DepartmentNames }}{{ if $idx }},{{ end }}{{ $name }}{{ end }}{{ else if .DepartmentName }}{{ .DepartmentName }}{{ end }}"
                         {{ if eq .ID $currentJobID }}selected{{ end }}
-                      >{{ .Name }}{{ if .DepartmentName }} ({{ .DepartmentName }}){{ end }}</option>
+                      >{{ .Name }} ({{ if eq .PayType "salary" }}Salary{{ else }}Hourly{{ end }} / {{ .PayAmountCents }} cents)</option>
                     {{ end }}
                   </select>
                 </div>
+              </div>
+              <div class="field-grid">
+                <div>
+                  <label>Base Pay</label>
+                  <input value="{{ .Employee.PayAmountCents }} cents" disabled>
+                </div>
+                <div>
+                  <label>Total Pay After Additional Compensation</label>
+                  <input value="{{ .Employee.EffectivePayCents }} cents" disabled>
+                </div>
+              </div>
+              <div style="margin-top:.75rem;">
+                <label style="margin-bottom:.35rem;">Additional Compensations</label>
+                {{ if .EmployeeAdditionalCompensations }}
+                  <div class="table-wrap" style="margin-bottom:.75rem;">
+                    <table>
+                      <thead><tr><th>Label</th><th>Amount</th><th>Created</th><th>Action</th></tr></thead>
+                      <tbody>
+                        {{ range .EmployeeAdditionalCompensations }}
+                          <tr>
+                            <td>{{ .Label }}</td>
+                            <td>{{ .AmountCents }} cents</td>
+                            <td>{{ .CreatedAt }}</td>
+                            <td>
+                              <form method="post" action="/admin/locations/{{ $.Location.Number }}/employees/{{ $.Employee.TimePunchName }}/additional-compensations/{{ .ID }}/delete" onsubmit="return confirm('Delete this additional compensation?');">
+                                <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                                <button class="btn btn-secondary btn-sm" type="submit">Delete</button>
+                              </form>
+                            </td>
+                          </tr>
+                        {{ end }}
+                      </tbody>
+                    </table>
+                  </div>
+                {{ else }}
+                  <p class="hint" style="margin-bottom:.65rem;">No additional compensations yet.</p>
+                {{ end }}
+                <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/additional-compensations/add/create" class="field-grid">
+                  <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+                  <div>
+                    <label for="additional-comp-label">Label</label>
+                    <input id="additional-comp-label" name="label" placeholder="Shift Lead Premium" required>
+                  </div>
+                  <div>
+                    <label for="additional-comp-amount">Amount (dollars)</label>
+                    <input id="additional-comp-amount" name="amount" type="number" step="0.01" min="0.01" placeholder="1.50" required>
+                  </div>
+                  <div class="button-row" style="grid-column:1/-1;">
+                    <button class="btn btn-secondary btn-sm" type="submit">Add Additional Compensation</button>
+                  </div>
+                </form>
               </div>
               <div id="message" class="message">{{ if .SuccessMessage }}{{ .SuccessMessage }}{{ end }}{{ if .Error }}{{ .Error }}{{ end }}</div>
             </section>
@@ -751,40 +797,9 @@
       populateBirthdaySelect(editBirthdayYear, 1900, nowYear + 1, editBirthdayYear.dataset.selected || "", false);
     }
 
-    function normalizeDepartmentName(value) {
-      return (value || "").trim().toUpperCase();
+    if (jobSelect) {
+      jobSelect.disabled = false;
     }
-
-    function syncEmployeeJobsByDepartment() {
-      if (!departmentSelect || !jobSelect) return;
-      const selectedDepartment = normalizeDepartmentName(departmentSelect.value);
-      const options = Array.from(jobSelect.options || []);
-      const placeholder = options[0] || null;
-      let visibleCount = 0;
-      options.forEach((option, index) => {
-        if (index === 0) return;
-        const names = (option.dataset.departmentNames || "")
-          .split(",")
-          .map((value) => normalizeDepartmentName(value))
-          .filter((value) => value !== "");
-        const match = selectedDepartment !== "" && names.includes(selectedDepartment);
-        option.hidden = !match;
-        if (match) visibleCount += 1;
-      });
-      if (!selectedDepartment) {
-        if (placeholder) placeholder.textContent = "Select department first";
-      } else if (visibleCount === 0) {
-        if (placeholder) placeholder.textContent = "No jobs in this department";
-      } else {
-        if (placeholder) placeholder.textContent = "Select job";
-      }
-      if (!selectedDepartment || (jobSelect.selectedOptions[0] && jobSelect.selectedOptions[0].hidden)) {
-        jobSelect.value = "";
-      }
-      jobSelect.disabled = selectedDepartment === "" || visibleCount === 0;
-    }
-
-    syncEmployeeJobsByDepartment();
 
     if (departmentSelect) {
       departmentSelect.addEventListener("change", async () => {
@@ -814,12 +829,10 @@
           }
           departmentSelect.dataset.prev = nextDepartment;
           departmentSelect.defaultValue = nextDepartment;
-          syncEmployeeJobsByDepartment();
           message.textContent = "Department updated.";
           message.classList.add("ok");
         } catch (error) {
           departmentSelect.value = previous;
-          syncEmployeeJobsByDepartment();
           message.textContent = error.message || "Unable to update department.";
           message.classList.add("error");
         } finally {
@@ -833,7 +846,7 @@
         const previous = jobSelect.dataset.prev || jobSelect.defaultValue || "";
         const nextJobID = (jobSelect.value || "").trim();
         if (!nextJobID) {
-          message.textContent = "Please select a job.";
+          message.textContent = "Please select a pay band.";
           message.className = "message error";
           jobSelect.value = previous;
           return;
@@ -842,25 +855,25 @@
         message.textContent = "";
         message.className = "message";
         try {
-          const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/employees/${encodeURIComponent(timePunchName)}/job`, {
+          const response = await fetch(`/admin/locations/${encodeURIComponent(locationNumber)}/employees/${encodeURIComponent(timePunchName)}/pay-band`, {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
               "X-CSRF-Token": csrfToken
             },
-            body: JSON.stringify({ jobId: Number(nextJobID) })
+            body: JSON.stringify({ payBandId: Number(nextJobID) })
           });
           const result = await response.json().catch(() => ({}));
           if (!response.ok) {
-            throw new Error(result.error || "Unable to update job.");
+            throw new Error(result.error || "Unable to update pay band.");
           }
           jobSelect.dataset.prev = nextJobID;
           jobSelect.defaultValue = nextJobID;
-          message.textContent = "Job updated.";
+          message.textContent = "Pay band updated.";
           message.classList.add("ok");
         } catch (error) {
           jobSelect.value = previous;
-          message.textContent = error.message || "Unable to update job.";
+          message.textContent = error.message || "Unable to update pay band.";
           message.classList.add("error");
         } finally {
           jobSelect.disabled = false;
@@ -898,7 +911,8 @@
             throw new Error(result.error || fallback || "Unable to save clock in PIN.");
           }
           clockInPinInput.value = "";
-          clockInPinStatus.textContent = "Clock in PIN saved.";
+          clockInPinStatus.textContent = "Clock in PIN saved. Reloading...";
+          window.location.reload();
         } catch (error) {
           clockInPinStatus.textContent = error.message || "Unable to save clock in PIN.";
         } finally {
@@ -1172,6 +1186,11 @@
       let drawing = false;
       let lastX = 0;
       let lastY = 0;
+      function signatureInkColor() {
+        const rootStyles = getComputedStyle(document.documentElement);
+        const cssInk = (rootStyles.getPropertyValue("--sig-ink") || "").trim();
+        return cssInk || "#1f232a";
+      }
 
       function signaturePos(event) {
         const rect = i9SignaturePad.getBoundingClientRect();
@@ -1200,7 +1219,7 @@
         sigCtx.lineCap = "round";
         sigCtx.lineJoin = "round";
         sigCtx.lineWidth = 2.4;
-        sigCtx.strokeStyle = "#1f232a";
+        sigCtx.strokeStyle = signatureInkColor();
         sigCtx.beginPath();
         sigCtx.moveTo(lastX, lastY);
         sigCtx.lineTo(pos.x, pos.y);

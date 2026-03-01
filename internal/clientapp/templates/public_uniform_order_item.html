@@ -227,7 +227,20 @@
       </div>
       {{ end }}
 
-      {{ if and .UniformItem.Sizes (ne .UniformItem.SystemKey "shoes") }}
+      {{ if and .UniformItem.SizeFields (ne .UniformItem.SystemKey "shoes") }}
+      {{ range $idx, $field := .UniformItem.SizeFields }}
+      <div class="field">
+        <label for="size_field_{{ $idx }}">{{ $field.Label }}</label>
+        <input type="hidden" name="size_field_label" value="{{ $field.Label }}">
+        <select id="size_field_{{ $idx }}" name="size_field_value" required>
+          <option value="">Select {{ $field.Label }}</option>
+          {{ range $field.Options }}
+            <option value="{{ . }}">{{ . }}</option>
+          {{ end }}
+        </select>
+      </div>
+      {{ end }}
+      {{ else if and .UniformItem.Sizes (ne .UniformItem.SystemKey "shoes") }}
       <div class="field">
         <label for="size">Size</label>
         <select id="size" name="size" required>

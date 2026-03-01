@@ -210,7 +210,6 @@
       <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
         <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
         <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employees</a>
-        <a href="/admin/locations/{{ .Location.Number }}/employees/archived" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Terminated</a>
       </nav>
       <div class="flex items-center gap-2 shrink-0">
         <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
@@ -227,7 +226,6 @@
     <div id="nav-mobile" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 bg-white dark:bg-zinc-950 flex-col gap-1">
       <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
       <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employees</a>
-      <a href="/admin/locations/{{ .Location.Number }}/employees/archived" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Terminated</a>
     </div>
   </header>
 
@@ -251,10 +249,6 @@
           </div>
         {{ end }}
         <section class="hub">
-          <button class="hub-btn" type="button" data-target="add-employees">
-            <strong>Add Employees</strong>
-            <span>Create a new employee with full profile details required for paperwork.</span>
-          </button>
           <button class="hub-btn" type="button" data-target="bulk-import">
             <strong>Employee Bio Upload</strong>
             <span>Drag and drop the Employee Bio report to sync employee numbers and status.</span>
@@ -263,62 +257,6 @@
             <strong>View Employees</strong>
             <span>Browse new hires, active employees, and terminated employees.</span>
           </button>
-        </section>
-
-        <section class="section" data-panel="add-employees">
-          <h2>Add Employee</h2>
-          <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/create" enctype="multipart/form-data">
-            <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-            <label for="add-first-name">First Name</label>
-            <input id="add-first-name" type="text" name="first_name" placeholder="First Name" required>
-            <label for="add-last-name">Last Name</label>
-            <input id="add-last-name" type="text" name="last_name" placeholder="Last Name" required>
-            <label for="add-birthday">Birthday</label>
-            <input id="add-birthday" type="date" name="birthday" required>
-            <label for="add-email">Email</label>
-            <input id="add-email" type="email" name="email" placeholder="name@example.com" required>
-            <label for="add-phone">Phone</label>
-            <input id="add-phone" type="text" name="phone" placeholder="Phone Number" required>
-            <label for="add-address">Address</label>
-            <input id="add-address" type="text" name="address" placeholder="Street Address" required>
-            <label for="add-apt-number">Apt Number (Optional)</label>
-            <input id="add-apt-number" type="text" name="apt_number" placeholder="Apartment, suite, etc.">
-            <label for="add-city">City</label>
-            <input id="add-city" type="text" name="city" placeholder="City" required>
-            <label for="add-state">State</label>
-            <input id="add-state" type="text" name="state" placeholder="State (e.g. TN)" required>
-            <label for="add-zip-code">Zip Code</label>
-            <input id="add-zip-code" type="text" name="zip_code" placeholder="Zip Code" required>
-            <label for="add-department-id">Department</label>
-            <select id="add-department-id" name="department_id" required>
-              <option value="">Select department</option>
-              {{ range .LocationDepartments }}
-                <option value="{{ .ID }}">{{ .Name }}</option>
-              {{ end }}
-            </select>
-            <label for="add-job-id">Job</label>
-            <select id="add-job-id" name="job_id" required>
-              <option value="">Select department first</option>
-              {{ range .LocationJobs }}
-                <option
-                  value="{{ .ID }}"
-                  data-department-ids="{{ if .DepartmentIDs }}{{ range $idx, $id := .DepartmentIDs }}{{ if $idx }},{{ end }}{{ $id }}{{ end }}{{ else if gt .DepartmentID 0 }}{{ .DepartmentID }}{{ end }}"
-                >{{ .Name }}{{ if .DepartmentName }} ({{ .DepartmentName }}){{ end }}</option>
-              {{ end }}
-            </select>
-            <label for="add-pay-type">Pay Type</label>
-            <select id="add-pay-type" name="pay_type" required>
-              <option value="">Select pay type</option>
-              <option value="hourly">Hourly</option>
-              <option value="salary">Salary</option>
-            </select>
-            <label for="add-pay-amount">Pay Amount</label>
-            <input id="add-pay-amount" type="number" name="pay_amount" min="0.01" step="0.01" placeholder="Example: 16.50 or 52000" required>
-            <button type="submit" {{ if or (not .LocationJobs) (not .LocationDepartments) }}disabled{{ end }}>Create Employee</button>
-            {{ if or (not .LocationJobs) (not .LocationDepartments) }}
-              <p class="text-muted" style="margin:0;">Create at least one department and one job before adding employees.</p>
-            {{ end }}
-          </form>
         </section>
 
         <section class="section" data-panel="bulk-import" id="bulk-import">
@@ -335,7 +273,6 @@
         <section class="section" data-panel="view-employees">
           <div class="employees-head">
             <h2>Employee Status</h2>
-            <a class="archive-link" href="/admin/locations/{{ .Location.Number }}/employees/archived">Open Terminated Page</a>
           </div>
           <div class="employee-status-subnav">
             <button class="employee-status-btn" type="button" data-employee-status-target="new-hires">New Hires</button>
@@ -450,8 +387,6 @@
     const employeeSearchMeta = document.getElementById("employee-search-meta");
     const hubButtons = Array.from(document.querySelectorAll(".hub-btn"));
     const panels = Array.from(document.querySelectorAll(".section[data-panel]"));
-    const addDepartmentSelect = document.getElementById("add-department-id");
-    const addJobSelect = document.getElementById("add-job-id");
     const employeeStatusButtons = Array.from(document.querySelectorAll(".employee-status-btn"));
     const employeeStatusPanels = Array.from(document.querySelectorAll(".employee-status-panel[data-employee-status-panel]"));
 
@@ -514,42 +449,6 @@
     if (employeeSearchInput) {
       employeeSearchInput.addEventListener("input", filterEmployeesByName);
       filterEmployeesByName();
-    }
-
-    function syncJobOptionsByDepartment(departmentSelect, jobSelect) {
-      if (!departmentSelect || !jobSelect) return;
-      const selectedDepartment = (departmentSelect.value || "").trim();
-      const options = Array.from(jobSelect.options || []);
-      const placeholder = options[0] || null;
-      let visibleCount = 0;
-      options.forEach((option, index) => {
-        if (index === 0) return;
-        const departmentIDs = (option.dataset.departmentIds || "")
-          .split(",")
-          .map((value) => value.trim())
-          .filter(Boolean);
-        const match = selectedDepartment !== "" && departmentIDs.includes(selectedDepartment);
-        option.hidden = !match;
-        if (match) visibleCount += 1;
-      });
-      if (!selectedDepartment) {
-        if (placeholder) placeholder.textContent = "Select department first";
-      } else if (visibleCount === 0) {
-        if (placeholder) placeholder.textContent = "No jobs in this department";
-      } else {
-        if (placeholder) placeholder.textContent = "Select job";
-      }
-      if (!selectedDepartment || (jobSelect.value && jobSelect.selectedOptions[0] && jobSelect.selectedOptions[0].hidden)) {
-        jobSelect.value = "";
-      }
-      jobSelect.disabled = !selectedDepartment || visibleCount === 0;
-    }
-
-    if (addDepartmentSelect && addJobSelect) {
-      addDepartmentSelect.addEventListener("change", function () {
-        syncJobOptionsByDepartment(addDepartmentSelect, addJobSelect);
-      });
-      syncJobOptionsByDepartment(addDepartmentSelect, addJobSelect);
     }
 
   </script>

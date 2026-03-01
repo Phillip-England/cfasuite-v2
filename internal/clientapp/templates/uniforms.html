@@ -272,8 +272,13 @@
             </div>
             <div>
               <label for="item-size-fields-input">Size Fields (optional)</label>
-              <textarea id="item-size-fields-input" name="size_fields" rows="4" placeholder="Size: XS,S,M,L,XL&#10;Waist: 28,30,32,34&#10;Height: 30,32,34"></textarea>
-              <p class="text-muted" style="margin-top:0.25rem;">One field per line using <strong>Label: option1, option2</strong>.</p>
+              <textarea id="item-size-fields-input" name="size_fields" rows="4" aria-describedby="item-size-fields-input-help" placeholder="Label: option1, option2"></textarea>
+              <p id="item-size-fields-input-help" class="text-muted" style="margin-top:0.25rem;">
+                One field per line using <strong>Label: option1, option2</strong>.<br>
+                Example: <strong>Size: XS,S,M,L,XL</strong><br>
+                Example: <strong>Waist: 28,30,32,34</strong><br>
+                Example: <strong>Height: 30,32,34</strong>
+              </p>
             </div>
             <div>
               <label for="photo_file">Image (png, jpeg, webp)</label>

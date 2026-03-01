@@ -116,22 +116,16 @@
     <div class="inner">
       <div class="card">
         <a class="back" href="/admin/locations/{{ .Location.Number }}">&#8592; Back to Apps</a>
-        <h1 style="margin-top:.5rem;">Departments &amp; Jobs</h1>
+        <h1 style="margin-top:.5rem;">Departments &amp; Pay Bands</h1>
         <p class="text-muted" style="margin-top:.35rem;">{{ .Location.Name }} ({{ .Location.Number }})</p>
         {{ if .SuccessMessage }}<p class="notice ok" style="margin-top:.75rem;">{{ .SuccessMessage }}</p>{{ end }}
         {{ if .Error }}<p class="notice error" style="margin-top:.75rem;">{{ .Error }}</p>{{ end }}
-        {{ if .DepartmentsMissingJobs }}
-          <p class="notice warn" style="margin-top:.75rem;">
-            The following departments need at least one job:
-            {{ range $idx, $name := .DepartmentsMissingJobs }}{{ if $idx }}, {{ end }}{{ $name }}{{ end }}.
-          </p>
-        {{ end }}
       </div>
 
       <div class="card">
         <div class="process-hub">
           <button class="process-btn" type="button" data-process-target="departments">Departments</button>
-          <button class="process-btn" type="button" data-process-target="jobs">Jobs</button>
+          <button class="process-btn" type="button" data-process-target="jobs">Pay Bands</button>
         </div>
       </div>
 
@@ -173,63 +167,61 @@
 
       <section class="process-panel" data-process-panel="jobs">
         <div class="card">
-          <h2 style="margin-bottom:.75rem;">Jobs</h2>
+          <h2 style="margin-bottom:.75rem;">Pay Bands</h2>
           <div class="subnav">
-            <button class="subbtn" type="button" data-sub-target="jobs-create">Create Job</button>
-            <button class="subbtn" type="button" data-sub-target="jobs-view">View Jobs</button>
+            <button class="subbtn" type="button" data-sub-target="jobs-create">Create Pay Band</button>
+            <button class="subbtn" type="button" data-sub-target="jobs-view">View Pay Bands</button>
           </div>
           <section class="subpanel" data-sub-panel="jobs-create">
             <form method="post" action="/admin/locations/{{ .Location.Number }}/jobs/create">
               <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
               <div>
-                <label for="job-name">Job Name</label>
-                <input id="job-name" name="name" type="text" placeholder="Example: Team Leader" required>
+                <label for="job-name">Pay Band Name</label>
+                <input id="job-name" name="name" type="text" placeholder="Example: Team Leader I" required>
               </div>
-              <button class="btn btn-primary btn-responsive" type="submit">Create Job</button>
+              <div>
+                <label for="job-pay-type">Pay Type</label>
+                <select id="job-pay-type" name="pay_type" required>
+                  <option value="">Select pay type</option>
+                  <option value="hourly">Hourly</option>
+                  <option value="salary">Salary</option>
+                </select>
+              </div>
+              <div>
+                <label for="job-pay-amount">Pay Amount</label>
+                <input id="job-pay-amount" name="pay_amount" type="number" step="0.01" min="0.01" placeholder="18.50" required>
+              </div>
+              <button class="btn btn-primary btn-responsive" type="submit">Create Pay Band</button>
             </form>
-            <p class="text-muted" style="margin-top:.6rem;">Create job first, then assign one or more departments below.</p>
+            <p class="text-muted" style="margin-top:.6rem;">Pay bands define base pay and can be assigned at candidate hire.</p>
           </section>
           <section class="subpanel" data-sub-panel="jobs-view">
-            <p class="text-muted" style="margin-bottom:.75rem;">Click a job row to manage department assignments.</p>
             {{ if .LocationJobs }}
-              <div style="display:grid;gap:.6rem;">
-                {{ range .LocationJobs }}
-                  <article class="job-expand" data-job-expand="{{ .ID }}">
-                    <button class="job-row-btn" type="button" data-job-open="{{ .ID }}">
-                      <div class="job-row-head">
-                        <strong>{{ .Name }}</strong>
-                        <span class="text-muted">Created {{ .CreatedAt }}</span>
-                      </div>
-                      <div class="chips">
-                        {{ if .DepartmentNames }}
-                          {{ range .DepartmentNames }}<span class="chip">{{ . }}</span>{{ end }}
-                        {{ else }}
-                          <span class="chip">No departments assigned</span>
-                        {{ end }}
-                      </div>
-                    </button>
-                    <div class="job-expand-body" data-job-body="{{ .ID }}">
-                      <p class="text-muted" style="margin-bottom:.65rem;">Assign one or more departments for this job.</p>
-                      <form method="post" action="/admin/locations/{{ $.Location.Number }}/jobs/{{ .ID }}/departments/assign">
-                        <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                        <div class="assign-grid">
-                          {{ $jobIDs := .DepartmentIDs }}
-                          {{ range $.LocationDepartments }}
-                            {{ $deptID := .ID }}
-                            <label class="assign-item">
-                              <input type="checkbox" name="department_ids" value="{{ .ID }}" {{ range $jobIDs }}{{ if eq . $deptID }}checked{{ end }}{{ end }}>
-                              <span>{{ .Name }}</span>
-                            </label>
-                          {{ end }}
-                        </div>
-                        <button class="btn btn-primary btn-responsive" type="submit" style="margin-top:.6rem;">Save Department Assignments</button>
-                      </form>
-                    </div>
-                  </article>
-                {{ end }}
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Name</th><th>Pay Type</th><th>Amount</th><th>Action</th></tr></thead>
+                  <tbody>
+                    {{ range .LocationJobs }}
+                      <tr>
+                        <td colspan="4" style="padding:0;">
+                          <form method="post" action="/admin/locations/{{ $.Location.Number }}/jobs/{{ .ID }}/update" style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:.5rem;align-items:center;padding:.55rem;">
+                            <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                            <input name="name" value="{{ .Name }}" required>
+                            <select name="pay_type" required>
+                              <option value="hourly" {{ if eq .PayType "hourly" }}selected{{ end }}>Hourly</option>
+                              <option value="salary" {{ if eq .PayType "salary" }}selected{{ end }}>Salary</option>
+                            </select>
+                            <input name="pay_amount" type="number" step="0.01" min="0.01" value="{{ .PayAmountDisplay }}" required>
+                            <button class="btn btn-primary btn-responsive" type="submit">Save</button>
+                          </form>
+                        </td>
+                      </tr>
+                    {{ end }}
+                  </tbody>
+                </table>
               </div>
             {{ else }}
-              <p class="text-muted">No jobs yet.</p>
+              <p class="text-muted">No pay bands yet.</p>
             {{ end }}
           </section>
         </div>
@@ -286,23 +278,6 @@
       var exists = panels.some(function (panel) { return panel.getAttribute("data-process-panel") === initial; });
       showPanel(exists ? initial : "departments");
 
-      var openButtons = Array.from(document.querySelectorAll("[data-job-open]"));
-      var jobExpanders = Array.from(document.querySelectorAll("[data-job-expand]"));
-      function toggleJobRow(jobID) {
-        jobExpanders.forEach(function (row) {
-          var matches = (row.getAttribute("data-job-expand") || "").trim() === jobID;
-          if (matches) {
-            row.classList.toggle("open");
-          } else {
-            row.classList.remove("open");
-          }
-        });
-      }
-      openButtons.forEach(function (btn) {
-        btn.addEventListener("click", function () {
-          toggleJobRow((btn.getAttribute("data-job-open") || "").trim());
-        });
-      });
     })();
   </script>
 </body>

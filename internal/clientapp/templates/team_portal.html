@@ -65,6 +65,8 @@
     .history-table th { color:var(--muted); font-weight:800; text-transform:uppercase; letter-spacing:.04em; font-size:.7rem; }
     .history-table tr:first-child th, .history-table tr:first-child td { border-top:0; }
     .history-status { font-weight:700; }
+    .doc-link { color: var(--primary); text-decoration: none; font-weight: 700; }
+    .doc-link:hover { text-decoration: underline; }
   </style>
 </head>
 <body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
@@ -83,6 +85,7 @@
           <button type="button" class="app-tab" data-app-tab="time-punch">Submit Time Punch</button>
           <button type="button" class="app-tab" data-app-tab="time-off">Vacation Requests</button>
           <button type="button" class="app-tab" data-app-tab="uniform">Order Uniform</button>
+          <button type="button" class="app-tab" data-app-tab="documents">Documents</button>
         </div>
 
         <section class="app-panel" data-app-panel="time-punch">
@@ -295,6 +298,31 @@
             {{ end }}
           </div>
         </section>
+
+        <section class="app-panel" data-app-panel="documents">
+          <h2 class="app-title">Documents</h2>
+          <p class="app-sub">Only your own profile documents are shown here.</p>
+          <div class="sub-tabs">
+            <button type="button" class="sub-tab" data-sub-tab="documents-view">View</button>
+          </div>
+          <div class="sub-panel" data-sub-panel="documents-view">
+            {{ if .TeamDocuments }}
+            <table class="history-table">
+              <tr><th>Document</th><th>Category</th><th>Created / Updated</th><th>Download</th></tr>
+              {{ range .TeamDocuments }}
+              <tr>
+                <td>{{ .Label }}</td>
+                <td>{{ .Category }}</td>
+                <td>{{ if .CreatedAt }}{{ .CreatedAt }}{{ else }}-{{ end }}</td>
+                <td><a class="doc-link" href="{{ .DownloadPath }}">Open</a></td>
+              </tr>
+              {{ end }}
+            </table>
+            {{ else }}
+            <p class="history-empty">No documents are available yet.</p>
+            {{ end }}
+          </div>
+        </section>
       </section>
     </div>
   </div>
@@ -320,7 +348,7 @@
         btn.addEventListener('click', function () {
           var app = btn.getAttribute('data-app-tab') || '';
           openApp(app);
-          openSub(app + '-create');
+          openSub(app === 'documents' ? 'documents-view' : (app + '-create'));
         });
       });
 
@@ -333,14 +361,18 @@
       var params = new URLSearchParams(window.location.search || '');
       var initialApp = (params.get('app') || 'time-punch').trim();
       var initialMode = (params.get('mode') || 'create').trim();
-      if (initialApp !== 'time-punch' && initialApp !== 'time-off' && initialApp !== 'uniform') {
+      if (initialApp !== 'time-punch' && initialApp !== 'time-off' && initialApp !== 'uniform' && initialApp !== 'documents') {
         initialApp = 'time-punch';
       }
       if (initialMode !== 'create' && initialMode !== 'view') {
         initialMode = 'create';
       }
       openApp(initialApp);
-      openSub(initialApp + '-' + initialMode);
+      if (initialApp === 'documents') {
+        openSub('documents-view');
+      } else {
+        openSub(initialApp + '-' + initialMode);
+      }
 
       var uniformSizeFieldsByItem = {
         {{ range .UniformItems }}

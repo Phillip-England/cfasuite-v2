@@ -191,9 +191,14 @@
             </div>
             <div>
               <label for="item-size-fields">Size Fields (optional)</label>
-              <textarea id="item-size-fields" name="size_fields" rows="4" placeholder="Size: XS,S,M,L&#10;Waist: 28,30,32,34&#10;Height: 30,32,34">{{- range .UniformItem.SizeFields -}}{{ .Label }}: {{ range $idx, $option := .Options }}{{ if $idx }},{{ end }}{{ $option }}{{ end }}
+              <textarea id="item-size-fields" name="size_fields" rows="4" aria-describedby="item-size-fields-help" placeholder="Label: option1, option2">{{- range .UniformItem.SizeFields -}}{{ .Label }}: {{ range $idx, $option := .Options }}{{ if $idx }},{{ end }}{{ $option }}{{ end }}
 {{- end -}}</textarea>
-              <p class="text-muted" style="margin-top:0.25rem;">One field per line using <strong>Label: option1, option2</strong>.</p>
+              <p id="item-size-fields-help" class="text-muted" style="margin-top:0.25rem;">
+                One field per line using <strong>Label: option1, option2</strong>.<br>
+                Example: <strong>Size: XS,S,M,L,XL</strong><br>
+                Example: <strong>Waist: 28,30,32,34</strong><br>
+                Example: <strong>Height: 30,32,34</strong>
+              </p>
             </div>
             <div>
               <button type="submit" class="btn btn-primary">Save Item</button>

@@ -710,7 +710,9 @@
           </label>
         </div>
         </section>
-        <button id="paperwork-submit-btn" class="btn" type="submit">Submit Paperwork</button>
+        <div class="button-row">
+          <button id="paperwork-submit-btn" class="btn" type="submit">Submit Paperwork</button>
+        </div>
       </section>
 
       <section id="panel-w4" class="panel panel-grid">
@@ -1895,6 +1897,11 @@
       let drawing = false;
       let lastX = 0;
       let lastY = 0;
+      function signatureInkColor() {
+        const rootStyles = getComputedStyle(document.documentElement);
+        const cssInk = (rootStyles.getPropertyValue("--sig-ink") || "").trim();
+        return cssInk || "#1f232a";
+      }
       function pos(event) {
         const rect = canvas.getBoundingClientRect();
         return {
@@ -1916,7 +1923,7 @@
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
         ctx.lineWidth = 2.4;
-        ctx.strokeStyle = "#1f232a"; // always dark so signatures are visible on white PDF backgrounds
+        ctx.strokeStyle = signatureInkColor();
         ctx.beginPath();
         ctx.moveTo(lastX, lastY);
         ctx.lineTo(p.x, p.y);

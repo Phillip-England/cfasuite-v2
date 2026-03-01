@@ -136,7 +136,8 @@
       margin-top: 0.375rem;
     }
 
-    input {
+    input,
+    select {
       width: 100%;
       border: 1px solid var(--border);
       border-radius: 0.375rem;
@@ -148,19 +149,22 @@
       transition: border-color 140ms ease, box-shadow 140ms ease;
     }
 
-    input:focus {
+    input:focus,
+    select:focus {
       outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 2px rgba(0,79,113,.15);
     }
 
-    html.dark input {
+    html.dark input,
+    html.dark select {
       background-color: #18181b;
       border-color: var(--border);
       color: var(--fg);
     }
 
-    html.dark input:focus {
+    html.dark input:focus,
+    html.dark select:focus {
       border-color: var(--primary);
       box-shadow: 0 0 0 2px rgba(0,79,113,.15);
     }
@@ -402,7 +406,60 @@
               </label>
               <label class="required">
                 <span class="label-text">Business State</span>
-                <input id="business_state" name="business_state" type="text" placeholder="Example: TN" required>
+                <select id="business_state" name="business_state" required>
+                  <option value="">Select state</option>
+                  <option value="AL">Alabama (AL)</option>
+                  <option value="AK">Alaska (AK)</option>
+                  <option value="AZ">Arizona (AZ)</option>
+                  <option value="AR">Arkansas (AR)</option>
+                  <option value="CA">California (CA)</option>
+                  <option value="CO">Colorado (CO)</option>
+                  <option value="CT">Connecticut (CT)</option>
+                  <option value="DE">Delaware (DE)</option>
+                  <option value="FL">Florida (FL)</option>
+                  <option value="GA">Georgia (GA)</option>
+                  <option value="HI">Hawaii (HI)</option>
+                  <option value="ID">Idaho (ID)</option>
+                  <option value="IL">Illinois (IL)</option>
+                  <option value="IN">Indiana (IN)</option>
+                  <option value="IA">Iowa (IA)</option>
+                  <option value="KS">Kansas (KS)</option>
+                  <option value="KY">Kentucky (KY)</option>
+                  <option value="LA">Louisiana (LA)</option>
+                  <option value="ME">Maine (ME)</option>
+                  <option value="MD">Maryland (MD)</option>
+                  <option value="MA">Massachusetts (MA)</option>
+                  <option value="MI">Michigan (MI)</option>
+                  <option value="MN">Minnesota (MN)</option>
+                  <option value="MS">Mississippi (MS)</option>
+                  <option value="MO">Missouri (MO)</option>
+                  <option value="MT">Montana (MT)</option>
+                  <option value="NE">Nebraska (NE)</option>
+                  <option value="NV">Nevada (NV)</option>
+                  <option value="NH">New Hampshire (NH)</option>
+                  <option value="NJ">New Jersey (NJ)</option>
+                  <option value="NM">New Mexico (NM)</option>
+                  <option value="NY">New York (NY)</option>
+                  <option value="NC">North Carolina (NC)</option>
+                  <option value="ND">North Dakota (ND)</option>
+                  <option value="OH">Ohio (OH)</option>
+                  <option value="OK">Oklahoma (OK)</option>
+                  <option value="OR">Oregon (OR)</option>
+                  <option value="PA">Pennsylvania (PA)</option>
+                  <option value="RI">Rhode Island (RI)</option>
+                  <option value="SC">South Carolina (SC)</option>
+                  <option value="SD">South Dakota (SD)</option>
+                  <option value="TN">Tennessee (TN)</option>
+                  <option value="TX">Texas (TX)</option>
+                  <option value="UT">Utah (UT)</option>
+                  <option value="VT">Vermont (VT)</option>
+                  <option value="VA">Virginia (VA)</option>
+                  <option value="WA">Washington (WA)</option>
+                  <option value="WV">West Virginia (WV)</option>
+                  <option value="WI">Wisconsin (WI)</option>
+                  <option value="WY">Wyoming (WY)</option>
+                  <option value="DC">District of Columbia (DC)</option>
+                </select>
               </label>
               <label class="required">
                 <span class="label-text">Business EIN</span>
@@ -478,7 +535,7 @@
     const tabPanels = Array.from(document.querySelectorAll(".tab-panel"));
     const numberInput = document.getElementById("number");
     const emailInput = document.getElementById("email");
-    const requiredInputs = Array.from(document.querySelectorAll("#create-location-form input[required]"));
+    const requiredInputs = Array.from(document.querySelectorAll("#create-location-form input[required], #create-location-form select[required]"));
 
     function syncAutoEmail() {
       if (!numberInput || !emailInput) return;
@@ -494,7 +551,7 @@
       if (!input) return;
       const label = input.closest("label.required");
       if (!label) return;
-      const labelRequiredInputs = Array.from(label.querySelectorAll("input[required]"));
+      const labelRequiredInputs = Array.from(label.querySelectorAll("input[required], select[required]"));
       const labelComplete = labelRequiredInputs.length > 0 && labelRequiredInputs.every((el) => isFieldValid(el));
       label.classList.toggle("required-complete", labelComplete);
     }
