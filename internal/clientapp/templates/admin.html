@@ -356,8 +356,8 @@
         <p class="panel-desc">Use the submenu to create a location or view existing locations.</p>
 
         <div class="submenu" role="tablist" aria-label="Location admin sections">
-          <button type="button" class="submenu-btn active" data-panel-target="view" role="tab" aria-selected="true">View Locations</button>
-          <button type="button" class="submenu-btn" data-panel-target="create" role="tab" aria-selected="false">Create Location</button>
+          <button id="view-locations-tab-btn" type="button" class="submenu-btn qa-btn" data-panel-target="view" role="tab" aria-selected="true">View Locations</button>
+          <button id="create-location-tab-btn" type="button" class="submenu-btn qa-btn" data-panel-target="create" role="tab" aria-selected="false">Create Location</button>
         </div>
 
         <p id="status" class="status" aria-live="polite"></p>
@@ -471,7 +471,7 @@
               </label>
             </div>
 
-            <button id="submit-btn" type="submit">Create Location</button>
+            <button id="submit-btn" class="qa-btn create-location-submit-btn" type="submit">Create Location</button>
           </form>
         </section>
 

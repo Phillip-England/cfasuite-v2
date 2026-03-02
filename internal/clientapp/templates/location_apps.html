@@ -119,47 +119,47 @@
         <p class="text-muted" style="margin-top:0.375rem;margin-bottom:1.5rem;">Location {{ .Location.Number }}. Select an app to manage this location.</p>
 
         <section class="apps">
-          <a class="app-card" href="/admin/locations/{{ .Location.Number }}/employees">
+          <a id="app-link-employees" class="app-card" href="/admin/locations/{{ .Location.Number }}/employees">
             <span class="app-status-dot {{ if or .NewHireEmployees .HasEmployeesMissingProfile }}bad{{ else }}good{{ end }}" aria-hidden="true"></span>
             <div class="app-title">Employees</div>
             <p class="app-desc">Create team members, manage pay-band assignments and compensation, update photos, and manage employee details.</p>
           </a>
-          <a class="app-card" href="/admin/locations/{{ .Location.Number }}/departments">
+          <a id="app-link-departments" class="app-card" href="/admin/locations/{{ .Location.Number }}/departments">
             <span class="app-status-dot {{ if .DepartmentsMissingJobs }}bad{{ else }}good{{ end }}" aria-hidden="true"></span>
             <div class="app-title">Departments</div>
             <p class="app-desc">Create departments and pay bands. Pay bands determine base pay at hire.</p>
           </a>
-          <a class="app-card" href="/admin/locations/{{ .Location.Number }}/time-punch">
+          <a id="app-link-time-punch" class="app-card" href="/admin/locations/{{ .Location.Number }}/time-punch">
             <span class="app-status-dot {{ if .HasOpenTimePunchEntries }}bad{{ else }}good{{ end }}" aria-hidden="true"></span>
             <div class="app-title">Time Punch</div>
             <p class="app-desc">Review submitted time punch corrections and share the store link for team member submissions.</p>
           </a>
-          <a class="app-card" href="/admin/locations/{{ .Location.Number }}/business-days">
+          <a id="app-link-business-days" class="app-card" href="/admin/locations/{{ .Location.Number }}/business-days">
             <span class="app-status-dot {{ if .HasIncompleteBusinessDays }}bad{{ else }}good{{ end }}" aria-hidden="true"></span>
             <div class="app-title">Business Days</div>
             <p class="app-desc">Create daily store records and track key metrics like sales and labor hours.</p>
           </a>
-          <a class="app-card" href="/admin/locations/{{ .Location.Number }}/time-off">
+          <a id="app-link-time-off" class="app-card" href="/admin/locations/{{ .Location.Number }}/time-off">
             <span class="app-status-dot {{ if .HasOverdueTimeOffRequests }}bad{{ else if .HasUpcomingTimeOffRequests }}warn{{ else }}good{{ end }}" aria-hidden="true"></span>
             <div class="app-title">Vacation Requests</div>
             <p class="app-desc">Share a request form with team members and archive requests as they are addressed.</p>
           </a>
-          <a class="app-card" href="/admin/locations/{{ .Location.Number }}/uniforms">
+          <a id="app-link-uniforms" class="app-card" href="/admin/locations/{{ .Location.Number }}/uniforms">
             <span class="app-status-dot {{ if .HasPendingUniformOrders }}bad{{ else if .HasOutstandingUniformCharges }}warn{{ else }}good{{ end }}" aria-hidden="true"></span>
             <div class="app-title">Uniforms</div>
             <p class="app-desc">Set purchasable uniform items and share a secret form for team member uniform orders.</p>
           </a>
-          <a class="app-card" href="/admin/locations/{{ .Location.Number }}/candidates">
+          <a id="app-link-candidates" class="app-card" href="/admin/locations/{{ .Location.Number }}/candidates">
             <span class="app-status-dot {{ if .HasStaleCandidateInterviews }}bad{{ else if .HasActiveCandidates }}warn{{ else }}good{{ end }}" aria-hidden="true"></span>
             <div class="app-title">Candidates</div>
             <p class="app-desc">Create candidates, run interviews, and make hire/pass decisions.</p>
           </a>
-          <a class="app-card" href="/admin/locations/{{ .Location.Number }}/interview-process">
+          <a id="app-link-interview-process" class="app-card" href="/admin/locations/{{ .Location.Number }}/interview-process">
             <span class="app-status-dot {{ if or (not .HasInterviewTypes) (.InterviewTypesMissingQuestions) }}bad{{ else }}good{{ end }}" aria-hidden="true"></span>
             <div class="app-title">Interview Process</div>
             <p class="app-desc">Manage interview values, questions, and interview types used by your location.</p>
           </a>
-          <a class="app-card" href="/admin/locations/{{ .Location.Number }}/settings">
+          <a id="app-link-settings" class="app-card" href="/admin/locations/{{ .Location.Number }}/settings">
             <span class="app-status-dot good" aria-hidden="true"></span>
             <div class="app-title">Location Settings</div>
             <p class="app-desc">Manage location-level paperwork defaults, including owner/operator.</p>

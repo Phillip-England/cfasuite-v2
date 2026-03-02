@@ -129,6 +129,7 @@
             Username
             <input
               type="text"
+              id="input-username"
               name="username"
               autocomplete="username"
               required
@@ -139,6 +140,7 @@
             Password
             <input
               type="password"
+              id="input-password"
               name="password"
               autocomplete="current-password"
               required
@@ -146,7 +148,7 @@
             >
           </label>
           <button
-            id="login-btn"
+            id="login-submit"
             type="submit"
             class="login-submit w-full h-10 px-4 rounded-md text-white text-sm font-semibold transition-colors"
           >Continue as Admin/Restaurant</button>
@@ -160,7 +162,7 @@
   <script>
     (function () {
       var adminForm = document.querySelector('form[action="/login"]');
-      var adminBtn = document.getElementById("login-btn");
+      var adminBtn = document.getElementById("login-submit");
       if (adminForm && adminBtn) {
         adminForm.addEventListener("submit", function () {
           adminBtn.disabled = true;
