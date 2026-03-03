@@ -1,3 +1,4 @@
+
 run:
 	go run ./cmd/cfasuite run all
 
@@ -8,3 +9,6 @@ assets:
 	go run ./cmd/cfasuite assets build
 
 .PHONY: run setup assets
+
+test:
+	bdr run ./e2e/test.bdr;

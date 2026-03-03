@@ -34,6 +34,10 @@
     th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
     th { color: var(--muted-fg); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
     .empty { border: 1px dashed var(--border); border-radius: 10px; padding: 0.8rem; color: var(--muted-fg); }
+    .availability-grid { display:grid; gap:.5rem; grid-template-columns:repeat(2,minmax(0,1fr)); }
+    @media (max-width:760px){ .availability-grid { grid-template-columns:1fr; } }
+    .availability-day { border:1px solid var(--border); border-radius:8px; padding:.55rem .65rem; }
+    .availability-day strong { text-transform:capitalize; font-size:.88rem; }
   </style>
 </head>
 <body>
@@ -53,6 +57,35 @@
         <span class="meta">Interviewer: {{ .Interview.InterviewerTimePunchName }}</span>
         <span class="meta">Created: {{ .Interview.CreatedAt }}</span>
       </div>
+
+      <section class="stack">
+        <h2 style="font-size:1rem;">Candidate Availability</h2>
+        <div class="availability-grid">
+          {{ range .Candidate.Availability }}
+            <article class="availability-day">
+              <strong>{{ .Day }}</strong>
+              <div class="meta">
+                {{ if .Available }}
+                  {{ if and .StartTime .EndTime }}{{ .StartTime }} - {{ .EndTime }}{{ else }}Available{{ end }}
+                {{ else }}
+                  Unavailable
+                {{ end }}
+              </div>
+            </article>
+          {{ end }}
+        </div>
+      </section>
+
+      <section class="stack">
+        <h2 style="font-size:1rem;">Previous Interviews</h2>
+        <div class="row" style="justify-content:flex-start;">
+          {{ range .Candidate.Interviews }}
+            {{ if ne .ID $.Interview.ID }}
+              <a class="btn btn-outline" href="/admin/locations/{{ $.Location.Number }}/candidates/{{ $.Candidate.ID }}/interviews/{{ .ID }}">{{ .InterviewType }} · {{ .CreatedAt }}</a>
+            {{ end }}
+          {{ end }}
+        </div>
+      </section>
 
       {{ if .Interview.Notes }}
         <section class="card" style="padding:.75rem;">

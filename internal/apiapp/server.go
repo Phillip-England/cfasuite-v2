@@ -69,12 +69,12 @@ const (
 )
 
 var (
-	errNotFound                   = errors.New("not found")
-	errPINInUse                   = errors.New("pin in use")
-	shoeStylePattern              = regexp.MustCompile(`^\d{5}$`)
-	zipCodePattern                = regexp.MustCompile(`^\d{5}(-\d{4})?$`)
-	cityPattern                   = regexp.MustCompile(`^[A-Z][A-Z .'-]{0,99}$`)
-	w4CurrencyAmountPattern       = regexp.MustCompile(`^\d+(?:\.\d{1,2})?$`)
+	errNotFound                = errors.New("not found")
+	errPINInUse                = errors.New("pin in use")
+	shoeStylePattern           = regexp.MustCompile(`^\d{5}$`)
+	zipCodePattern             = regexp.MustCompile(`^\d{5}(-\d{4})?$`)
+	cityPattern                = regexp.MustCompile(`^[A-Z][A-Z .'-]{0,99}$`)
+	w4CurrencyAmountPattern    = regexp.MustCompile(`^\d+(?:\.\d{1,2})?$`)
 	defaultLocationDepartments = []string{"BOH", "FOH", "RLT", "CST", "EXECUTIVE", "PARTNER"}
 	defaultLocationPayBands    = []struct {
 		Name           string
@@ -228,6 +228,17 @@ type createCandidateRequest struct {
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
 	Phone     string `json:"phone"`
+}
+
+type candidateAvailabilityDay struct {
+	Day       string `json:"day"`
+	Available bool   `json:"available"`
+	StartTime string `json:"startTime"`
+	EndTime   string `json:"endTime"`
+}
+
+type updateCandidateAvailabilityRequest struct {
+	Availability []candidateAvailabilityDay `json:"availability"`
 }
 
 type createCandidateValueRequest struct {
@@ -718,18 +729,19 @@ type uniformOrderLineInput struct {
 }
 
 type candidate struct {
-	ID                  int64                `json:"id"`
-	LocationNumber      string               `json:"locationNumber"`
-	FirstName           string               `json:"firstName"`
-	LastName            string               `json:"lastName"`
-	Phone               string               `json:"phone"`
-	Status              string               `json:"status"`
-	HiredTimePunchName  string               `json:"hiredTimePunchName"`
-	CreatedAt           time.Time            `json:"createdAt"`
-	UpdatedAt           time.Time            `json:"updatedAt"`
-	ArchivedAt          time.Time            `json:"archivedAt,omitempty"`
-	Interviews          []candidateInterview `json:"interviews,omitempty"`
-	AverageGradePercent float64              `json:"averageGradePercent,omitempty"`
+	ID                  int64                      `json:"id"`
+	LocationNumber      string                     `json:"locationNumber"`
+	FirstName           string                     `json:"firstName"`
+	LastName            string                     `json:"lastName"`
+	Phone               string                     `json:"phone"`
+	Availability        []candidateAvailabilityDay `json:"availability"`
+	Status              string                     `json:"status"`
+	HiredTimePunchName  string                     `json:"hiredTimePunchName"`
+	CreatedAt           time.Time                  `json:"createdAt"`
+	UpdatedAt           time.Time                  `json:"updatedAt"`
+	ArchivedAt          time.Time                  `json:"archivedAt,omitempty"`
+	Interviews          []candidateInterview       `json:"interviews,omitempty"`
+	AverageGradePercent float64                    `json:"averageGradePercent,omitempty"`
 }
 
 type candidateValue struct {
@@ -1459,6 +1471,20 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		s.getLocationCandidateScorecard(w, r, locationNumber, candidateID)
+		return
+	}
+
+	if len(parts) == 4 && parts[1] == "candidates" && parts[3] == "availability" {
+		candidateID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+		if err != nil || candidateID <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid candidate id")
+			return
+		}
+		if r.Method != http.MethodPut {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		s.updateLocationCandidateAvailability(w, r, locationNumber, candidateID)
 		return
 	}
 
@@ -3276,12 +3302,19 @@ func (s *server) publicCandidateInterviewHandler(w http.ResponseWriter, r *http.
 			writeError(w, http.StatusInternalServerError, "unable to load location")
 			return
 		}
+		previousInterviews, err := s.store.listCandidateInterviews(r.Context(), record.LocationNumber, record.CandidateID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "unable to load previous interviews")
+			return
+		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"locationNumber":           record.LocationNumber,
 			"locationName":             loc.Name,
 			"candidateId":              candidateRecord.ID,
 			"candidateFirstName":       candidateRecord.FirstName,
 			"candidateLastName":        candidateRecord.LastName,
+			"candidateAvailability":    candidateRecord.Availability,
+			"previousInterviews":       previousInterviews,
 			"interviewerTimePunchName": record.InterviewerTimePunchName,
 			"interviewType":            record.InterviewType,
 			"values":                   values,
@@ -3332,6 +3365,11 @@ func (s *server) publicCandidateInterviewHandler(w http.ResponseWriter, r *http.
 		notes := strings.TrimSpace(r.PostForm.Get("notes"))
 		if len([]rune(notes)) > 3000 {
 			writeError(w, http.StatusBadRequest, "notes must be 3000 characters or fewer")
+			return
+		}
+		availability := parseCandidateAvailabilityFromForm(r.PostForm)
+		if err := s.store.updateCandidateAvailability(r.Context(), record.LocationNumber, record.CandidateID, availability); err != nil {
+			writeError(w, http.StatusInternalServerError, "unable to save candidate availability")
 			return
 		}
 		interview := candidateInterview{
@@ -6764,6 +6802,35 @@ func (s *server) getLocationCandidateScorecard(w http.ResponseWriter, r *http.Re
 	s.getLocationCandidate(w, r, number, candidateID)
 }
 
+func (s *server) updateLocationCandidateAvailability(w http.ResponseWriter, r *http.Request, number string, candidateID int64) {
+	if _, err := s.store.getCandidateByID(r.Context(), number, candidateID); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "candidate not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load candidate")
+		return
+	}
+	var req updateCandidateAvailabilityRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	normalized := normalizeCandidateAvailability(req.Availability)
+	if err := s.store.updateCandidateAvailability(r.Context(), number, candidateID, normalized); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "candidate not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to update availability")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"message":      "candidate availability updated",
+		"availability": normalized,
+	})
+}
+
 func (s *server) listEmployeeCandidateScorecards(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
 	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
 		if errors.Is(err, errNotFound) {
@@ -8833,10 +8900,10 @@ func (s *server) updateEmployeePayBand(w http.ResponseWriter, r *http.Request, n
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"message":       "pay band updated",
-		"payBandId":     payBand.ID,
-		"payBandName":   payBand.Name,
-		"payType":       payType,
+		"message":        "pay band updated",
+		"payBandId":      payBand.ID,
+		"payBandName":    payBand.Name,
+		"payType":        payType,
 		"payAmountCents": payBand.PayAmountCents,
 	})
 }
@@ -9801,6 +9868,7 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			first_name TEXT NOT NULL,
 			last_name TEXT NOT NULL,
 			phone TEXT NOT NULL DEFAULT '',
+			availability_json TEXT NOT NULL DEFAULT '',
 			status TEXT NOT NULL DEFAULT 'active',
 			hired_time_punch_name TEXT NOT NULL DEFAULT '',
 			archived_at INTEGER NOT NULL DEFAULT 0,
@@ -10098,6 +10166,12 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 	if _, err := s.exec(ctx, `
 		ALTER TABLE location_candidates
 		ADD COLUMN phone TEXT NOT NULL DEFAULT '';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE location_candidates
+		ADD COLUMN availability_json TEXT NOT NULL DEFAULT '';
 	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
 		return err
 	}
@@ -11872,13 +11946,14 @@ func (s *sqliteStore) deleteCandidateInterviewQuestion(ctx context.Context, loca
 func (s *sqliteStore) createCandidate(ctx context.Context, candidateRecord candidate) (int64, error) {
 	now := time.Now().UTC().Unix()
 	_, err := s.exec(ctx, `
-		INSERT INTO location_candidates (location_number, first_name, last_name, phone, status, hired_time_punch_name, archived_at, created_at, updated_at)
-		VALUES (@location_number, @first_name, @last_name, @phone, @status, @hired_time_punch_name, 0, @created_at, @updated_at);
+		INSERT INTO location_candidates (location_number, first_name, last_name, phone, availability_json, status, hired_time_punch_name, archived_at, created_at, updated_at)
+		VALUES (@location_number, @first_name, @last_name, @phone, @availability_json, @status, @hired_time_punch_name, 0, @created_at, @updated_at);
 	`, map[string]string{
 		"location_number":       candidateRecord.LocationNumber,
 		"first_name":            candidateRecord.FirstName,
 		"last_name":             candidateRecord.LastName,
 		"phone":                 strings.TrimSpace(candidateRecord.Phone),
+		"availability_json":     serializeCandidateAvailability(candidateRecord.Availability),
 		"status":                strings.TrimSpace(candidateRecord.Status),
 		"hired_time_punch_name": strings.TrimSpace(candidateRecord.HiredTimePunchName),
 		"created_at":            strconv.FormatInt(now, 10),
@@ -11919,7 +11994,7 @@ func (s *sqliteStore) deleteCandidate(ctx context.Context, locationNumber string
 
 func (s *sqliteStore) getCandidateByID(ctx context.Context, locationNumber string, candidateID int64) (*candidate, error) {
 	rows, err := s.query(ctx, `
-		SELECT id, location_number, first_name, last_name, phone, status, hired_time_punch_name, archived_at, created_at, updated_at
+		SELECT id, location_number, first_name, last_name, phone, availability_json, status, hired_time_punch_name, archived_at, created_at, updated_at
 		FROM location_candidates
 		WHERE id = @id AND location_number = @location_number
 		LIMIT 1;
@@ -11953,6 +12028,10 @@ func (s *sqliteStore) getCandidateByID(ctx context.Context, locationNumber strin
 	if err != nil {
 		return nil, err
 	}
+	availabilityJSON, err := valueAsString(rows[0]["availability_json"])
+	if err != nil {
+		return nil, err
+	}
 	status, err := valueAsString(rows[0]["status"])
 	if err != nil {
 		return nil, err
@@ -11979,6 +12058,7 @@ func (s *sqliteStore) getCandidateByID(ctx context.Context, locationNumber strin
 		FirstName:          firstName,
 		LastName:           lastName,
 		Phone:              phone,
+		Availability:       parseCandidateAvailability(availabilityJSON),
 		Status:             status,
 		HiredTimePunchName: hiredTPN,
 		CreatedAt:          time.Unix(createdAtUnix, 0).UTC(),
@@ -11997,7 +12077,7 @@ func (s *sqliteStore) listCandidates(ctx context.Context, locationNumber string,
 		statusFilter = "c.status IN ('passed', 'hired')"
 	}
 	query := `
-		SELECT c.id, c.location_number, c.first_name, c.last_name, c.phone, c.status, c.hired_time_punch_name, c.archived_at, c.created_at, c.updated_at
+		SELECT c.id, c.location_number, c.first_name, c.last_name, c.phone, c.availability_json, c.status, c.hired_time_punch_name, c.archived_at, c.created_at, c.updated_at
 		FROM location_candidates c
 		WHERE c.location_number = @location_number
 			AND ` + statusFilter
@@ -12033,6 +12113,10 @@ func (s *sqliteStore) listCandidates(ctx context.Context, locationNumber string,
 		if err != nil {
 			return nil, err
 		}
+		availabilityJSON, err := valueAsString(row["availability_json"])
+		if err != nil {
+			return nil, err
+		}
 		status, err := valueAsString(row["status"])
 		if err != nil {
 			return nil, err
@@ -12059,6 +12143,7 @@ func (s *sqliteStore) listCandidates(ctx context.Context, locationNumber string,
 			FirstName:          firstName,
 			LastName:           lastName,
 			Phone:              phone,
+			Availability:       parseCandidateAvailability(availabilityJSON),
 			Status:             status,
 			HiredTimePunchName: hiredTPN,
 			CreatedAt:          time.Unix(createdAtUnix, 0).UTC(),
@@ -12074,7 +12159,7 @@ func (s *sqliteStore) listCandidates(ctx context.Context, locationNumber string,
 
 func (s *sqliteStore) listHiredCandidateScorecardsByTimePunchName(ctx context.Context, locationNumber, timePunchName string) ([]candidate, error) {
 	rows, err := s.query(ctx, `
-		SELECT id, location_number, first_name, last_name, phone, status, hired_time_punch_name, archived_at, created_at, updated_at
+		SELECT id, location_number, first_name, last_name, phone, availability_json, status, hired_time_punch_name, archived_at, created_at, updated_at
 		FROM location_candidates
 		WHERE location_number = @location_number
 			AND status = 'hired'
@@ -12817,28 +12902,28 @@ func (s *sqliteStore) listArchivedLocationEmployees(ctx context.Context, number 
 			return nil, err
 		}
 		employees = append(employees, employee{
-			FirstName:      firstName,
-			LastName:       lastName,
-			TimePunchName:  timePunchName,
-			EmployeeNumber: strings.TrimSpace(employeeNumber),
-			Department:     normalizeDepartment(department),
-			JobID:          jobID,
-			JobName:        "",
-			PayBandID:      jobID,
-			PayBandName:    "",
-			PayType:        strings.TrimSpace(payType),
-			PayAmountCents: payAmountCents,
+			FirstName:         firstName,
+			LastName:          lastName,
+			TimePunchName:     timePunchName,
+			EmployeeNumber:    strings.TrimSpace(employeeNumber),
+			Department:        normalizeDepartment(department),
+			JobID:             jobID,
+			JobName:           "",
+			PayBandID:         jobID,
+			PayBandName:       "",
+			PayType:           strings.TrimSpace(payType),
+			PayAmountCents:    payAmountCents,
 			EffectivePayCents: payAmountCents,
-			Birthday:       birthday,
-			Email:          email,
-			Phone:          phone,
-			Address:        address,
-			AptNumber:      aptNumber,
-			City:           city,
-			State:          state,
-			ZipCode:        zipCode,
-			HasPhoto:       hasPhotoRaw == 1,
-			ArchivedAt:     time.Unix(archivedAtUnix, 0).UTC().Format(time.RFC3339),
+			Birthday:          birthday,
+			Email:             email,
+			Phone:             phone,
+			Address:           address,
+			AptNumber:         aptNumber,
+			City:              city,
+			State:             state,
+			ZipCode:           zipCode,
+			HasPhoto:          hasPhotoRaw == 1,
+			ArchivedAt:        time.Unix(archivedAtUnix, 0).UTC().Format(time.RFC3339),
 		})
 	}
 	return employees, nil
@@ -12936,28 +13021,28 @@ func (s *sqliteStore) getArchivedLocationEmployee(ctx context.Context, locationN
 		return nil, err
 	}
 	return &employee{
-		FirstName:      firstName,
-		LastName:       lastName,
-		TimePunchName:  tpn,
-		EmployeeNumber: strings.TrimSpace(employeeNumber),
-		Department:     normalizeDepartment(dept),
-		JobID:          jobID,
-		JobName:        "",
-		PayBandID:      jobID,
-		PayBandName:    "",
-		PayType:        strings.TrimSpace(payType),
-		PayAmountCents: payAmountCents,
+		FirstName:         firstName,
+		LastName:          lastName,
+		TimePunchName:     tpn,
+		EmployeeNumber:    strings.TrimSpace(employeeNumber),
+		Department:        normalizeDepartment(dept),
+		JobID:             jobID,
+		JobName:           "",
+		PayBandID:         jobID,
+		PayBandName:       "",
+		PayType:           strings.TrimSpace(payType),
+		PayAmountCents:    payAmountCents,
 		EffectivePayCents: payAmountCents,
-		Birthday:       birthday,
-		Email:          email,
-		Phone:          phone,
-		Address:        address,
-		AptNumber:      aptNumber,
-		City:           city,
-		State:          state,
-		ZipCode:        zipCode,
-		HasPhoto:       hasPhotoRaw == 1,
-		ArchivedAt:     time.Unix(archivedAtUnix, 0).UTC().Format(time.RFC3339),
+		Birthday:          birthday,
+		Email:             email,
+		Phone:             phone,
+		Address:           address,
+		AptNumber:         aptNumber,
+		City:              city,
+		State:             state,
+		ZipCode:           zipCode,
+		HasPhoto:          hasPhotoRaw == 1,
+		ArchivedAt:        time.Unix(archivedAtUnix, 0).UTC().Format(time.RFC3339),
 	}, nil
 }
 
@@ -13353,6 +13438,23 @@ func (s *sqliteStore) upsertEmployeeI9Form(ctx context.Context, locationNumber, 
 		"file_name":       fileName,
 		"updated_at":      strconv.FormatInt(now, 10),
 		"created_at":      strconv.FormatInt(now, 10),
+	})
+	return err
+}
+
+func (s *sqliteStore) updateCandidateAvailability(ctx context.Context, locationNumber string, candidateID int64, availability []candidateAvailabilityDay) error {
+	if _, err := s.getCandidateByID(ctx, locationNumber, candidateID); err != nil {
+		return err
+	}
+	_, err := s.exec(ctx, `
+		UPDATE location_candidates
+		SET availability_json = @availability_json, updated_at = @updated_at
+		WHERE id = @id AND location_number = @location_number;
+	`, map[string]string{
+		"id":                strconv.FormatInt(candidateID, 10),
+		"location_number":   locationNumber,
+		"availability_json": serializeCandidateAvailability(availability),
+		"updated_at":        strconv.FormatInt(time.Now().UTC().Unix(), 10),
 	})
 	return err
 }
@@ -14471,11 +14573,11 @@ func (s *sqliteStore) createLocationJob(ctx context.Context, locationNumber stri
 		INSERT INTO location_jobs (location_number, name, pay_type, pay_amount_cents, created_at)
 		VALUES (@location_number, @name, @pay_type, @pay_amount_cents, @created_at);
 	`, map[string]string{
-		"location_number": locationNumber,
-		"name":            cleanName,
-		"pay_type":        payType,
+		"location_number":  locationNumber,
+		"name":             cleanName,
+		"pay_type":         payType,
 		"pay_amount_cents": strconv.FormatInt(payAmountCents, 10),
-		"created_at":      strconv.FormatInt(now.Unix(), 10),
+		"created_at":       strconv.FormatInt(now.Unix(), 10),
 	})
 	if err != nil {
 		return locationJob{}, err
@@ -14625,12 +14727,12 @@ func (s *sqliteStore) updateLocationEmployeeJob(ctx context.Context, locationNum
 		WHERE location_number = @location_number
 			AND time_punch_name = @time_punch_name;
 	`, map[string]string{
-		"department":      normalizeDepartment(departmentName),
-		"job_id":          strconv.FormatInt(jobID, 10),
-		"pay_type":        strings.TrimSpace(strings.ToLower(payType)),
+		"department":       normalizeDepartment(departmentName),
+		"job_id":           strconv.FormatInt(jobID, 10),
+		"pay_type":         strings.TrimSpace(strings.ToLower(payType)),
 		"pay_amount_cents": strconv.FormatInt(payAmountCents, 10),
-		"location_number": locationNumber,
-		"time_punch_name": timePunchName,
+		"location_number":  locationNumber,
+		"time_punch_name":  timePunchName,
 	})
 	return err
 }
@@ -18354,6 +18456,103 @@ func departmentNameByID(departments []locationDepartment, departmentID int64) st
 		}
 	}
 	return ""
+}
+
+var candidateAvailabilityDayOrder = []string{
+	"monday",
+	"tuesday",
+	"wednesday",
+	"thursday",
+	"friday",
+	"saturday",
+}
+
+func defaultCandidateAvailability() []candidateAvailabilityDay {
+	out := make([]candidateAvailabilityDay, 0, len(candidateAvailabilityDayOrder))
+	for _, day := range candidateAvailabilityDayOrder {
+		out = append(out, candidateAvailabilityDay{Day: day})
+	}
+	return out
+}
+
+func normalizeCandidateAvailability(days []candidateAvailabilityDay) []candidateAvailabilityDay {
+	byDay := make(map[string]candidateAvailabilityDay, len(days))
+	for _, day := range days {
+		key := strings.ToLower(strings.TrimSpace(day.Day))
+		if key == "" {
+			continue
+		}
+		entry := candidateAvailabilityDay{
+			Day:       key,
+			Available: day.Available,
+			StartTime: normalizeAvailabilityTime(day.StartTime),
+			EndTime:   normalizeAvailabilityTime(day.EndTime),
+		}
+		if !entry.Available {
+			entry.StartTime = ""
+			entry.EndTime = ""
+		}
+		byDay[key] = entry
+	}
+	out := make([]candidateAvailabilityDay, 0, len(candidateAvailabilityDayOrder))
+	for _, day := range candidateAvailabilityDayOrder {
+		entry, ok := byDay[day]
+		if !ok {
+			entry = candidateAvailabilityDay{Day: day}
+		}
+		entry.Day = day
+		out = append(out, entry)
+	}
+	return out
+}
+
+func normalizeAvailabilityTime(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	if parsed, err := time.Parse("15:04", trimmed); err == nil {
+		return parsed.Format("15:04")
+	}
+	return ""
+}
+
+func serializeCandidateAvailability(days []candidateAvailabilityDay) string {
+	normalized := normalizeCandidateAvailability(days)
+	payload, err := json.Marshal(normalized)
+	if err != nil {
+		return "[]"
+	}
+	return string(payload)
+}
+
+func parseCandidateAvailability(raw string) []candidateAvailabilityDay {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return defaultCandidateAvailability()
+	}
+	var parsed []candidateAvailabilityDay
+	if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
+		return defaultCandidateAvailability()
+	}
+	return normalizeCandidateAvailability(parsed)
+}
+
+func parseCandidateAvailabilityFromForm(values url.Values) []candidateAvailabilityDay {
+	out := make([]candidateAvailabilityDay, 0, len(candidateAvailabilityDayOrder))
+	for _, day := range candidateAvailabilityDayOrder {
+		availableRaw := strings.ToLower(strings.TrimSpace(values.Get("availability_" + day + "_available")))
+		available := availableRaw == "1" || availableRaw == "true" || availableRaw == "yes" || availableRaw == "on"
+		start := strings.TrimSpace(values.Get("availability_" + day + "_start"))
+		end := strings.TrimSpace(values.Get("availability_" + day + "_end"))
+		out = append(out, candidateAvailabilityDay{
+			Day:       day,
+			Available: available,
+			StartTime: start,
+			EndTime:   end,
+		})
+	}
+	return normalizeCandidateAvailability(out)
 }
 
 func normalizeLetterGrade(value string) string {

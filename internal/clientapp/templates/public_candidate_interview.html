@@ -106,6 +106,18 @@
       background: #052e16;
     }
     .submit-row { display: grid; gap: 0.5rem; }
+    .availability-grid { display:grid; gap:.55rem; grid-template-columns:1fr; }
+    @media (min-width:860px){ .availability-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    .availability-day { border:1px solid var(--border); border-radius:10px; padding:.6rem; }
+    .availability-day h3 { margin:0 0 .45rem; font-size:.95rem; text-transform:capitalize; }
+    .availability-toggle { display:flex; align-items:center; gap:.5rem; margin-bottom:.5rem; }
+    .availability-toggle label { margin:0; font-size:.84rem; font-weight:600; }
+    .availability-toggle input[type="checkbox"] { width:auto; min-height:auto; }
+    .availability-times { display:grid; gap:.5rem; grid-template-columns:1fr; }
+    @media (min-width:520px){ .availability-times { grid-template-columns:1fr 1fr; } }
+    .availability-times label { margin-bottom:.2rem; font-size:.78rem; font-weight:600; }
+    .previous-links { display:flex; gap:.45rem; flex-wrap:wrap; }
+    .previous-card { border:1px solid var(--border); border-radius:10px; padding:.65rem .75rem; }
   </style>
 </head>
 <body>
@@ -119,6 +131,62 @@
       {{ if .SuccessMessage }}<p class="msg">{{ .SuccessMessage }}</p>{{ end }}
 
       <form id="interview-form" method="post" action="/interview/{{ .Token }}" class="stack">
+        <section class="stack">
+          <h2 style="font-size:1rem;">Candidate Availability (Monday-Saturday)</h2>
+          <div class="availability-grid">
+            {{ range .Candidate.Availability }}
+              <article class="availability-day">
+                <h3>{{ .Day }}</h3>
+                <div class="availability-toggle">
+                  <input id="availability-{{ .Day }}-available" type="checkbox" name="availability_{{ .Day }}_available" value="1" {{ if .Available }}checked{{ end }}>
+                  <label for="availability-{{ .Day }}-available">Available</label>
+                </div>
+                <div class="availability-times">
+                  <div>
+                    <label for="availability-{{ .Day }}-start">Start</label>
+                    <input id="availability-{{ .Day }}-start" type="time" name="availability_{{ .Day }}_start" value="{{ .StartTime }}">
+                  </div>
+                  <div>
+                    <label for="availability-{{ .Day }}-end">End</label>
+                    <input id="availability-{{ .Day }}-end" type="time" name="availability_{{ .Day }}_end" value="{{ .EndTime }}">
+                  </div>
+                </div>
+              </article>
+            {{ end }}
+          </div>
+          <p class="meta">Update availability here. This schedule is shared across all interview stages and the scorecard.</p>
+        </section>
+
+        {{ if .Candidate.Interviews }}
+          <section class="stack">
+            <h2 style="font-size:1rem;">Previous Interviews</h2>
+            <div class="previous-links">
+              {{ range .Candidate.Interviews }}
+                <a class="pill" href="#previous-interview-{{ .ID }}">{{ .InterviewType }} · {{ .CreatedAt }}</a>
+              {{ end }}
+            </div>
+            <div class="stack">
+              {{ range .Candidate.Interviews }}
+                <article id="previous-interview-{{ .ID }}" class="previous-card stack">
+                  <div><strong>{{ .InterviewType }}</strong> <span class="meta">({{ .CreatedAt }})</span></div>
+                  <div class="meta">Interviewer: {{ .InterviewerTimePunchName }}</div>
+                  {{ if .Notes }}<div>{{ .Notes }}</div>{{ end }}
+                  {{ if .QuestionAnswers }}
+                    <div class="stack" style="gap:.4rem;">
+                      {{ range .QuestionAnswers }}
+                        <div>
+                          <div class="meta"><strong>{{ .QuestionText }}</strong></div>
+                          <div>{{ .Answer }}</div>
+                        </div>
+                      {{ end }}
+                    </div>
+                  {{ end }}
+                </article>
+              {{ end }}
+            </div>
+          </section>
+        {{ end }}
+
         <section id="completion-summary" class="completion warn" aria-live="polite">
           <strong>Form Incomplete</strong>
           <span id="completion-detail">Complete all required fields before submitting.</span>

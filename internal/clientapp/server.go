@@ -35,55 +35,112 @@ const (
 
 var interviewQuestionStarterCatalog = []interviewQuestionStarter{
 	{
-		Key:          "why_chickfila",
+		Key:          "phone_why_chickfila",
 		Question:     "Why do you want to work at Chick-fil-A?",
 		ResponseType: "text",
 	},
 	{
-		Key:          "hospitality_meaning",
-		Question:     "What does great hospitality mean to you?",
-		ResponseType: "text",
-	},
-	{
-		Key:          "teamwork_example",
-		Question:     "Tell me about a time you helped a teammate succeed.",
-		ResponseType: "text",
-	},
-	{
-		Key:          "guest_recovery",
-		Question:     "Describe a time you helped a frustrated guest or customer.",
-		ResponseType: "text",
-	},
-	{
-		Key:          "fast_paced",
-		Question:     "How do you stay accurate and positive during a fast-paced rush?",
-		ResponseType: "text",
-	},
-	{
-		Key:          "feedback_application",
-		Question:     "Tell me about feedback you received and how you applied it.",
-		ResponseType: "text",
-	},
-	{
-		Key:          "dependable_team",
-		Question:     "What does being dependable look like on a team?",
-		ResponseType: "text",
-	},
-	{
-		Key:          "weekend_availability",
-		Question:     "Are you available to work weekends?",
+		Key:          "phone_reliable_transportation",
+		Question:     "Do you have reliable transportation to and from work?",
 		ResponseType: "yes_no",
 	},
 	{
-		Key:          "open_close_availability",
-		Question:     "Are you available to open or close when needed?",
+		Key:          "phone_saturday_availability",
+		Question:     "Are you generally available to work Saturdays?",
 		ResponseType: "yes_no",
 	},
 	{
-		Key:          "food_safety_importance",
-		Question:     "Why is food safety important in a restaurant environment?",
+		Key:          "phone_hospitality_example",
+		Question:     "Share a quick example of a time you helped someone.",
 		ResponseType: "text",
 	},
+	{
+		Key:          "phone_physical_role",
+		Question:     "This role involves standing and moving for long periods. Are you comfortable with that?",
+		ResponseType: "yes_no",
+	},
+	{
+		Key:          "face_guest_recovery",
+		Question:     "Tell me about a time you handled a difficult guest or customer.",
+		ResponseType: "text",
+	},
+	{
+		Key:          "face_fast_paced",
+		Question:     "Describe a time you had to work quickly while staying accurate.",
+		ResponseType: "text",
+	},
+	{
+		Key:          "face_feedback",
+		Question:     "How do you respond when a leader gives you corrective feedback?",
+		ResponseType: "text",
+	},
+	{
+		Key:          "face_teamwork",
+		Question:     "When a teammate falls behind during a rush, what do you do?",
+		ResponseType: "text",
+	},
+	{
+		Key:          "face_hospitality_meaning",
+		Question:     "What does hospitality mean to you in a restaurant setting?",
+		ResponseType: "text",
+	},
+	{
+		Key:          "final_commitment",
+		Question:     "Can you commit to showing up on time and ready for every scheduled shift?",
+		ResponseType: "yes_no",
+	},
+	{
+		Key:          "final_goals",
+		Question:     "What are your goals for the next year, and how can this role support them?",
+		ResponseType: "text",
+	},
+	{
+		Key:          "final_choose_you",
+		Question:     "Why should we choose you over other candidates?",
+		ResponseType: "text",
+	},
+	{
+		Key:          "final_schedule_commitment",
+		Question:     "If hired, what schedule commitment can you make for the next 90 days?",
+		ResponseType: "text",
+	},
+	{
+		Key:          "final_concerns",
+		Question:     "Do you have any concerns about working in a fast-paced, team-focused environment?",
+		ResponseType: "text",
+	},
+}
+
+var interviewProcessDefaultInterviewTypes = []string{
+	"Phone Interview",
+	"Face-to-Face Interview",
+	"Final Interview",
+}
+
+var interviewProcessDefaultValues = []candidateValueView{
+	{Name: "Hospitality", Description: "Warmth, courtesy, eye contact, and guest-first mindset."},
+	{Name: "Coachability", Description: "Receives feedback positively and applies it quickly."},
+	{Name: "Communication", Description: "Clear, respectful communication with leaders and teammates."},
+	{Name: "Dependability", Description: "Punctual, prepared, and consistent with commitments."},
+	{Name: "Teamwork", Description: "Supports team performance, especially during peak periods."},
+}
+
+var interviewProcessDefaultQuestionInterviewTypeByKey = map[string]string{
+	"phone_why_chickfila":           "Phone Interview",
+	"phone_reliable_transportation": "Phone Interview",
+	"phone_saturday_availability":   "Phone Interview",
+	"phone_hospitality_example":     "Phone Interview",
+	"phone_physical_role":           "Phone Interview",
+	"face_guest_recovery":           "Face-to-Face Interview",
+	"face_fast_paced":               "Face-to-Face Interview",
+	"face_feedback":                 "Face-to-Face Interview",
+	"face_teamwork":                 "Face-to-Face Interview",
+	"face_hospitality_meaning":      "Face-to-Face Interview",
+	"final_commitment":              "Final Interview",
+	"final_goals":                   "Final Interview",
+	"final_choose_you":              "Final Interview",
+	"final_schedule_commitment":     "Final Interview",
+	"final_concerns":                "Final Interview",
 }
 
 type Config struct {
@@ -389,6 +446,8 @@ type publicInterviewResponse struct {
 	CandidateID              int64                            `json:"candidateId"`
 	CandidateFirstName       string                           `json:"candidateFirstName"`
 	CandidateLastName        string                           `json:"candidateLastName"`
+	CandidateAvailability    []candidateAvailabilityDayView   `json:"candidateAvailability"`
+	PreviousInterviews       []candidateInterviewView         `json:"previousInterviews"`
 	InterviewerTimePunchName string                           `json:"interviewerTimePunchName"`
 	InterviewType            string                           `json:"interviewType"`
 	ExpiresAt                string                           `json:"expiresAt"`
@@ -677,17 +736,25 @@ type candidateInterviewQuestionAnswerView struct {
 }
 
 type candidateView struct {
-	ID                 int64                    `json:"id"`
-	LocationNumber     string                   `json:"locationNumber"`
-	FirstName          string                   `json:"firstName"`
-	LastName           string                   `json:"lastName"`
-	Phone              string                   `json:"phone"`
-	Status             string                   `json:"status"`
-	HiredTimePunchName string                   `json:"hiredTimePunchName"`
-	CreatedAt          string                   `json:"createdAt"`
-	UpdatedAt          string                   `json:"updatedAt"`
-	ArchivedAt         string                   `json:"archivedAt"`
-	Interviews         []candidateInterviewView `json:"interviews"`
+	ID                 int64                          `json:"id"`
+	LocationNumber     string                         `json:"locationNumber"`
+	FirstName          string                         `json:"firstName"`
+	LastName           string                         `json:"lastName"`
+	Phone              string                         `json:"phone"`
+	Availability       []candidateAvailabilityDayView `json:"availability"`
+	Status             string                         `json:"status"`
+	HiredTimePunchName string                         `json:"hiredTimePunchName"`
+	CreatedAt          string                         `json:"createdAt"`
+	UpdatedAt          string                         `json:"updatedAt"`
+	ArchivedAt         string                         `json:"archivedAt"`
+	Interviews         []candidateInterviewView       `json:"interviews"`
+}
+
+type candidateAvailabilityDayView struct {
+	Day       string `json:"day"`
+	Available bool   `json:"available"`
+	StartTime string `json:"startTime"`
+	EndTime   string `json:"endTime"`
 }
 
 type candidateValuesResponse struct {
@@ -2023,6 +2090,10 @@ func (s *server) locationRoutes(w http.ResponseWriter, r *http.Request) {
 			s.updateCandidateDecisionProxy(w, r, locationNumber, candidateID)
 			return
 		}
+		if locationNumber, candidateID, ok := parseLocationCandidateAvailabilityPath(r.URL.Path); ok {
+			s.updateCandidateAvailabilityProxy(w, r, locationNumber, candidateID)
+			return
+		}
 		if locationNumber, candidateID, ok := parseLocationCandidateDeletePath(r.URL.Path); ok {
 			s.deleteCandidateProxy(w, r, locationNumber, candidateID)
 			return
@@ -2648,6 +2719,9 @@ func (s *server) locationInterviewProcessPage(w http.ResponseWriter, r *http.Req
 		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
 		return
 	}
+	if err := s.ensureChickFilAInterviewDefaults(r, locationNumber, csrfToken); err != nil {
+		log.Printf("unable to ensure interview defaults for %s: %v", locationNumber, err)
+	}
 	values, err := s.fetchLocationCandidateValues(r, locationNumber)
 	if err != nil {
 		http.Error(w, "unable to load candidate values", http.StatusBadGateway)
@@ -2712,6 +2786,9 @@ func (s *server) candidateDetailPage(w http.ResponseWriter, r *http.Request, loc
 	if err != nil {
 		http.Redirect(w, r, "/?error=Session+expired", http.StatusFound)
 		return
+	}
+	if err := s.ensureChickFilAInterviewDefaults(r, locationNumber, csrfToken); err != nil {
+		log.Printf("unable to ensure interview defaults for %s: %v", locationNumber, err)
 	}
 	candidate, err := s.fetchLocationCandidate(r, locationNumber, candidateID)
 	if err != nil {
@@ -3804,6 +3881,64 @@ func (s *server) updateCandidateDecisionProxy(w http.ResponseWriter, r *http.Req
 	http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?message="+url.QueryEscape("Candidate decision saved"), http.StatusFound)
 }
 
+func (s *server) updateCandidateAvailabilityProxy(w http.ResponseWriter, r *http.Request, locationNumber string, candidateID int64) {
+	basePath := "/admin/locations/" + url.PathEscape(locationNumber) + "/candidates/" + strconv.FormatInt(candidateID, 10)
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, basePath+"?error=Invalid+form+submission#availability", http.StatusFound)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.FormValue("csrf_token"))
+	if csrfToken == "" {
+		http.Redirect(w, r, basePath+"?error=Missing+csrf+token#availability", http.StatusFound)
+		return
+	}
+	days := []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday"}
+	availability := make([]map[string]any, 0, len(days))
+	for _, day := range days {
+		availableRaw := strings.ToLower(strings.TrimSpace(r.FormValue("availability_" + day + "_available")))
+		available := availableRaw == "1" || availableRaw == "true" || availableRaw == "yes" || availableRaw == "on"
+		start := strings.TrimSpace(r.FormValue("availability_" + day + "_start"))
+		end := strings.TrimSpace(r.FormValue("availability_" + day + "_end"))
+		availability = append(availability, map[string]any{
+			"day":       day,
+			"available": available,
+			"startTime": start,
+			"endTime":   end,
+		})
+	}
+	body, _ := json.Marshal(map[string]any{"availability": availability})
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodPut,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+"/candidates/"+strconv.FormatInt(candidateID, 10)+"/availability",
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		http.Redirect(w, r, basePath+"?error=Unable+to+update+availability#availability", http.StatusFound)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Redirect(w, r, basePath+"?error=Service+unavailable#availability", http.StatusFound)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, _ := io.ReadAll(apiResp.Body)
+	if apiResp.StatusCode != http.StatusOK {
+		msg := "unable to update availability"
+		var errPayload map[string]string
+		if err := json.Unmarshal(respBody, &errPayload); err == nil && strings.TrimSpace(errPayload["error"]) != "" {
+			msg = errPayload["error"]
+		}
+		http.Redirect(w, r, basePath+"?error="+url.QueryEscape(msg)+"#availability", http.StatusFound)
+		return
+	}
+	http.Redirect(w, r, basePath+"?message="+url.QueryEscape("Candidate availability updated")+"#availability", http.StatusFound)
+}
+
 func (s *server) deleteCandidateProxy(w http.ResponseWriter, r *http.Request, locationNumber string, candidateID int64) {
 	if err := r.ParseForm(); err != nil {
 		http.Redirect(w, r, "/admin/locations/"+url.PathEscape(locationNumber)+"/candidates?error=Invalid+form+submission", http.StatusFound)
@@ -4204,7 +4339,10 @@ func (s *server) publicInterviewPage(w http.ResponseWriter, r *http.Request, tok
 		LocationNumber: payload.LocationNumber,
 		FirstName:      payload.CandidateFirstName,
 		LastName:       payload.CandidateLastName,
+		Availability:   payload.CandidateAvailability,
+		Interviews:     payload.PreviousInterviews,
 	}
+	normalizeCandidateView(candidate)
 	if err := renderHTMLTemplate(w, s.publicInterviewTmpl, pageData{
 		Token:              token,
 		Location:           location,
@@ -9106,9 +9244,44 @@ func normalizeCandidateView(candidate *candidateView) {
 	candidate.CreatedAt = formatDateTimeDisplay(candidate.CreatedAt)
 	candidate.UpdatedAt = formatDateTimeDisplay(candidate.UpdatedAt)
 	candidate.ArchivedAt = formatDateTimeDisplay(candidate.ArchivedAt)
+	candidate.Availability = normalizeCandidateAvailabilityDays(candidate.Availability)
 	for i := range candidate.Interviews {
 		normalizeCandidateInterviewView(&candidate.Interviews[i])
 	}
+}
+
+func normalizeCandidateAvailabilityDays(days []candidateAvailabilityDayView) []candidateAvailabilityDayView {
+	orderedDays := []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday"}
+	byDay := make(map[string]candidateAvailabilityDayView, len(days))
+	for _, day := range days {
+		key := strings.ToLower(strings.TrimSpace(day.Day))
+		if key == "" {
+			continue
+		}
+		normalized := candidateAvailabilityDayView{
+			Day:       key,
+			Available: day.Available,
+			StartTime: strings.TrimSpace(day.StartTime),
+			EndTime:   strings.TrimSpace(day.EndTime),
+		}
+		if !normalized.Available {
+			normalized.StartTime = ""
+			normalized.EndTime = ""
+		}
+		byDay[key] = normalized
+	}
+	out := make([]candidateAvailabilityDayView, 0, len(orderedDays))
+	for _, key := range orderedDays {
+		entry, ok := byDay[key]
+		if !ok {
+			entry = candidateAvailabilityDayView{Day: key}
+		}
+		if strings.TrimSpace(entry.Day) == "" {
+			entry.Day = key
+		}
+		out = append(out, entry)
+	}
+	return out
 }
 
 func formatBirthdayDisplay(value string) string {
@@ -9828,6 +10001,244 @@ func normalizeStarterQuestionMatch(value string) string {
 	return strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(value)), " "))
 }
 
+func (s *server) ensureChickFilAInterviewDefaults(r *http.Request, locationNumber, csrfToken string) error {
+	if strings.TrimSpace(csrfToken) == "" {
+		return errors.New("missing csrf token")
+	}
+
+	values, err := s.fetchLocationCandidateValues(r, locationNumber)
+	if err != nil {
+		return err
+	}
+	valueByName := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		key := strings.ToLower(strings.TrimSpace(value.Name))
+		if key != "" {
+			valueByName[key] = struct{}{}
+		}
+	}
+	for _, value := range interviewProcessDefaultValues {
+		key := strings.ToLower(strings.TrimSpace(value.Name))
+		if key == "" {
+			continue
+		}
+		if _, exists := valueByName[key]; exists {
+			continue
+		}
+		if err := s.postInterviewProcessJSON(r, csrfToken, locationNumber, "/candidate-values", map[string]any{
+			"name":        value.Name,
+			"description": value.Description,
+		}); err != nil {
+			return err
+		}
+		valueByName[key] = struct{}{}
+	}
+
+	interviewNames, err := s.fetchLocationCandidateInterviewNames(r, locationNumber)
+	if err != nil {
+		return err
+	}
+	nameIDByNormalized := make(map[string]int64, len(interviewNames))
+	for _, name := range interviewNames {
+		key := strings.ToLower(strings.TrimSpace(name.Name))
+		if key != "" {
+			nameIDByNormalized[key] = name.ID
+		}
+	}
+	for _, name := range interviewProcessDefaultInterviewTypes {
+		key := strings.ToLower(strings.TrimSpace(name))
+		if key == "" {
+			continue
+		}
+		if _, exists := nameIDByNormalized[key]; exists {
+			continue
+		}
+		if err := s.postInterviewProcessJSON(r, csrfToken, locationNumber, "/candidate-interview-names", map[string]any{
+			"name": name,
+		}); err != nil {
+			return err
+		}
+	}
+
+	interviewNames, err = s.fetchLocationCandidateInterviewNames(r, locationNumber)
+	if err != nil {
+		return err
+	}
+	nameIDByNormalized = make(map[string]int64, len(interviewNames))
+	namePriorityByID := make(map[int64]int64, len(interviewNames))
+	defaultNameIDs := make(map[int64]struct{}, len(interviewProcessDefaultInterviewTypes))
+	for _, name := range interviewNames {
+		key := strings.ToLower(strings.TrimSpace(name.Name))
+		if key != "" {
+			nameIDByNormalized[key] = name.ID
+		}
+		namePriorityByID[name.ID] = name.Priority
+	}
+	for idx, name := range interviewProcessDefaultInterviewTypes {
+		key := strings.ToLower(strings.TrimSpace(name))
+		nameID := nameIDByNormalized[key]
+		if nameID <= 0 {
+			continue
+		}
+		defaultNameIDs[nameID] = struct{}{}
+		targetPriority := int64(idx + 1)
+		if namePriorityByID[nameID] == targetPriority {
+			continue
+		}
+		if err := s.putInterviewProcessJSON(
+			r,
+			csrfToken,
+			locationNumber,
+			"/candidate-interview-names/"+strconv.FormatInt(nameID, 10),
+			map[string]any{"priority": targetPriority},
+		); err != nil {
+			return err
+		}
+	}
+
+	questions, err := s.fetchLocationCandidateInterviewQuestions(r, locationNumber)
+	if err != nil {
+		return err
+	}
+	existingByQuestion := make(map[string]candidateInterviewQuestionView, len(questions))
+	for _, question := range questions {
+		normalized := normalizeStarterQuestionMatch(question.Question)
+		if normalized != "" {
+			existingByQuestion[normalized] = question
+		}
+	}
+	startersByKey := interviewQuestionStarterCatalogByKey()
+	for key, interviewType := range interviewProcessDefaultQuestionInterviewTypeByKey {
+		targetNameID := nameIDByNormalized[strings.ToLower(strings.TrimSpace(interviewType))]
+		if targetNameID <= 0 {
+			continue
+		}
+		starter, ok := startersByKey[key]
+		if !ok {
+			continue
+		}
+		normalizedQuestion := normalizeStarterQuestionMatch(starter.Question)
+		if normalizedQuestion == "" {
+			continue
+		}
+		responseType, responseOptions := normalizeQuestionResponsePayload(starter.ResponseType, starter.ResponseOptions)
+		existing, exists := existingByQuestion[normalizedQuestion]
+		if !exists {
+			if err := s.postInterviewProcessJSON(r, csrfToken, locationNumber, "/candidate-interview-questions", map[string]any{
+				"interviewNameIds": []int64{targetNameID},
+				"question":         starter.Question,
+				"responseType":     responseType,
+				"responseOptions":  responseOptions,
+			}); err != nil {
+				return err
+			}
+			continue
+		}
+		needsAssignmentFix := shouldResetDefaultQuestionAssignments(existing.InterviewNameIDs, defaultNameIDs, targetNameID)
+		needsTypeFix := !strings.EqualFold(strings.TrimSpace(existing.ResponseType), responseType)
+		needsOptionsFix := !stringSlicesEqualCI(existing.ResponseOptions, responseOptions)
+		if !needsAssignmentFix && !needsTypeFix && !needsOptionsFix {
+			continue
+		}
+		payload := map[string]any{
+			"interviewNameIds": existing.InterviewNameIDs,
+			"responseType":     responseType,
+			"responseOptions":  responseOptions,
+		}
+		if needsAssignmentFix {
+			payload["interviewNameIds"] = []int64{targetNameID}
+		}
+		if err := s.putInterviewProcessJSON(
+			r,
+			csrfToken,
+			locationNumber,
+			"/candidate-interview-questions/"+strconv.FormatInt(existing.ID, 10),
+			payload,
+		); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *server) postInterviewProcessJSON(r *http.Request, csrfToken, locationNumber, suffix string, payload map[string]any) error {
+	body, _ := json.Marshal(payload)
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodPost,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+suffix,
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		return err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusCreated && apiResp.StatusCode != http.StatusOK && apiResp.StatusCode != http.StatusConflict {
+		return errors.New("unable to apply interview defaults")
+	}
+	return nil
+}
+
+func (s *server) putInterviewProcessJSON(r *http.Request, csrfToken, locationNumber, suffix string, payload map[string]any) error {
+	body, _ := json.Marshal(payload)
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodPut,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+suffix,
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		return err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		return errors.New("unable to apply interview defaults")
+	}
+	return nil
+}
+
+func shouldResetDefaultQuestionAssignments(existing []int64, defaultNameIDs map[int64]struct{}, targetNameID int64) bool {
+	if len(existing) == 1 && existing[0] == targetNameID {
+		return false
+	}
+	if len(existing) == 0 {
+		return true
+	}
+	for _, id := range existing {
+		if _, ok := defaultNameIDs[id]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func stringSlicesEqualCI(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !strings.EqualFold(strings.TrimSpace(a[i]), strings.TrimSpace(b[i])) {
+			return false
+		}
+	}
+	return true
+}
+
 func parseLocationCandidateInterviewCreatePath(path string) (string, int64, bool) {
 	trimmed := strings.TrimPrefix(path, "/admin/locations/")
 	trimmed = strings.Trim(trimmed, "/")
@@ -9887,6 +10298,24 @@ func parseLocationCandidateDecisionPath(path string) (string, int64, bool) {
 	trimmed = strings.Trim(trimmed, "/")
 	parts := strings.Split(trimmed, "/")
 	if len(parts) != 4 || parts[1] != "candidates" || parts[3] != "decision" {
+		return "", 0, false
+	}
+	locationNumber, err := url.PathUnescape(parts[0])
+	if err != nil || strings.TrimSpace(locationNumber) == "" {
+		return "", 0, false
+	}
+	candidateID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+	if err != nil || candidateID <= 0 {
+		return "", 0, false
+	}
+	return locationNumber, candidateID, true
+}
+
+func parseLocationCandidateAvailabilityPath(path string) (string, int64, bool) {
+	trimmed := strings.TrimPrefix(path, "/admin/locations/")
+	trimmed = strings.Trim(trimmed, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 4 || parts[1] != "candidates" || parts[3] != "availability" {
 		return "", 0, false
 	}
 	locationNumber, err := url.PathUnescape(parts[0])

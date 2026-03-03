@@ -33,6 +33,10 @@
     .stack { display: grid; gap: 0.875rem; }
     .meta { color: var(--muted-fg); font-size: 0.875rem; }
     .interview { border: 1px solid var(--border); border-radius: 10px; padding: 0.875rem; }
+    .availability-grid { display:grid; gap:.5rem; grid-template-columns:repeat(2,minmax(0,1fr)); }
+    @media (max-width:760px){ .availability-grid { grid-template-columns:1fr; } }
+    .availability-day { border:1px solid var(--border); border-radius:8px; padding:.5rem .65rem; }
+    .availability-day strong { text-transform:capitalize; font-size:.88rem; }
     table { width: 100%; border-collapse: collapse; }
     th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
     th { color: var(--muted-fg); font-size: 0.75rem; text-transform: uppercase; }
@@ -54,6 +58,23 @@
     <section class="card stack">
       <h1 style="margin:0;font-family:'Space Grotesk',sans-serif;">Candidate Scorecard</h1>
       <div class="meta">{{ .Candidate.FirstName }} {{ .Candidate.LastName }} | Status: {{ .Candidate.Status }}{{ if .Candidate.HiredTimePunchName }} | Employee: {{ .Candidate.HiredTimePunchName }}{{ end }}</div>
+      <section class="stack">
+        <h2 style="font-size:1rem;margin:0;">Availability (Monday-Saturday)</h2>
+        <div class="availability-grid">
+          {{ range .Candidate.Availability }}
+            <article class="availability-day">
+              <strong>{{ .Day }}</strong>
+              <div class="meta">
+                {{ if .Available }}
+                  {{ if and .StartTime .EndTime }}{{ .StartTime }} - {{ .EndTime }}{{ else }}Available{{ end }}
+                {{ else }}
+                  Unavailable
+                {{ end }}
+              </div>
+            </article>
+          {{ end }}
+        </div>
+      </section>
       {{ if .Candidate.Interviews }}
         <div class="stack">
           {{ range .Candidate.Interviews }}
