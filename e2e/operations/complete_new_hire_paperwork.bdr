@@ -1,0 +1,11 @@
+timeout = 5000
+slow = 0.1
+
+load("localhost:3000")
+exec("../lib/shared_flows.bdr")
+
+login()
+create_location()
+create_candidate()
+hire_candidate()
+complete_new_hire_paperwork()

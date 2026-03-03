@@ -1,5 +1,5 @@
 <!-- bdr-seed-format: 1 -->
-<!-- bdr-cli-version: 0.2.0 -->
+<!-- bdr-cli-version: 0.3.0 -->
 
 # BDR Project Seed
 
@@ -8,7 +8,7 @@ It describes how to write and validate `.bdr` automation scripts correctly.
 
 ## Source Of Truth
 
-- CLI version: `0.2.0`
+- CLI version: `0.3.0`
 - Primary docs: `README.md`
 - Runtime entrypoint: `bdr/cli.py`
 - Script parser: `bdr/lexer.py`
@@ -94,6 +94,39 @@ exec("./shared/helpers.bdr")
 login(env("EMAIL"), env("PASSWORD"))
 ```
 
+## File Upload
+
+Use `.upload(path)` on an `<input type="file">` element to attach a local file.
+Multiple files can be uploaded at once with additional arguments.
+
+```bdr
+input[type="file"].upload("./docs/contract.pdf")
+input[type="file"].upload("./docs/id-front.jpg", "./docs/id-back.jpg")
+$doc = "./signed-form.pdf"
+#doc-upload.upload($doc)
+```
+
+Paths are resolved relative to the script's directory.
+Raises an error immediately if the file does not exist.
+
+## Mouse Drawing / Signature Pads
+
+Use `.draw()` on a canvas or signature-pad element to simulate a handwritten signature.
+
+```bdr
+// Default wave signature — covers the full element width
+canvas.draw()
+#signature-pad.draw()
+
+// Custom path — space-separated relative "x,y" offsets from element top-left
+canvas.draw("10,60 60,20 120,70 180,25 240,55")
+```
+
+Tips:
+- The element must be visible before `.draw()` is called (use `.wait_visible()` if needed).
+- For signature-pad libraries (e.g. `signature_pad.js`), target the `<canvas>` directly.
+- Combine with `screenshot(...)` to capture the result for inspection.
+
 ## Generation Checklist For LLMs
 
 When generating or editing `.bdr` scripts:
@@ -105,6 +138,8 @@ When generating or editing `.bdr` scripts:
 5. If reusing helpers, place them in a shared `.bdr` file and load with `exec(...)`.
 6. Run `bdr check` and fix all errors before `bdr run`.
 7. Use `screenshot(...)` at key checkpoints for debugging.
+8. For file upload: use `.upload(path)` on `<input type="file">` — path resolves relative to script.
+9. For canvas signatures: use `.draw()` for a default wave, or `.draw("x,y ...")` for custom path.
 
 ## Common Errors To Avoid
 
@@ -113,6 +148,8 @@ When generating or editing `.bdr` scripts:
 - Calling functions with wrong argument count.
 - Forgetting to `exec(...)` helper files before use.
 - Assuming functions return values.
+- Using `.upload()` on a non-file-input element (must be `<input type="file">`).
+- Calling `.draw()` before the canvas is visible (add `.wait_visible()` first if needed).
 
 ## Validation Workflow
 

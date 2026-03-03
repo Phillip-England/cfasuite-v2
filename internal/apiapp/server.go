@@ -936,6 +936,30 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 }
 
+func ResetDatabase(ctx context.Context, cfg Config) error {
+	if cfg.AdminUsername == "" || cfg.AdminPassword == "" {
+		return errors.New("ADMIN_USERNAME and ADMIN_PASSWORD are required")
+	}
+
+	s := &server{
+		store: &sqliteStore{dbPath: cfg.DBPath},
+	}
+
+	if err := s.store.initSchema(ctx); err != nil {
+		return fmt.Errorf("initialize schema: %w", err)
+	}
+	if err := s.store.resetAllData(ctx); err != nil {
+		return fmt.Errorf("reset data: %w", err)
+	}
+	if err := s.store.initSchema(ctx); err != nil {
+		return fmt.Errorf("reinitialize schema: %w", err)
+	}
+	if err := s.store.ensureAdminUser(ctx, cfg.AdminUsername, cfg.AdminPassword); err != nil {
+		return fmt.Errorf("ensure admin user: %w", err)
+	}
+	return nil
+}
+
 func (s *server) health(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -10933,6 +10957,46 @@ func (s *sqliteStore) ensureAdminUser(ctx context.Context, username, password st
 	return err
 }
 
+func (s *sqliteStore) resetAllData(ctx context.Context) error {
+	rows, err := s.query(ctx, `
+		SELECT name
+		FROM sqlite_master
+		WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+		ORDER BY name ASC;
+	`, nil)
+	if err != nil {
+		return err
+	}
+
+	var script strings.Builder
+	script.WriteString("PRAGMA foreign_keys = OFF;\n")
+	script.WriteString("BEGIN;\n")
+	for _, row := range rows {
+		tableName, nameErr := valueAsString(row["name"])
+		if nameErr != nil {
+			return nameErr
+		}
+		trimmed := strings.TrimSpace(tableName)
+		if trimmed == "" {
+			continue
+		}
+		script.WriteString("DELETE FROM ")
+		script.WriteString(sqliteIdentifier(trimmed))
+		script.WriteString(";\n")
+	}
+	script.WriteString("DELETE FROM sqlite_sequence;\n")
+	script.WriteString("COMMIT;\n")
+	script.WriteString("PRAGMA foreign_keys = ON;\n")
+
+	_, err = s.exec(ctx, script.String(), nil)
+	if err != nil && strings.Contains(strings.ToLower(err.Error()), "no such table: sqlite_sequence") {
+		// sqlite_sequence may not exist yet in a fresh database.
+		retryScript := strings.ReplaceAll(script.String(), "DELETE FROM sqlite_sequence;\n", "")
+		_, err = s.exec(ctx, retryScript, nil)
+	}
+	return err
+}
+
 func (s *sqliteStore) ensureDefaultDepartmentsAndJobsForAllLocations(ctx context.Context) error {
 	locations, err := s.listLocations(ctx)
 	if err != nil {
@@ -19232,6 +19296,10 @@ func valueAsFloat64(value any) (float64, error) {
 
 func sqliteStringLiteral(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
+}
+
+func sqliteIdentifier(name string) string {
+	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
 }
 
 type pdfFormExportPayload struct {

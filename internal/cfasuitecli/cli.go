@@ -34,6 +34,7 @@ Purpose:
 
 Usage:
   cfasuite setup --admin-password <password> [--admin-username admin] [--env-file .env] [--force]
+  cfasuite reset [--env-file .env]
   cfasuite assets build
   cfasuite run api|client|all
   cfasuite help
@@ -74,6 +75,8 @@ func Execute(args []string) error {
 	switch args[0] {
 	case "setup":
 		return runSetup(args[1:])
+	case "reset":
+		return runReset(args[1:])
 	case "assets":
 		return runAssets(args[1:])
 	case "run":
@@ -86,7 +89,7 @@ func Execute(args []string) error {
 }
 
 func usageError() error {
-	return fmt.Errorf("%w: cfasuite <setup|assets|run|help>", ErrUsage)
+	return fmt.Errorf("%w: cfasuite <setup|reset|assets|run|help>", ErrUsage)
 }
 
 func isHelpArg(arg string) bool {
@@ -131,6 +134,33 @@ func runSetup(args []string) error {
 		return err
 	}
 	fmt.Printf("wrote %s\n", *envPath)
+	return nil
+}
+
+func runReset(args []string) error {
+	fs := flag.NewFlagSet("reset", flag.ContinueOnError)
+	envPath := fs.String("env-file", ".env", "path to .env file")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return usageError()
+		}
+		return err
+	}
+	if fs.NArg() != 0 {
+		return fmt.Errorf("%w: usage: cfasuite reset [--env-file .env]", ErrUsage)
+	}
+
+	if err := envutil.LoadDotEnv(*envPath); err != nil {
+		return fmt.Errorf("load %s: %w", *envPath, err)
+	}
+	cfg := apiapp.DefaultConfigFromEnv()
+	if err := ensureParentDirs(cfg.DBPath); err != nil {
+		return err
+	}
+	if err := apiapp.ResetDatabase(context.Background(), cfg); err != nil {
+		return err
+	}
+	fmt.Printf("reset %s to clean slate and ensured admin user %q\n", cfg.DBPath, cfg.AdminUsername)
 	return nil
 }
 

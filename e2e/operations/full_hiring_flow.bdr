@@ -2,7 +2,7 @@ timeout = 5000
 slow = 0.1
 
 load("localhost:3000")
-exec("./lib/shared_flows.bdr")
+exec("../lib/shared_flows.bdr")
 
 login()
 create_location()

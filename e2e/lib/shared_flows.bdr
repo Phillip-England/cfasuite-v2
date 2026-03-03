@@ -1,0 +1,260 @@
+func login() {
+  #input-username.fill("admin")
+  #input-password.fill("adminpassword")
+  #login-submit.click()
+}
+
+func create_location() {
+  #create-location-tab-btn.click()
+  #name.fill(random_username(12))
+  #number.fill(random_number(11111, 99999))
+  #phone_1.fill("999")
+  #phone_2.fill("999")
+  #phone_3.fill("9999")
+  #employer_rep_signature.fill("John Doe")
+  #business_name.fill("MAJOR CFA CORP LLC")
+  #business_street.fill(random_address())
+  #business_city.fill("Cityville")
+  #business_state.select("Oklahoma (OK)")
+  #business_ein_1.fill(random_number(10, 99))
+  #business_ein_2.fill(random_number(1111111, 9999999))
+  #submit-btn.click()
+}
+
+func create_candidate() {
+  .location-link[0].click()
+  #app-link-candidates.click()
+  [data-target="new-candidate"].click()
+  #first_name.fill(random_username(8))
+  #last_name.fill(random_username(10))
+  #phone_1.fill("777")
+  #phone_2.fill("555")
+  #phone_3.fill("1234")
+  [data-panel="new-candidate"] button[type="submit"].click()
+}
+
+func open_candidate_detail() {
+  load("localhost:3000/admin")
+  .location-link[0].click()
+  #app-link-candidates.click()
+  .active-candidate-row[0].click()
+}
+
+func create_and_open_interview($interview_type, $scheduled_date, $scheduled_hour, $scheduled_minute, $scheduled_ampm) {
+  open_candidate_detail()
+  #interviewer_time_punch_name.select("John Doe")
+  #scheduled_date.fill($scheduled_date)
+  #scheduled_hour.select($scheduled_hour)
+  #scheduled_minute.select($scheduled_minute)
+  #scheduled_ampm.select($scheduled_ampm)
+  #interview_type.select($interview_type)
+  [data-panel="view-interviews"] button[type="submit"].click()
+
+  .copy-session-link[0].click()
+  load_clipboard()
+}
+
+func fill_interview_values() {
+  select[id^="grade_"][0].select("A")
+  select[id^="grade_"][1].select("A")
+  select[id^="grade_"][2].select("B")
+  select[id^="grade_"][3].select("A")
+  select[id^="grade_"][4].select("B")
+
+  textarea[id^="comment_"][0].fill("Great hospitality and positive energy.")
+  textarea[id^="comment_"][1].fill("Takes feedback well and asks good questions.")
+  textarea[id^="comment_"][2].fill("Clear communication and respectful tone.")
+  textarea[id^="comment_"][3].fill("Showed up early and appears dependable.")
+  textarea[id^="comment_"][4].fill("Team-first attitude during scenario questions.")
+}
+
+func conduct_phone_interview() {
+  create_and_open_interview("Phone Interview", "2030-01-15", "09", "00", "AM")
+
+  #availability-monday-available.click()
+  #availability-monday-start.fill("09:00")
+  #availability-monday-end.fill("17:00")
+  #availability-tuesday-available.click()
+  #availability-tuesday-start.fill("09:00")
+  #availability-tuesday-end.fill("17:00")
+  #availability-wednesday-available.click()
+  #availability-wednesday-start.fill("09:00")
+  #availability-wednesday-end.fill("17:00")
+  #availability-thursday-available.click()
+  #availability-thursday-start.fill("09:00")
+  #availability-thursday-end.fill("17:00")
+  #availability-friday-available.click()
+  #availability-friday-start.fill("09:00")
+  #availability-friday-end.fill("17:00")
+  #availability-saturday-available.click()
+  #availability-saturday-start.fill("09:00")
+  #availability-saturday-end.fill("17:00")
+
+  fill_interview_values()
+
+  select[id^="question_"][0].select("Yes")
+  select[id^="question_"][1].select("Yes")
+  select[id^="question_"][2].select("Yes")
+  textarea[id^="question_"][0].fill("Candidate wants to grow and serve guests well.")
+  textarea[id^="question_"][1].fill("Candidate helped a coworker during a busy shift.")
+
+  #notes.fill("Strong phone interview. Recommend moving to face-to-face.")
+  #interview-submit-btn.click()
+  h1.assert_text("Interview Submitted")
+}
+
+func conduct_face_to_face_interview() {
+  create_and_open_interview("Face-to-Face Interview", "2030-01-16", "10", "30", "AM")
+
+  fill_interview_values()
+
+  textarea[id^="question_"][0].fill("Candidate shared a calm, respectful guest recovery example.")
+  textarea[id^="question_"][1].fill("Candidate explained prioritizing speed while keeping order accuracy.")
+  textarea[id^="question_"][2].fill("Candidate welcomes feedback and applies coaching quickly.")
+  textarea[id^="question_"][3].fill("Candidate would step in to support teammates during a rush.")
+  textarea[id^="question_"][4].fill("Candidate defines hospitality as serving with care and urgency.")
+
+  #notes.fill("Strong in-person presence and teamwork mindset.")
+  #interview-submit-btn.click()
+  h1.assert_text("Interview Submitted")
+}
+
+func conduct_final_interview() {
+  create_and_open_interview("Final Interview", "2030-01-17", "11", "15", "AM")
+
+  fill_interview_values()
+
+  select[id^="question_"][0].select("Yes")
+  textarea[id^="question_"][0].fill("Candidate goals include leadership growth and long-term reliability.")
+  textarea[id^="question_"][1].fill("Candidate highlighted dependable attendance and strong communication.")
+  textarea[id^="question_"][2].fill("Candidate can commit to weekday evenings and Saturdays.")
+  textarea[id^="question_"][3].fill("Candidate has no concerns and is excited for team expectations.")
+
+  #notes.fill("Ready to hire based on consistency across all interview stages.")
+  #interview-submit-btn.click()
+  h1.assert_text("Interview Submitted")
+}
+
+func hire_candidate() {
+  open_candidate_detail()
+  [data-target="decision"].click()
+  #hire-department-id.select("BOH")
+  #hire-pay-band-id.select("Team Member I")
+  button[form="candidate-hire-form"].click()
+}
+
+func complete_new_hire_paperwork() {
+  load("localhost:3000/admin")
+  .location-link[0].click()
+  #app-link-employees.click()
+  [data-employee-status-target="new-hires"].click()
+  [data-employee-status-panel="new-hires"] .location-link[0].click()
+
+  #view-paperwork-link.click()
+  #paperwork-form.wait_visible()
+
+  #personal_first_name.fill("E2E")
+  #personal_last_name.fill("Employee")
+  #personal_dob_month.select("01")
+  #personal_dob_day.select("15")
+  #personal_dob_year.select("1998")
+  #personal_address.fill("123 Main St")
+  #personal_city.fill("Austin")
+  #personal_state.select("TX - Texas")
+  #personal_zip.fill("78701")
+  #personal_email.fill("e2e.newhire@example.com")
+  #personal_phone_1.fill("512")
+  #personal_phone_2.fill("555")
+  #personal_phone_3.fill("0100")
+  #personal_ssn_1.fill("123")
+  #personal_ssn_2.fill("45")
+  #personal_ssn_3.fill("6789")
+  #i9_status.select("1. A citizen of the United States")
+
+  #show-legal.click()
+  #i9-doc-rows.wait_visible()
+  select[name='i9_document_type[]'][0].select("U.S. Passport")
+  input[name='i9_document_title[]'][0].fill("U.S. Passport")
+  input[name='i9_document_issuing_authority[]'][0].fill("U.S. Department of State")
+  input[name='i9_document_number[]'][0].fill("E2E123456")
+  select[data-exp-part='month'][0].select("01")
+  select[data-exp-part='day'][0].select("01")
+  select[data-exp-part='year'][0].select("2035")
+  input[name='i9_document_file[]'][0].upload("../docs/i9.pdf")
+
+  #show-w4.click()
+  #w4_filing_status.select("Single or Married filing separately")
+
+  #show-signature.click()
+  #i9-signature-pad.wait_visible()
+  #i9-signature-pad.draw()
+  #employee_esign_attestation.click()
+  #paperwork-submit-btn.click()
+  .message.ok[0].assert_text("Paperwork submitted")
+}
+
+func create_uniform_items() {
+  load("localhost:3000/admin")
+  .location-link[0].click()
+  #app-link-uniforms.click()
+
+  [data-target="new-item"].click()
+  #item-name-input.fill("E2E Polo Shirt")
+  #item-price-input.fill("24.99")
+  #photo_file.upload("./assets/uniform-item.png")
+  #confirm-crop.click()
+  #create-item-btn.click()
+
+  [data-target="new-item"].click()
+  #item-name-input.fill("E2E Hat")
+  #item-price-input.fill("14.50")
+  #photo_file.upload("./assets/uniform-item.png")
+  #confirm-crop.click()
+  #create-item-btn.click()
+}
+
+func submit_team_uniform_orders() {
+  load("localhost:3000/admin")
+  .location-link[0].click()
+  #app-link-employees.click()
+  [data-employee-status-target="active-employees"].click()
+  [data-employee-status-panel="active-employees"] .location-link[0].click()
+
+  #clock-in-pin.fill("12345")
+  #save-clock-in-pin.click()
+  form[action*="/login-as-team"] button.wait_visible()
+  form[action*="/login-as-team"] button.click()
+
+  [data-app-tab="uniform"].click()
+  [data-sub-tab="uniform-create"].click()
+  #u-item.wait_visible()
+  #u-item.scroll_to()
+
+  #u-item.select("E2E Polo Shirt ($24.99)")
+  #u-qty.fill("2")
+  #u-note.fill("E2E team order for polos.")
+  [data-sub-panel="uniform-create"] .submit-btn.click()
+  .portal-message.ok[0].assert_text("Uniform order submitted")
+
+  [data-sub-tab="uniform-create"].click()
+  #u-item.select("E2E Hat ($14.50)")
+  #u-qty.fill("1")
+  #u-note.fill("E2E team order for hats.")
+  [data-sub-panel="uniform-create"] .submit-btn.click()
+  .portal-message.ok[0].assert_text("Uniform order submitted")
+
+  [data-sub-tab="uniform-create"].click()
+  #u-item.select("E2E Polo Shirt ($24.99)")
+  #u-qty.fill("1")
+  #u-note.fill("Second polo order with different size.")
+  [data-sub-panel="uniform-create"] .submit-btn.click()
+  .portal-message.ok[0].assert_text("Uniform order submitted")
+}
+
+func delete_location() {
+  load("localhost:3000/admin")
+  .location-link[0].click()
+  #app-link-settings.click()
+  #delete_confirmation.fill("I CHOOSE TO DELETE THIS LOCATION AND ALL OF ITS DATA")
+  #delete-location-btn.click()
+}

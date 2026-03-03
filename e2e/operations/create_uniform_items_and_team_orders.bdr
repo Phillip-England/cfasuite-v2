@@ -2,16 +2,12 @@ timeout = 5000
 slow = 0.1
 
 load("localhost:3000")
-exec("./lib/shared_flows.bdr")
+exec("../lib/shared_flows.bdr")
 
 login()
 create_location()
 create_candidate()
-conduct_phone_interview()
-conduct_face_to_face_interview()
-conduct_final_interview()
 hire_candidate()
 complete_new_hire_paperwork()
 create_uniform_items()
 submit_team_uniform_orders()
-delete_location()
