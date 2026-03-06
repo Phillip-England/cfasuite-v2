@@ -1,1 +1,282 @@
 @tailwind utilities;
+
+/* --- CFA Suite Pro UI Layer --- */
+:root {
+  --app-header-height: 4rem;
+  --app-content-offset: 5.25rem;
+  --bg: #f3f7fb !important;
+  --fg: #13212d !important;
+  --card: #ffffff !important;
+  --muted: #e8eef5 !important;
+  --muted-fg: #5a6c7d !important;
+  --border: #d2dde8 !important;
+  --primary: #0b4f75 !important;
+  --primary-fg: #ffffff !important;
+  --danger: #c7393a !important;
+  --success: #177a48 !important;
+  --shadow: 0 18px 42px rgba(15, 38, 64, 0.08), 0 2px 10px rgba(15, 38, 64, 0.08) !important;
+}
+
+html.dark {
+  --bg: #0f1722 !important;
+  --fg: #e8f1fa !important;
+  --card: #111d2a !important;
+  --muted: #172536 !important;
+  --muted-fg: #a0b1c4 !important;
+  --border: #27394d !important;
+  --primary: #3aa0d8 !important;
+  --primary-fg: #06131f !important;
+  --danger: #ff7a7a !important;
+  --success: #4fd79e !important;
+  --shadow: 0 16px 38px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+}
+
+html {
+  scroll-padding-top: calc(var(--app-header-height) + 1rem);
+}
+
+body {
+  color: var(--fg) !important;
+  background:
+    radial-gradient(1200px 580px at -10% -15%, rgba(58, 160, 216, 0.15), transparent 60%),
+    radial-gradient(980px 560px at 105% 0%, rgba(11, 79, 117, 0.12), transparent 62%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg) 96%, #fff 4%) 0%, var(--bg) 100%) !important;
+  line-height: 1.5;
+}
+
+html.dark body {
+  background:
+    radial-gradient(1000px 540px at -15% -20%, rgba(58, 160, 216, 0.2), transparent 60%),
+    radial-gradient(900px 560px at 110% 0%, rgba(22, 122, 72, 0.14), transparent 64%),
+    linear-gradient(180deg, #0b131d 0%, var(--bg) 100%) !important;
+}
+
+h1, h2, h3, .panel-title, .card-title, .portal-title, .app-title {
+  letter-spacing: -0.02em;
+}
+
+header.fixed {
+  height: var(--app-header-height) !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 80%, transparent) !important;
+  background: color-mix(in srgb, var(--card) 84%, transparent) !important;
+  backdrop-filter: saturate(140%) blur(14px) !important;
+  -webkit-backdrop-filter: saturate(140%) blur(14px) !important;
+  box-shadow: 0 6px 24px rgba(13, 37, 62, 0.08) !important;
+}
+
+html.dark header.fixed {
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.36) !important;
+}
+
+#nav-desktop a,
+#nav-mobile a,
+header a[href="/logout"] {
+  border-radius: 999px !important;
+  padding: 0.45rem 0.85rem !important;
+  font-weight: 700 !important;
+}
+
+#nav-desktop a:hover,
+#nav-mobile a:hover,
+header a[href="/logout"]:hover {
+  text-decoration: none;
+}
+
+#theme-toggle,
+#nav-toggle {
+  border-radius: 0.8rem !important;
+  border-color: color-mix(in srgb, var(--border) 90%, transparent) !important;
+  background: color-mix(in srgb, var(--card) 78%, transparent) !important;
+}
+
+.pt-14 {
+  padding-top: var(--app-content-offset) !important;
+}
+
+/* Ensure fixed-header pages always clear the navbar even if utility classes drift. */
+header.fixed + div,
+header.fixed + main,
+header.fixed + section {
+  padding-top: var(--app-content-offset) !important;
+}
+
+.min-h-\[calc\(100vh-3\.5rem\)\] {
+  min-height: calc(100vh - var(--app-header-height)) !important;
+}
+
+.py-8,
+.py-10 {
+  padding-top: clamp(1.5rem, 2.8vw, 2.5rem) !important;
+  padding-bottom: clamp(1.5rem, 2.8vw, 2.5rem) !important;
+}
+
+.card,
+.panel,
+.portal-card {
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent) !important;
+  border-radius: 1rem !important;
+  box-shadow: var(--shadow) !important;
+  background: color-mix(in srgb, var(--card) 95%, transparent) !important;
+}
+
+.card,
+.panel {
+  padding: clamp(1rem, 2.2vw, 1.6rem) !important;
+}
+
+.hub-btn,
+.submenu-btn,
+.app-tab,
+.sub-tab,
+.bulk-subbtn,
+.employee-status-btn {
+  border-radius: 0.8rem !important;
+  border-color: color-mix(in srgb, var(--border) 92%, transparent) !important;
+  font-weight: 700 !important;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background-color 180ms ease, color 180ms ease !important;
+}
+
+.hub-btn:hover,
+.submenu-btn:hover,
+.app-tab:hover,
+.sub-tab:hover,
+.bulk-subbtn:hover,
+.employee-status-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(15, 38, 64, 0.12);
+}
+
+.hub-btn.active,
+.submenu-btn.active,
+.app-tab.active,
+.sub-tab.active,
+.bulk-subbtn.active,
+.employee-status-btn.active {
+  border-color: transparent !important;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 95%, #fff 5%) 0%, color-mix(in srgb, var(--primary) 78%, #0a2e47 22%) 100%) !important;
+  color: var(--primary-fg) !important;
+  box-shadow: 0 10px 22px rgba(11, 79, 117, 0.24) !important;
+}
+
+button[type="submit"],
+#submit-btn,
+.login-submit,
+.submit-btn,
+a.btn,
+input[type="submit"] {
+  border-radius: 0.8rem !important;
+  border: 1px solid transparent !important;
+  background: linear-gradient(140deg, color-mix(in srgb, var(--primary) 94%, #fff 6%) 0%, color-mix(in srgb, var(--primary) 72%, #0a3048 28%) 100%) !important;
+  color: var(--primary-fg) !important;
+  font-weight: 700 !important;
+  box-shadow: 0 10px 22px rgba(11, 79, 117, 0.22) !important;
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease !important;
+}
+
+button[type="submit"]:hover,
+#submit-btn:hover,
+.login-submit:hover,
+.submit-btn:hover,
+a.btn:hover,
+input[type="submit"]:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
+  box-shadow: 0 14px 24px rgba(11, 79, 117, 0.24) !important;
+}
+
+input,
+select,
+textarea {
+  border-radius: 0.75rem !important;
+  border-color: color-mix(in srgb, var(--border) 92%, transparent) !important;
+  background: color-mix(in srgb, var(--card) 96%, transparent) !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 20%, transparent) !important;
+}
+
+.table-wrap,
+table {
+  border-radius: 0.8rem !important;
+  overflow: hidden;
+}
+
+th {
+  background: color-mix(in srgb, var(--muted) 88%, var(--card) 12%) !important;
+  color: var(--muted-fg) !important;
+  font-weight: 800 !important;
+}
+
+tbody tr {
+  transition: background-color 150ms ease;
+}
+
+tbody tr:hover {
+  background: color-mix(in srgb, var(--muted) 42%, transparent);
+}
+
+.notice.ok,
+.portal-message.ok,
+.status.ok {
+  color: var(--success) !important;
+  font-weight: 700;
+}
+
+.notice.error,
+.portal-message.error,
+.status.error,
+.error-msg {
+  color: var(--danger) !important;
+  font-weight: 700;
+}
+
+.warning-banner {
+  border-width: 1px !important;
+  border-color: color-mix(in srgb, var(--danger) 58%, var(--border) 42%) !important;
+  background: color-mix(in srgb, var(--danger) 12%, var(--card) 88%) !important;
+  box-shadow: 0 8px 20px rgba(199, 57, 58, 0.14);
+}
+
+.card,
+.panel,
+.portal-card,
+.table-wrap,
+.warning-banner {
+  animation: cfa-fade-up 280ms ease both;
+}
+
+@keyframes cfa-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --app-header-height: 3.5rem;
+    --app-content-offset: 4.75rem;
+  }
+
+  body {
+    background-attachment: fixed;
+  }
+
+  header.fixed {
+    height: var(--app-header-height) !important;
+  }
+
+  .card,
+  .panel,
+  .portal-card {
+    border-radius: 0.9rem !important;
+  }
+}
