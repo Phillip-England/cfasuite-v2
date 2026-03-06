@@ -211,7 +211,7 @@
                       <td>{{ .StartDate }}</td>
                       <td>{{ .EndDate }}</td>
                       <td>
-                        <form method="post" action="/admin/locations/{{ $.Location.Number }}/time-off/{{ .ID }}/archive" onsubmit="return confirm('Mark this vacation request as processed?');">
+                        <form method="post" action="/admin/locations/{{ $.Location.Number }}/time-off/{{ .ID }}/archive">
                           <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
                           <button type="submit">Mark Processed</button>
                         </form>

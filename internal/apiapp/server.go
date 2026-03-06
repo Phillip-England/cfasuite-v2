@@ -88,7 +88,7 @@ var (
 	}
 	defaultLocationInterviewTypes = []string{
 		"Phone Interview",
-		"Face to Face Interview",
+		"Face-to-Face Interview",
 		"Final Interview",
 	}
 	ensurePdfcpuOnce sync.Once
@@ -886,6 +886,7 @@ func Run(ctx context.Context, cfg Config) error {
 	mux.Handle("/api/auth/me", middleware.Chain(http.HandlerFunc(s.me), s.requireAuthenticated))
 	mux.Handle("/api/auth/csrf", middleware.Chain(http.HandlerFunc(s.csrfToken), s.requireAuthenticated))
 	mux.Handle("/api/auth/logout", middleware.Chain(http.HandlerFunc(s.logout), s.requireAuthenticated, s.csrfProtect))
+	mux.Handle("/api/admin/account/password", middleware.Chain(http.HandlerFunc(s.updateAdminPassword), s.requireAuthenticated, s.csrfProtect))
 	mux.Handle("/api/admin/locations", middleware.Chain(http.HandlerFunc(s.locationsHandler), s.requireAuthenticated, s.csrfProtect))
 	mux.Handle("/api/admin/locations/", middleware.Chain(http.HandlerFunc(s.locationByNumberHandler), s.requireAuthenticated, s.csrfProtect))
 	mux.Handle("/api/public/employee-photo-upload/", http.HandlerFunc(s.publicEmployeePhotoUploadHandler))
@@ -2358,6 +2359,79 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	http.NotFound(w, r)
+}
+
+func (s *server) updateAdminPassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !isAdminUser(r.Context()) {
+		writeError(w, http.StatusForbidden, "admin access required")
+		return
+	}
+
+	var req struct {
+		CurrentPassword string `json:"currentPassword"`
+		NewPassword     string `json:"newPassword"`
+		ConfirmPassword string `json:"confirmPassword"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	req.CurrentPassword = strings.TrimSpace(req.CurrentPassword)
+	req.NewPassword = strings.TrimSpace(req.NewPassword)
+	req.ConfirmPassword = strings.TrimSpace(req.ConfirmPassword)
+	if req.CurrentPassword == "" {
+		writeError(w, http.StatusBadRequest, "current password is required")
+		return
+	}
+	if req.NewPassword == "" {
+		writeError(w, http.StatusBadRequest, "new password is required")
+		return
+	}
+	if req.NewPassword != req.ConfirmPassword {
+		writeError(w, http.StatusBadRequest, "new password and confirmation must match")
+		return
+	}
+
+	currentUser := userFromContext(r.Context())
+	if currentUser == nil || strings.TrimSpace(currentUser.Username) == "" {
+		writeError(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+	user, currentHash, err := s.store.lookupUserByUsername(r.Context(), currentUser.Username)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusUnauthorized, "authentication required")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to validate current password")
+		return
+	}
+	if !security.VerifyPassword(req.CurrentPassword, currentHash) {
+		writeError(w, http.StatusUnauthorized, "current password is incorrect")
+		return
+	}
+	if req.CurrentPassword == req.NewPassword {
+		writeError(w, http.StatusBadRequest, "new password must be different from current password")
+		return
+	}
+
+	if err := withSQLiteRetry(func() error {
+		return s.store.updateUserPasswordByID(r.Context(), user.ID, req.NewPassword)
+	}); err != nil {
+		msg := strings.ToLower(strings.TrimSpace(err.Error()))
+		if strings.Contains(msg, "password must be at least 12 characters") {
+			writeError(w, http.StatusBadRequest, "new password must be at least 12 characters")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to update admin password")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"message": "admin password updated"})
 }
 
 func (s *server) publicEmployeePhotoUploadHandler(w http.ResponseWriter, r *http.Request) {
@@ -5940,15 +6014,6 @@ func (s *server) updateLocationUniformOrderLineSettlement(w http.ResponseWriter,
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	chargedBackCents := int64(0)
-	if strings.TrimSpace(req.ChargedBack) != "" {
-		var err error
-		chargedBackCents, err = parsePriceToCents(req.ChargedBack)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "charged back amount must be a non-negative number")
-			return
-		}
-	}
 
 	autoArchived := false
 	err := withSQLiteRetry(func() error {
@@ -5959,7 +6024,6 @@ func (s *server) updateLocationUniformOrderLineSettlement(w http.ResponseWriter,
 			orderID,
 			lineID,
 			req.Purchased,
-			chargedBackCents,
 		)
 		return updateErr
 	})
@@ -10937,6 +11001,27 @@ func (s *sqliteStore) ensureDocumentTemplateDefaults(ctx context.Context) error 
 }
 
 func (s *sqliteStore) ensureAdminUser(ctx context.Context, username, password string) error {
+	existingUser, _, err := s.lookupUserByUsername(ctx, username)
+	if err == nil && existingUser != nil {
+		_, updateErr := s.exec(ctx, `
+			UPDATE users
+			SET is_admin = 1,
+				role = @role,
+				access_level = @access_level,
+				location_number = '',
+				time_punch_name = ''
+			WHERE username = @username;
+		`, map[string]string{
+			"username":     username,
+			"role":         userRoleAdmin,
+			"access_level": teamAccessLevelNoAccess,
+		})
+		return updateErr
+	}
+	if err != nil && !errors.Is(err, errNotFound) {
+		return err
+	}
+
 	hash, err := security.HashPassword(password)
 	if err != nil {
 		return err
@@ -10946,13 +11031,29 @@ func (s *sqliteStore) ensureAdminUser(ctx context.Context, username, password st
 		INSERT INTO users (username, password_hash, is_admin, role, access_level, location_number, time_punch_name, created_at)
 		VALUES (@username, @password_hash, 1, @role, @access_level, '', '', @created_at)
 		ON CONFLICT(username)
-		DO UPDATE SET password_hash = excluded.password_hash, is_admin = 1, role = excluded.role, access_level = excluded.access_level, location_number = '', time_punch_name = '';
+		DO NOTHING;
 	`, map[string]string{
 		"username":      username,
 		"password_hash": hash,
 		"role":          userRoleAdmin,
 		"access_level":  teamAccessLevelNoAccess,
 		"created_at":    strconv.FormatInt(time.Now().UTC().Unix(), 10),
+	})
+	return err
+}
+
+func (s *sqliteStore) updateUserPasswordByID(ctx context.Context, userID int64, password string) error {
+	hash, err := security.HashPassword(password)
+	if err != nil {
+		return err
+	}
+	_, err = s.exec(ctx, `
+		UPDATE users
+		SET password_hash = @password_hash
+		WHERE id = @id;
+	`, map[string]string{
+		"id":            strconv.FormatInt(userID, 10),
+		"password_hash": hash,
 	})
 	return err
 }
@@ -17165,7 +17266,7 @@ func (s *sqliteStore) archiveUniformOrder(ctx context.Context, locationNumber st
 	return nil
 }
 
-func (s *sqliteStore) updateUniformOrderLineSettlement(ctx context.Context, locationNumber string, orderID, lineID int64, purchased bool, chargedBackCents int64) (bool, error) {
+func (s *sqliteStore) updateUniformOrderLineSettlement(ctx context.Context, locationNumber string, orderID, lineID int64, purchased bool) (bool, error) {
 	rows, err := s.query(ctx, `
 		SELECT
 			l.line_total_cents,
@@ -17198,19 +17299,12 @@ func (s *sqliteStore) updateUniformOrderLineSettlement(ctx context.Context, loca
 	if archivedAt > 0 {
 		return false, errors.New("uniform order is already archived")
 	}
-	if chargedBackCents < 0 {
-		return false, errors.New("charged back amount cannot be negative")
-	}
-	if chargedBackCents > lineTotalCents {
-		return false, errors.New("charged back amount cannot exceed line total")
-	}
-	if !purchased && chargedBackCents > 0 {
-		return false, errors.New("line must be marked purchased before charging back")
-	}
 
 	purchasedAt := int64(0)
+	chargedBackCents := int64(0)
 	if purchased {
 		purchasedAt = time.Now().UTC().Unix()
+		chargedBackCents = lineTotalCents
 	}
 
 	_, err = s.exec(ctx, `

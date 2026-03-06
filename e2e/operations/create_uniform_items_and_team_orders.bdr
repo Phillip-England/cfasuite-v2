@@ -4,6 +4,13 @@ slow = 0.1
 load("localhost:3000")
 exec("../lib/shared_flows.bdr")
 
+$test_location_name = random_username(12)
+$test_location_number = "55555"
+$test_location_username = "55555@chick-fil-a.com"
+$test_location_password = "55555wafflefry!"
+$test_location_apps_url = "localhost:3000/admin/locations/55555"
+$hire_department_name = "BOH"
+
 login()
 create_location()
 create_candidate()
@@ -11,3 +18,11 @@ hire_candidate()
 complete_new_hire_paperwork()
 create_uniform_items()
 submit_team_uniform_orders()
+submit_team_time_punches()
+submit_team_vacation_requests()
+process_location_time_punches()
+process_location_uniform_orders()
+process_location_vacation_requests()
+process_admin_time_punches()
+process_admin_uniform_orders()
+process_admin_vacation_requests()

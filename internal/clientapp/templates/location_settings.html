@@ -161,6 +161,26 @@
         </div>
 
         {{ if and .CurrentUser (eq .CurrentUser.Role "admin") }}
+        <section class="danger-zone" style="margin-top:1rem;">
+          <h2>Admin Portal Password</h2>
+          <p class="text-muted">Change the password for your admin login from inside the portal.</p>
+          <div class="field">
+            <label for="admin_current_password">Current Password</label>
+            <input id="admin_current_password" type="password" maxlength="128" autocomplete="current-password" placeholder="Enter current password">
+          </div>
+          <div class="field">
+            <label for="admin_new_password">New Password</label>
+            <input id="admin_new_password" type="password" maxlength="128" autocomplete="new-password" placeholder="Minimum 12 characters">
+          </div>
+          <div class="field">
+            <label for="admin_confirm_password">Confirm New Password</label>
+            <input id="admin_confirm_password" type="password" maxlength="128" autocomplete="new-password" placeholder="Re-enter new password">
+          </div>
+          <div class="row">
+            <button id="update-admin-password-btn" class="btn btn-primary" type="button">Update Admin Password</button>
+          </div>
+        </section>
+
         <section class="danger-zone">
           <h2>Delete Location</h2>
           <p class="text-muted">This permanently deletes this location and all associated data. This action cannot be undone.</p>
@@ -193,6 +213,10 @@
       const teamLoginLinkInput = document.getElementById("team_login_link");
       const copyTeamLoginLinkBtn = document.getElementById("copy-team-login-link");
       const saveBtn = document.getElementById("save-btn");
+      const adminCurrentPasswordInput = document.getElementById("admin_current_password");
+      const adminNewPasswordInput = document.getElementById("admin_new_password");
+      const adminConfirmPasswordInput = document.getElementById("admin_confirm_password");
+      const updateAdminPasswordBtn = document.getElementById("update-admin-password-btn");
       const deleteConfirmationInput = document.getElementById("delete_confirmation");
       const deleteLocationBtn = document.getElementById("delete-location-btn");
       const status = document.getElementById("status");
@@ -254,6 +278,62 @@
           saveBtn.disabled = false;
         }
       });
+
+      if (updateAdminPasswordBtn) {
+        updateAdminPasswordBtn.addEventListener("click", async () => {
+          const currentPassword = (adminCurrentPasswordInput?.value || "").trim();
+          const newPassword = (adminNewPasswordInput?.value || "").trim();
+          const confirmPassword = (adminConfirmPasswordInput?.value || "").trim();
+
+          if (!currentPassword) {
+            setStatus("Current password is required.", "error");
+            return;
+          }
+          if (!newPassword) {
+            setStatus("New password is required.", "error");
+            return;
+          }
+          if (newPassword.length < 12) {
+            setStatus("New password must be at least 12 characters.", "error");
+            return;
+          }
+          if (newPassword !== confirmPassword) {
+            setStatus("New password and confirmation must match.", "error");
+            return;
+          }
+
+          updateAdminPasswordBtn.disabled = true;
+          saveBtn.disabled = true;
+          setStatus("", "");
+          try {
+            const response = await fetch("/admin/account/password", {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": csrfToken
+              },
+              body: JSON.stringify({
+                currentPassword,
+                newPassword,
+                confirmPassword
+              })
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              throw new Error(result.error || "Unable to update admin password.");
+            }
+            if (adminCurrentPasswordInput) adminCurrentPasswordInput.value = "";
+            if (adminNewPasswordInput) adminNewPasswordInput.value = "";
+            if (adminConfirmPasswordInput) adminConfirmPasswordInput.value = "";
+            setStatus("Admin password updated.", "ok");
+          } catch (error) {
+            setStatus(error.message || "Unable to update admin password.", "error");
+          } finally {
+            updateAdminPasswordBtn.disabled = false;
+            saveBtn.disabled = false;
+          }
+        });
+      }
 
       if (deleteConfirmationInput && deleteLocationBtn) {
         const syncDeleteState = () => {

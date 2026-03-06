@@ -231,7 +231,7 @@
                       <td>{{ if .ForgotBreakClockInReturn }}Needs Break Return Fix{{ else }}Normal{{ end }}</td>
                       <td>{{ .Note }}</td>
                       <td>
-                        <form method="post" action="/admin/locations/{{ $.Location.Number }}/time-punch/{{ .ID }}/archive" onsubmit="return confirm('Mark this time punch as completed?');">
+                        <form method="post" action="/admin/locations/{{ $.Location.Number }}/time-punch/{{ .ID }}/archive">
                           <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
                           <button type="submit">Mark Completed</button>
                         </form>

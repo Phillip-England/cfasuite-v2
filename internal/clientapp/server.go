@@ -902,6 +902,7 @@ func Run(ctx context.Context, cfg Config) error {
 		http.Redirect(w, r, "/admin", http.StatusFound)
 	}))
 	mux.Handle("/admin", middleware.Chain(http.HandlerFunc(s.adminPage), s.requireMasterAdmin))
+	mux.Handle("/admin/account/password", middleware.Chain(http.HandlerFunc(s.updateAdminPasswordProxy), s.requireMasterAdmin))
 	mux.Handle("/team", middleware.Chain(http.HandlerFunc(s.teamPortalPage), s.requireTeam))
 	mux.Handle("/team/", middleware.Chain(http.HandlerFunc(s.teamRoutes), s.requireTeam))
 	mux.Handle("/admin/locations", middleware.Chain(http.HandlerFunc(s.createLocationProxy), s.requireMasterAdmin))
@@ -6293,6 +6294,48 @@ func (s *server) updateLocationProxy(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(respBody)
 }
 
+func (s *server) updateAdminPasswordProxy(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	csrfToken := strings.TrimSpace(r.Header.Get(csrfHeaderName))
+	if csrfToken == "" {
+		http.Error(w, `{"error":"csrf token is required"}`, http.StatusForbidden)
+		return
+	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, `{"error":"invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	apiReq, err := http.NewRequestWithContext(r.Context(), http.MethodPut, s.apiBaseURL+"/api/admin/account/password", bytes.NewReader(body))
+	if err != nil {
+		http.Error(w, `{"error":"upstream request failed"}`, http.StatusInternalServerError)
+		return
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		http.Error(w, `{"error":"upstream service unavailable"}`, http.StatusBadGateway)
+		return
+	}
+	defer apiResp.Body.Close()
+	respBody, err := io.ReadAll(apiResp.Body)
+	if err != nil {
+		http.Error(w, `{"error":"upstream response failed"}`, http.StatusBadGateway)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(apiResp.StatusCode)
+	_, _ = w.Write(respBody)
+}
+
 func (s *server) updateLocationSettingsProxy(w http.ResponseWriter, r *http.Request, locationNumber string) {
 	csrfToken := strings.TrimSpace(r.Header.Get(csrfHeaderName))
 	if csrfToken == "" {
@@ -10038,6 +10081,31 @@ func (s *server) ensureChickFilAInterviewDefaults(r *http.Request, locationNumbe
 	if err != nil {
 		return err
 	}
+	var canonicalFaceToFaceID int64
+	var legacyFaceToFaceID int64
+	for _, name := range interviewNames {
+		switch strings.ToLower(strings.TrimSpace(name.Name)) {
+		case "face-to-face interview":
+			canonicalFaceToFaceID = name.ID
+		case "face to face interview":
+			legacyFaceToFaceID = name.ID
+		}
+	}
+	if canonicalFaceToFaceID > 0 && legacyFaceToFaceID > 0 {
+		if err := s.deleteInterviewProcessJSON(
+			r,
+			csrfToken,
+			locationNumber,
+			"/candidate-interview-names/"+strconv.FormatInt(legacyFaceToFaceID, 10),
+		); err != nil {
+			return err
+		}
+		interviewNames, err = s.fetchLocationCandidateInterviewNames(r, locationNumber)
+		if err != nil {
+			return err
+		}
+	}
+
 	nameIDByNormalized := make(map[string]int64, len(interviewNames))
 	for _, name := range interviewNames {
 		key := strings.ToLower(strings.TrimSpace(name.Name))
@@ -10208,6 +10276,36 @@ func (s *server) putInterviewProcessJSON(r *http.Request, csrfToken, locationNum
 	defer apiResp.Body.Close()
 	if apiResp.StatusCode != http.StatusOK {
 		return errors.New("unable to apply interview defaults")
+	}
+	return nil
+}
+
+func (s *server) deleteInterviewProcessJSON(r *http.Request, csrfToken, locationNumber, suffix string) error {
+	apiReq, err := http.NewRequestWithContext(
+		r.Context(),
+		http.MethodDelete,
+		s.apiBaseURL+"/api/admin/locations/"+url.PathEscape(locationNumber)+suffix,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+	copySessionCookieHeader(r, apiReq)
+	apiReq.Header.Set(csrfHeaderName, csrfToken)
+	apiResp, err := s.apiClient.Do(apiReq)
+	if err != nil {
+		return err
+	}
+	defer apiResp.Body.Close()
+	if apiResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(apiResp.Body)
+		var payload map[string]any
+		if err := json.Unmarshal(body, &payload); err == nil {
+			if message, ok := payload["error"].(string); ok && strings.TrimSpace(message) != "" {
+				return errors.New(message)
+			}
+		}
+		return fmt.Errorf("unexpected status %d", apiResp.StatusCode)
 	}
 	return nil
 }

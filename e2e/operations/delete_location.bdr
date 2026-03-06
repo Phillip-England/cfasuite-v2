@@ -4,6 +4,10 @@ slow = 0.1
 load("localhost:3000")
 exec("../lib/shared_flows.bdr")
 
+$test_location_name = random_username(12)
+$test_location_number = "55555"
+$test_location_apps_url = "localhost:3000/admin/locations/55555"
+
 login()
 create_location()
 delete_location()

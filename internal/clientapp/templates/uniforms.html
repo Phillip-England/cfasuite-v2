@@ -452,7 +452,7 @@
                             <input type="checkbox" name="purchased" value="on" form="{{ $formID }}" {{ if .Purchased }}checked{{ end }} style="min-height:auto; width:auto;" data-autosave-form="{{ $formID }}">
                           </td>
                           <td class="charge-cell">
-                            <input class="charge-input" type="text" name="charged_back" form="{{ $formID }}" value="{{ printf "%.2f" .ChargedBack }}" placeholder="0.00" inputmode="decimal" data-autosave-form="{{ $formID }}">
+                            <input class="charge-input" type="text" name="charged_back" form="{{ $formID }}" value="{{ printf "%.2f" .ChargedBack }}" placeholder="0.00" inputmode="decimal" readonly title="Automatically charged back in full when purchased">
                           </td>
                           <td>${{ printf "%.2f" $order.Total }}</td>
                         </tr>

@@ -4,10 +4,17 @@ func login() {
   #login-submit.click()
 }
 
+func open_test_location() {
+  load("localhost:3000/admin")
+  assert_page_contains($test_location_name)
+  role("link", $test_location_name).click()
+  #app-link-candidates.wait_visible()
+}
+
 func create_location() {
   #create-location-tab-btn.click()
-  #name.fill(random_username(12))
-  #number.fill(random_number(11111, 99999))
+  #name.fill($test_location_name)
+  #number.fill($test_location_number)
   #phone_1.fill("999")
   #phone_2.fill("999")
   #phone_3.fill("9999")
@@ -19,10 +26,49 @@ func create_location() {
   #business_ein_1.fill(random_number(10, 99))
   #business_ein_2.fill(random_number(1111111, 9999999))
   #submit-btn.click()
+  #status.wait_visible()
+  assert_page_contains($test_location_name)
+}
+
+func create_interview_type_and_question($interview_type_name, $question_text) {
+  #app-link-interview-process.click()
+  [data-process-target="names"].click()
+  form[action*="/candidate-interview-names"] input[name="name"].fill($interview_type_name)
+  role("button", "Add Type").click()
+  assert_page_contains($interview_type_name)
+
+  [data-process-target="questions"].click()
+  [data-question-target="create"].click()
+  #question_text.fill($question_text)
+  #response_type_new.select("Text")
+  role("checkbox", $interview_type_name).click()
+  role("button", "Add Question").click()
+}
+
+func create_department($department_name, $departments_url) {
+  load($departments_url)
+  [data-sub-target="departments-create"].click()
+  #department-name.fill($department_name)
+  form[action$="/departments/create"] button[type="submit"][0].click()
+  [data-sub-target="departments-view"].click()
+  assert_page_contains($department_name)
+}
+
+func setup_admin_interview_and_departments() {
+  open_test_location()
+  create_interview_type_and_question($admin_interview_type_name, $admin_interview_question_text)
+  create_department($admin_department_name, $test_departments_url)
+}
+
+func setup_location_interview_and_departments() {
+  switch_back_to_location()
+  create_interview_type_and_question($location_interview_type_name, $location_interview_question_text)
+  create_department($location_department_name, $test_departments_url)
+  switch_back_to_admin()
 }
 
 func create_candidate() {
-  .location-link[0].click()
+  open_test_location()
   #app-link-candidates.click()
   [data-target="new-candidate"].click()
   #first_name.fill(random_username(8))
@@ -34,8 +80,7 @@ func create_candidate() {
 }
 
 func open_candidate_detail() {
-  load("localhost:3000/admin")
-  .location-link[0].click()
+  open_test_location()
   #app-link-candidates.click()
   .active-candidate-row[0].click()
 }
@@ -135,17 +180,27 @@ func conduct_final_interview() {
   h1.assert_text("Interview Submitted")
 }
 
+func conduct_custom_interview() {
+  create_and_open_interview($admin_interview_type_name, "2030-01-17", "02", "45", "PM")
+
+  fill_interview_values()
+  textarea[id^="question_"][0].fill("Candidate showed strong ownership, calm communication, and high coachability.")
+
+  #notes.fill("Custom interview type completed with assigned custom question.")
+  #interview-submit-btn.click()
+  h1.assert_text("Interview Submitted")
+}
+
 func hire_candidate() {
   open_candidate_detail()
   [data-target="decision"].click()
-  #hire-department-id.select("BOH")
+  #hire-department-id.select($hire_department_name)
   #hire-pay-band-id.select("Team Member I")
   button[form="candidate-hire-form"].click()
 }
 
 func complete_new_hire_paperwork() {
-  load("localhost:3000/admin")
-  .location-link[0].click()
+  open_test_location()
   #app-link-employees.click()
   [data-employee-status-target="new-hires"].click()
   [data-employee-status-panel="new-hires"] .location-link[0].click()
@@ -194,8 +249,7 @@ func complete_new_hire_paperwork() {
 }
 
 func create_uniform_items() {
-  load("localhost:3000/admin")
-  .location-link[0].click()
+  open_test_location()
   #app-link-uniforms.click()
 
   [data-target="new-item"].click()
@@ -213,15 +267,21 @@ func create_uniform_items() {
   #create-item-btn.click()
 }
 
+func ensure_team_member_clock_in_pin() {
+  #clock-in-pin.fill("12345")
+  #save-clock-in-pin.click()
+  form[action*="/login-as-team"] button.wait_visible()
+  form[action*="/login-as-team"] button.assert_enabled()
+  assert_page_contains("Clock in PIN is set.")
+}
+
 func submit_team_uniform_orders() {
-  load("localhost:3000/admin")
-  .location-link[0].click()
+  open_test_location()
   #app-link-employees.click()
   [data-employee-status-target="active-employees"].click()
   [data-employee-status-panel="active-employees"] .location-link[0].click()
 
-  #clock-in-pin.fill("12345")
-  #save-clock-in-pin.click()
+  ensure_team_member_clock_in_pin()
   form[action*="/login-as-team"] button.wait_visible()
   form[action*="/login-as-team"] button.click()
 
@@ -251,10 +311,152 @@ func submit_team_uniform_orders() {
   .portal-message.ok[0].assert_text("Uniform order submitted")
 }
 
+func submit_team_time_punches() {
+  [data-app-tab="time-punch"].click()
+  [data-sub-tab="time-punch-create"].click()
+  #tp-date.wait_visible()
+
+  #tp-date.fill("2030-01-06")
+  #tp-in.fill("08:00")
+  #tp-out.fill("16:00")
+  #tp-note.fill("E2E time punch 1.")
+  [data-sub-panel="time-punch-create"] .submit-btn.click()
+  .portal-message.ok[0].assert_text("Time punch submitted")
+
+  [data-sub-tab="time-punch-create"].click()
+  #tp-date.fill("2030-01-07")
+  #tp-in.fill("09:15")
+  #tp-out.fill("17:45")
+  #tp-note.fill("E2E time punch 2.")
+  [data-sub-panel="time-punch-create"] .submit-btn.click()
+  .portal-message.ok[0].assert_text("Time punch submitted")
+
+  [data-sub-tab="time-punch-create"].click()
+  #tp-date.fill("2030-01-08")
+  #tp-in.fill("10:00")
+  #tp-out.fill("18:00")
+  #tp-note.fill("E2E time punch 3 with break return fix.")
+  #tp-forgot-break.click()
+  [data-sub-panel="time-punch-create"] .submit-btn.click()
+  .portal-message.ok[0].assert_text("Time punch submitted")
+}
+
+func submit_team_vacation_requests() {
+  [data-app-tab="time-off"].click()
+  [data-sub-tab="time-off-create"].click()
+  #to-start.wait_visible()
+
+  #to-start.fill("2030-02-10")
+  #to-end.fill("2030-02-12")
+  [data-sub-panel="time-off-create"] .submit-btn.click()
+  .portal-message.ok[0].assert_text("Vacation request submitted")
+
+  [data-sub-tab="time-off-create"].click()
+  #to-start.fill("2030-03-03")
+  #to-end.fill("2030-03-04")
+  [data-sub-panel="time-off-create"] .submit-btn.click()
+  .portal-message.ok[0].assert_text("Vacation request submitted")
+
+  [data-sub-tab="time-off-create"].click()
+  #to-start.fill("2030-04-15")
+  #to-end.fill("2030-04-16")
+  [data-sub-panel="time-off-create"] .submit-btn.click()
+  .portal-message.ok[0].assert_text("Vacation request submitted")
+}
+
+func switch_back_to_admin() {
+  load("localhost:3000/logout")
+  load("localhost:3000")
+  login()
+}
+
+func switch_back_to_location() {
+  load("localhost:3000/logout")
+  load("localhost:3000")
+  #input-username.fill($test_location_username)
+  #input-password.fill($test_location_password)
+  #login-submit.click()
+}
+
+func process_location_time_punches() {
+  switch_back_to_location()
+  open_test_location()
+  #app-link-time-punch.click()
+  [data-panel-target="view-punches"].click()
+  form[action*="/time-punch/"][action$="/archive"] button[0].wait_visible()
+
+  form[action*="/time-punch/"][action$="/archive"] button[0].click()
+  .notice.ok[0].assert_text("Time punch entry marked completed")
+}
+
+func process_location_uniform_orders() {
+  open_test_location()
+  #app-link-uniforms.click()
+  [data-target="submitted-requests"].click()
+  input[name="purchased"][data-autosave-form]:not(:checked)[0].wait_visible()
+
+  input[name="purchased"][data-autosave-form]:not(:checked)[0].click()
+  .msg.ok[0].wait_visible()
+}
+
+func process_location_vacation_requests() {
+  open_test_location()
+  #app-link-time-off.click()
+  [data-panel-target="view-requests"].click()
+  form[action*="/time-off/"][action$="/archive"] button[0].wait_visible()
+
+  form[action*="/time-off/"][action$="/archive"] button[0].click()
+  .notice.ok[0].assert_text("Vacation request processed")
+}
+
+func process_admin_time_punches() {
+  switch_back_to_admin()
+  open_test_location()
+  #app-link-time-punch.click()
+  [data-panel-target="view-punches"].click()
+  form[action*="/time-punch/"][action$="/archive"] button[0].wait_visible()
+
+  form[action*="/time-punch/"][action$="/archive"] button[0].click()
+  .notice.ok[0].assert_text("Time punch entry marked completed")
+
+  [data-panel-target="view-punches"].click()
+  form[action*="/time-punch/"][action$="/archive"] button[0].click()
+  .notice.ok[0].assert_text("Time punch entry marked completed")
+}
+
+func process_admin_uniform_orders() {
+  open_test_location()
+  #app-link-uniforms.click()
+  [data-target="submitted-requests"].click()
+  input[name="purchased"][data-autosave-form]:not(:checked)[0].wait_visible()
+
+  input[name="purchased"][data-autosave-form]:not(:checked)[0].click()
+  .msg.ok[0].wait_visible()
+
+  input[name="purchased"][data-autosave-form]:not(:checked)[0].click()
+  .msg.ok[0].wait_visible()
+}
+
+func process_admin_vacation_requests() {
+  open_test_location()
+  #app-link-time-off.click()
+  [data-panel-target="view-requests"].click()
+  form[action*="/time-off/"][action$="/archive"] button[0].wait_visible()
+
+  form[action*="/time-off/"][action$="/archive"] button[0].click()
+  .notice.ok[0].assert_text("Vacation request processed")
+
+  [data-panel-target="view-requests"].click()
+  form[action*="/time-off/"][action$="/archive"] button[0].click()
+  .notice.ok[0].assert_text("Vacation request processed")
+}
+
 func delete_location() {
-  load("localhost:3000/admin")
-  .location-link[0].click()
+  open_test_location()
   #app-link-settings.click()
   #delete_confirmation.fill("I CHOOSE TO DELETE THIS LOCATION AND ALL OF ITS DATA")
+  #delete-location-btn.assert_enabled()
   #delete-location-btn.click()
+  wait(1000)
+  assert_page_contains("Current Locations")
 }
