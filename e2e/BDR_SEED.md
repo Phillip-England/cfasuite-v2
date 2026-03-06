@@ -1,5 +1,5 @@
 <!-- bdr-seed-format: 1 -->
-<!-- bdr-cli-version: 0.3.0 -->
+<!-- bdr-cli-version: 0.4.0 -->
 
 # BDR Project Seed
 
@@ -8,7 +8,7 @@ It describes how to write and validate `.bdr` automation scripts correctly.
 
 ## Source Of Truth
 
-- CLI version: `0.3.0`
+- CLI version: `0.4.0`
 - Primary docs: `README.md`
 - Runtime entrypoint: `bdr/cli.py`
 - Script parser: `bdr/lexer.py`
@@ -25,6 +25,7 @@ Scripts are plain text and primarily use CSS selector chains for actions/asserti
 - `bdr check script.bdr`
 - `bdr new script.bdr`
 - `bdr extract URL SELECTOR`
+- `bdr kill`
 
 Use `bdr check` before `bdr run` when generating scripts automatically.
 
@@ -127,6 +128,54 @@ Tips:
 - For signature-pad libraries (e.g. `signature_pad.js`), target the `<canvas>` directly.
 - Combine with `screenshot(...)` to capture the result for inspection.
 
+## Live Status File (LLM Agent Integration)
+
+bdr writes a live JSON status file at `~/.bdr/status.json` while a script runs.
+It is deleted automatically when the run finishes (success or error).
+
+The status file tells you: PID, script name, start time, and every action completed so far.
+
+**Read it any time during a run to see where things are:**
+
+```json
+{
+  "pid": 12345,
+  "script": "login.bdr",
+  "started": "2026-03-06T10:30:00-05:00",
+  "status": "running",
+  "actions": [
+    {"time": "2026-03-06T10:30:01-05:00", "line": 4, "action": "load(\"https://example.com\")"},
+    {"time": "2026-03-06T10:30:02-05:00", "line": 5, "action": "#email.fill(\"me@example.com\")"}
+  ]
+}
+```
+
+**Kill a stuck run:**
+
+```bash
+bdr kill           # sends SIGTERM to the running process
+bdr kill --force   # sends SIGKILL
+```
+
+**Opt out in a script:**
+
+```bdr
+no_status = true
+```
+
+**Change the status file path in a script:**
+
+```bdr
+status_file("./my-run.json")
+```
+
+**CLI flags for `bdr run`:**
+
+```bash
+bdr run script.bdr --no-status                         # disable status file
+bdr run script.bdr --status-file ./my-run.json         # custom path
+```
+
 ## Generation Checklist For LLMs
 
 When generating or editing `.bdr` scripts:
@@ -140,6 +189,7 @@ When generating or editing `.bdr` scripts:
 7. Use `screenshot(...)` at key checkpoints for debugging.
 8. For file upload: use `.upload(path)` on `<input type="file">` — path resolves relative to script.
 9. For canvas signatures: use `.draw()` for a default wave, or `.draw("x,y ...")` for custom path.
+10. If a run appears stuck, read `~/.bdr/status.json` to see the last completed action, then run `bdr kill` to terminate it.
 
 ## Common Errors To Avoid
 

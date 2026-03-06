@@ -9,8 +9,7 @@ assets:
 	go run ./cmd/cfasuite assets build
 
 test:
-	go run ./cmd/cfasuite reset
-	bdr run ./e2e/test.bdr;
+	./bin/e2e ./e2e/test.bdr
 
 reset:
 	go run ./cmd/cfasuite reset

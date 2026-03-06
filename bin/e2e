@@ -1,0 +1,14 @@
+#!/bin/zsh
+
+set -euo pipefail
+
+script_path="${1:-./e2e/test.bdr}"
+
+if [[ ! -f "${script_path}" ]]; then
+  echo "e2e script not found: ${script_path}" >&2
+  exit 1
+fi
+
+go run ./cmd/cfasuite reset
+bdr check "${script_path}"
+bdr run "${script_path}"

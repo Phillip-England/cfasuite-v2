@@ -128,7 +128,7 @@
                     <select id="interviewer_time_punch_name" name="interviewer_time_punch_name" required>
                       <option value="">Select interviewer</option>
                       {{ range .Employees }}
-                        <option value="{{ .TimePunchName }}">
+                        <option value="{{ .TimePunchName }}"{{ if eq (len $.Employees) 1 }} selected{{ end }}>
                           {{ if .LastName }}
                             {{ .FirstName }} {{ .LastName }} ({{ .TimePunchName }})
                           {{ else }}
@@ -330,9 +330,18 @@
       }
 
       var scheduledDateInput = document.getElementById("scheduled_date");
+      var interviewerSelect = document.getElementById("interviewer_time_punch_name");
       var scheduledHour = document.getElementById("scheduled_hour");
       var scheduledMinute = document.getElementById("scheduled_minute");
       var scheduledAMPM = document.getElementById("scheduled_ampm");
+      if (interviewerSelect && !interviewerSelect.value) {
+        var availableInterviewers = Array.from(interviewerSelect.options).filter(function (option) {
+          return !!(option.value || "").trim();
+        });
+        if (availableInterviewers.length === 1) {
+          interviewerSelect.value = availableInterviewers[0].value;
+        }
+      }
       if (scheduledDateInput && scheduledHour && scheduledMinute && scheduledAMPM && !scheduledDateInput.value) {
         var initialDate = new Date();
         initialDate.setMinutes(initialDate.getMinutes() + 60);

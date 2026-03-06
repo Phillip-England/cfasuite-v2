@@ -6,8 +6,8 @@ func login() {
 
 func open_test_location() {
   load("localhost:3000/admin")
-  assert_page_contains($test_location_name)
-  role("link", $test_location_name).click()
+  .location-link[0].wait_visible()
+  .location-link[0].click()
   #app-link-candidates.wait_visible()
 }
 
@@ -26,8 +26,9 @@ func create_location() {
   #business_ein_1.fill(random_number(10, 99))
   #business_ein_2.fill(random_number(1111111, 9999999))
   #submit-btn.click()
-  #status.wait_visible()
-  assert_page_contains($test_location_name)
+  .location-link[0].wait_visible()
+  .location-link[0].click()
+  #app-link-candidates.wait_visible()
 }
 
 func create_interview_type_and_question($interview_type_name, $question_text) {
@@ -87,7 +88,9 @@ func open_candidate_detail() {
 
 func create_and_open_interview($interview_type, $scheduled_date, $scheduled_hour, $scheduled_minute, $scheduled_ampm) {
   open_candidate_detail()
-  #interviewer_time_punch_name.select("John Doe")
+  [data-target="view-interviews"].click()
+  #interviewer_time_punch_name.wait_visible()
+  #interviewer_time_punch_name.scroll_to()
   #scheduled_date.fill($scheduled_date)
   #scheduled_hour.select($scheduled_hour)
   #scheduled_minute.select($scheduled_minute)
@@ -380,7 +383,8 @@ func switch_back_to_location() {
 
 func process_location_time_punches() {
   switch_back_to_location()
-  open_test_location()
+  load($test_location_apps_url)
+  #app-link-time-punch.wait_visible()
   #app-link-time-punch.click()
   [data-panel-target="view-punches"].click()
   form[action*="/time-punch/"][action$="/archive"] button[0].wait_visible()
@@ -390,7 +394,8 @@ func process_location_time_punches() {
 }
 
 func process_location_uniform_orders() {
-  open_test_location()
+  load($test_location_apps_url)
+  #app-link-uniforms.wait_visible()
   #app-link-uniforms.click()
   [data-target="submitted-requests"].click()
   input[name="purchased"][data-autosave-form]:not(:checked)[0].wait_visible()
@@ -400,7 +405,8 @@ func process_location_uniform_orders() {
 }
 
 func process_location_vacation_requests() {
-  open_test_location()
+  load($test_location_apps_url)
+  #app-link-time-off.wait_visible()
   #app-link-time-off.click()
   [data-panel-target="view-requests"].click()
   form[action*="/time-off/"][action$="/archive"] button[0].wait_visible()
