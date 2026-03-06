@@ -261,7 +261,7 @@
 
         <section class="section" data-panel="bulk-import" id="bulk-import">
           <h2>Employee Bio Upload</h2>
-          <p class="text-muted" style="margin-bottom:0.75rem;">Upload the Employee Bio report to assign Employee Numbers and automatically terminate/archive employees marked terminated.</p>
+          <p class="text-muted" style="margin-bottom:0.75rem;">Upload the Employee Bio report to terminate matched employees marked terminated, add missing active employees as new hires, and backfill employee numbers for existing employees.</p>
           <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/import" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
             <label for="bio-file">Employee Bio File (.xlsx, .xls, .csv)</label>

@@ -39,8 +39,14 @@
     form{display:grid;gap:.75rem}
     label{display:block;font-size:.875rem;font-weight:600;margin-bottom:.35rem}
     input,select{width:100%;min-height:2.35rem;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);padding:.55rem .65rem;font:inherit}
-    .btn{display:inline-flex;align-items:center;justify-content:center;min-height:2.3rem;padding:.5rem .85rem;border-radius:8px;border:1px solid transparent;cursor:pointer;font-weight:700}
-    .btn-primary{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+    .btn{display:inline-flex;align-items:center;justify-content:center;min-height:2.45rem;padding:.55rem .95rem;border-radius:10px;border:1px solid transparent;cursor:pointer;font-weight:700;transition:background-color 160ms,border-color 160ms,box-shadow 160ms,transform 160ms}
+    .btn-primary{
+      background:linear-gradient(140deg,color-mix(in srgb,var(--primary) 86%,#fff 14%) 0%,color-mix(in srgb,var(--primary) 72%,#14364f 28%) 100%);
+      color:var(--primary-fg);
+      border-color:color-mix(in srgb,var(--primary) 58%,var(--border) 42%);
+      box-shadow:0 8px 18px rgba(19,53,81,.2);
+    }
+    .btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 20px rgba(19,53,81,.25)}
     .btn-responsive{justify-self:start;width:auto}
     @media (max-width:639px){.btn-responsive{width:100%}}
     .grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
@@ -51,16 +57,27 @@
     tbody tr:last-child td{border-bottom:none}
     .process-hub{display:grid;gap:.625rem;grid-template-columns:1fr;margin-top:.25rem}
     @media (min-width:700px){.process-hub{grid-template-columns:repeat(2,1fr)}}
-    .process-btn{width:100%;text-align:left;padding:.75rem .875rem;background:var(--bg);border:1px solid var(--border);border-radius:.5rem;cursor:pointer;font-family:inherit;color:var(--fg);transition:150ms;font-weight:700;font-size:.875rem}
-    .process-btn:hover{background:var(--muted)}
-    .process-btn.active{background:var(--muted);border-color:var(--primary)}
+    .process-btn{width:100%;text-align:left;padding:.85rem .95rem;background:color-mix(in srgb,var(--card) 94%,transparent);border:1px solid var(--border);border-radius:.65rem;cursor:pointer;font-family:inherit;color:var(--fg);transition:160ms;font-weight:700;font-size:.9rem;box-shadow:0 2px 7px rgba(15,38,64,.05)}
+    .process-btn:hover{background:var(--muted);border-color:color-mix(in srgb,var(--primary) 26%,var(--border));transform:translateY(-1px)}
+    .process-btn.active{
+      background:linear-gradient(140deg,color-mix(in srgb,var(--primary) 84%,#fff 16%) 0%,color-mix(in srgb,var(--primary) 70%,#14364f 30%) 100%);
+      border-color:color-mix(in srgb,var(--primary) 58%,var(--border) 42%);
+      color:var(--primary-fg);
+      box-shadow:0 8px 18px rgba(19,53,81,.24);
+    }
+    html.dark .process-btn.active{
+      background:color-mix(in srgb,var(--primary) 24%,var(--card) 76%);
+      color:#eef7ff;
+      border-color:color-mix(in srgb,var(--primary) 62%,var(--border) 38%);
+      box-shadow:0 10px 24px rgba(3,11,20,.42);
+    }
     .process-panel{display:none}
     .process-panel.active{display:block}
     .subnav{display:grid;gap:.5rem;margin:.25rem 0 .875rem}
     @media (min-width:700px){.subnav{grid-template-columns:repeat(2,1fr)}}
-    .subbtn{width:100%;text-align:left;padding:.65rem .75rem;background:var(--bg);border:1px solid var(--border);border-radius:.5rem;cursor:pointer;font-family:inherit;color:var(--fg);transition:150ms;font-weight:600;font-size:.85rem}
-    .subbtn:hover{background:var(--muted)}
-    .subbtn.active{background:var(--muted);border-color:var(--primary)}
+    .subbtn{width:100%;text-align:left;padding:.65rem .75rem;background:var(--bg);border:1px solid var(--border);border-radius:.55rem;cursor:pointer;font-family:inherit;color:var(--fg);transition:150ms;font-weight:700;font-size:.82rem;letter-spacing:.01em}
+    .subbtn:hover{background:var(--muted);border-color:color-mix(in srgb,var(--primary) 22%,var(--border))}
+    .subbtn.active{background:color-mix(in srgb,var(--primary) 12%,var(--bg));border-color:color-mix(in srgb,var(--primary) 48%,var(--border));color:var(--fg)}
     .subpanel{display:none}
     .subpanel.active{display:block}
     .chips{display:flex;flex-wrap:wrap;gap:.35rem}
@@ -85,9 +102,17 @@
     .job-expand{border:1px solid var(--border);border-radius:.6rem;background:var(--card);overflow:hidden}
     .job-expand-body{display:none;padding:.8rem;border-top:1px solid var(--border)}
     .job-expand.open .job-expand-body{display:block}
+    .job-table-form{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:.5rem;align-items:center;padding:.55rem}
+    .btn-inline-save{min-height:2.1rem;padding:.45rem .75rem;border-radius:.55rem;font-size:.8rem;box-shadow:none}
+    @media (max-width:900px){
+      .job-table-form{grid-template-columns:1fr}
+      .btn-inline-save{width:100%}
+    }
+    .departments-page button[type="submit"]{box-shadow:none}
+    .departments-page button[type="submit"]:hover{box-shadow:none}
   </style>
 </head>
-<body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
+<body class="departments-page min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
   <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
     <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
       <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
@@ -204,7 +229,7 @@
                     {{ range .LocationJobs }}
                       <tr>
                         <td colspan="4" style="padding:0;">
-                          <form method="post" action="/admin/locations/{{ $.Location.Number }}/jobs/{{ .ID }}/update" style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:.5rem;align-items:center;padding:.55rem;">
+                          <form class="job-table-form" method="post" action="/admin/locations/{{ $.Location.Number }}/jobs/{{ .ID }}/update">
                             <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
                             <input name="name" value="{{ .Name }}" required>
                             <select name="pay_type" required>
@@ -212,7 +237,7 @@
                               <option value="salary" {{ if eq .PayType "salary" }}selected{{ end }}>Salary</option>
                             </select>
                             <input name="pay_amount" type="number" step="0.01" min="0.01" value="{{ .PayAmountDisplay }}" required>
-                            <button class="btn btn-primary btn-responsive" type="submit">Save</button>
+                            <button class="btn btn-primary btn-inline-save" type="submit">Save Changes</button>
                           </form>
                         </td>
                       </tr>

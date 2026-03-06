@@ -91,10 +91,31 @@
     .summary-card { border: 1px solid var(--border); border-radius: 0.625rem; background: var(--bg); padding: 0.75rem 0.875rem; display: grid; gap: 0.2rem; min-height: 4.25rem; }
     .summary-label { font-size: 0.75rem; letter-spacing: 0.03em; text-transform: uppercase; color: var(--muted-fg); font-weight: 700; }
     .summary-value { font-size: 0.95rem; font-weight: 700; color: var(--fg); word-break: break-word; }
+    .profile-photo-hero { margin-top: 0.75rem; display: grid; gap: 0.625rem; justify-items: start; }
+    .profile-photo-hero .photo-preview { width: 112px; height: 112px; border-radius: 0.75rem; object-fit: cover; }
+    .profile-photo-note { font-size: 0.78rem; color: var(--muted-fg); font-weight: 600; }
     .section-stack { display: grid; gap: 0.875rem; margin-top: 1rem; }
     .section-card { border: 1px solid var(--border); border-radius: 0.625rem; background: var(--bg); padding: 0.95rem; display: grid; gap: 0.625rem; }
     .section-card-title { font-size: 0.875rem; font-weight: 700; margin: 0; }
     .section-card-sub { color: var(--muted-fg); font-size: 0.8125rem; margin: 0; }
+    .profile-section-nav { display: grid; gap: 0.5rem; margin: 0.75rem 0 0.875rem; }
+    @media (min-width: 700px) { .profile-section-nav { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+    .profile-section-btn {
+      width: 100%;
+      text-align: left;
+      padding: 0.6rem 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: 0.55rem;
+      background: var(--bg);
+      color: var(--fg);
+      font: 700 0.8rem/1.25 inherit;
+      cursor: pointer;
+      transition: 150ms;
+    }
+    .profile-section-btn:hover { background: var(--muted); }
+    .profile-section-btn.active { background: var(--muted); border-color: var(--primary); }
+    .profile-pane { display: none; }
+    .profile-pane.active { display: block; }
     .field-grid { display: grid; gap: 0.625rem; }
     @media (min-width: 640px) { .field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     .edit-form-grid { display: grid; gap: 0.75rem; }
@@ -134,18 +155,18 @@
 
     /* Paperwork cards */
     .paperwork-cards { display: grid; gap: 0.625rem; margin-top: 0.625rem; }
-    .paperwork-card { border: 1px solid var(--border); border-radius: 0.5rem; background: var(--bg); padding: 0.875rem; display: grid; gap: 0.5rem; }
-    .paperwork-card-title { margin: 0; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted-fg); }
-    .paperwork-meta { margin: 0; color: var(--muted-fg); font-size: 0.875rem; }
+    .paperwork-card { border: 1px solid var(--border); border-radius: 0.6rem; background: color-mix(in srgb, var(--card) 96%, transparent); padding: 0.9rem; display: grid; gap: 0.5rem; box-shadow: 0 2px 8px rgba(12,24,38,0.06); }
+    .paperwork-card-title { margin: 0; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--fg); }
+    .paperwork-meta { margin: 0; color: color-mix(in srgb, var(--fg) 78%, var(--muted-fg) 22%); font-size: 0.875rem; }
     .paperwork-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
     .doc-link { color: var(--primary); font-weight: 600; font-size: 0.875rem; }
     .doc-link:hover { text-decoration: underline; }
 
     /* Paperwork switch */
     .paperwork-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin: 0.5rem 0 0.75rem; }
-    .paperwork-btn { border: 1px solid var(--border); border-radius: 0.375rem; padding: 0.5rem 0.75rem; background: var(--bg); font: 600 0.8125rem/1 inherit; color: var(--fg); cursor: pointer; transition: 150ms; }
+    .paperwork-btn { border: 1px solid var(--border); border-radius: 0.45rem; padding: 0.5rem 0.75rem; background: var(--bg); font: 700 0.8125rem/1 inherit; color: var(--fg); cursor: pointer; transition: 150ms; }
     .paperwork-btn:hover { background-color: var(--muted); }
-    .paperwork-btn.active { background-color: var(--fg); color: var(--bg); border-color: var(--fg); }
+    .paperwork-btn.active { background: color-mix(in srgb, var(--primary) 20%, var(--bg)); color: var(--fg); border-color: color-mix(in srgb, var(--primary) 56%, var(--border)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 32%, transparent); }
     .paperwork-form-card { display: none; border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.875rem; background: var(--bg); }
     .paperwork-form-card.active { display: block; }
 
@@ -160,6 +181,7 @@
     .message.error { color: var(--danger); }
     .notice.ok { color: var(--success); font-weight: 500; }
     .notice.error { color: var(--danger); font-weight: 500; }
+    .employee-main-stack > * + * { margin-top: 0.9rem; }
 
     /* Hint text */
     .hint { color: var(--muted-fg); font-size: 0.8125rem; margin-bottom: 0.375rem; }
@@ -199,7 +221,7 @@
 
   <div class="pt-14 min-h-[calc(100vh-3.5rem)] px-4 py-8">
     <div class="mx-auto max-w-[720px]">
-      <div class="card">
+      <div class="card employee-main-stack">
 
         <a class="back" href="{{ if .IsArchivedEmployee }}/admin/locations/{{ .Location.Number }}/employees/archived{{ else }}/admin/locations/{{ .Location.Number }}/employees{{ end }}">&#8592; Back to {{ if .IsArchivedEmployee }}Terminated Employees{{ else }}Employees{{ end }}</a>
 
@@ -210,6 +232,13 @@
             <span class="status-pill {{ if .IsArchivedEmployee }}archived{{ else if .Employee.HasCompletedPaperwork }}active{{ else }}new-hire{{ end }}">{{ if .IsArchivedEmployee }}Terminated{{ else if .Employee.HasCompletedPaperwork }}Active{{ else }}New Hire{{ end }}</span>
           </div>
           <p class="sub">Location {{ .Location.Name }} ({{ .Location.Number }}){{ if .IsArchivedEmployee }} &bull; Terminated {{ .Employee.ArchivedAt }}{{ end }}</p>
+        </div>
+        <div class="profile-photo-hero">
+          <img
+            class="photo-preview"
+            src="{{ if .Employee.HasPhoto }}/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/photo{{ else }}data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23888888' font-family='Manrope' font-size='14'%3ENo Photo%3C%2Ftext%3E%3C%2Fsvg%3E{{ end }}"
+            alt="{{ .Employee.FirstName }} {{ .Employee.LastName }} profile photo">
+          <p class="profile-photo-note">{{ if .Employee.HasPhoto }}Current profile photo{{ else }}No profile photo uploaded yet{{ end }}</p>
         </div>
 
         {{ if not .IsNewHireEmployee }}
@@ -250,6 +279,7 @@
         {{ end }}
 
         <section class="panel" data-panel="employee">
+          {{ if not .IsActiveEmployee }}
           <div class="summary-grid">
             <article class="summary-card">
               <p class="summary-label">Time Punch Name</p>
@@ -288,110 +318,124 @@
           {{ else }}
           <p class="hint" style="margin-top:0.75rem;">You can review and edit this employee in this section.</p>
           {{ end }}
+          {{ else }}
+          <p class="hint" style="margin-top:0.25rem;">Use the section buttons below to view and edit employee information.</p>
+          {{ end }}
         </section>
 
         {{ if .IsActiveEmployee }}
         <section class="panel" data-panel="employee">
-          <section class="section-card">
-            <h2 class="section-card-title">Edit Employee Details</h2>
-            <p class="section-card-sub">Use this form to update employee details.</p>
-            <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/details/update" style="display:grid; gap:1rem;">
-              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-
-              <div class="edit-form-grid two-col">
-                <div>
-                  <label>Time Punch Name</label>
-                  <div class="readonly-pill">{{ .Employee.TimePunchName }}</div>
-                </div>
-              </div>
-
-              <div class="edit-form-grid two-col">
-                <div>
-                  <label for="edit-first-name" class="{{ if index .EmployeeMissingProfileFieldSet "First Name" }}label-missing{{ end }}">First Name</label>
-                  <input id="edit-first-name" name="first_name" value="{{ .Employee.FirstName }}" required class="{{ if index .EmployeeMissingProfileFieldSet "First Name" }}input-missing{{ end }}">
-                </div>
-                <div>
-                  <label for="edit-last-name" class="{{ if index .EmployeeMissingProfileFieldSet "Last Name" }}label-missing{{ end }}">Last Name</label>
-                  <input id="edit-last-name" name="last_name" value="{{ .Employee.LastName }}" required class="{{ if index .EmployeeMissingProfileFieldSet "Last Name" }}input-missing{{ end }}">
-                </div>
-              </div>
-
-              <div class="edit-form-grid two-col">
-                <div>
-                  <label for="edit-email" class="{{ if index .EmployeeMissingProfileFieldSet "Email" }}label-missing{{ end }}">Email</label>
-                  <input id="edit-email" name="email" type="email" value="{{ .Employee.Email }}" class="{{ if index .EmployeeMissingProfileFieldSet "Email" }}input-missing{{ end }}">
-                </div>
-                <div>
-                  <label for="edit-phone" class="{{ if index .EmployeeMissingProfileFieldSet "Phone" }}label-missing{{ end }}">Phone</label>
-                  <input id="edit-phone" name="phone" value="{{ .Employee.Phone }}" class="{{ if index .EmployeeMissingProfileFieldSet "Phone" }}input-missing{{ end }}">
-                </div>
-              </div>
-
-              <div class="edit-form-grid two-col">
-                <div>
-                  <label class="{{ if index .EmployeeMissingProfileFieldSet "Birthday" }}label-missing{{ end }}">Birthday</label>
-                  <div class="edit-form-grid three-col">
-                    <div>
-                      <label for="edit-birthday-month" class="text-muted" style="margin-bottom:0.25rem;">Month</label>
-                      <select id="edit-birthday-month" name="birthday_month" data-selected="{{ .EmployeeBirthMonthInput }}" class="{{ if index .EmployeeMissingProfileFieldSet "Birthday" }}input-missing{{ end }}"></select>
-                    </div>
-                    <div>
-                      <label for="edit-birthday-day" class="text-muted" style="margin-bottom:0.25rem;">Day</label>
-                      <select id="edit-birthday-day" name="birthday_day" data-selected="{{ .EmployeeBirthDayInput }}" class="{{ if index .EmployeeMissingProfileFieldSet "Birthday" }}input-missing{{ end }}"></select>
-                    </div>
-                    <div>
-                      <label for="edit-birthday-year" class="text-muted" style="margin-bottom:0.25rem;">Year</label>
-                      <select id="edit-birthday-year" name="birthday_year" data-selected="{{ .EmployeeBirthYearInput }}" class="{{ if index .EmployeeMissingProfileFieldSet "Birthday" }}input-missing{{ end }}"></select>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <label for="edit-address" class="{{ if index .EmployeeMissingProfileFieldSet "Address" }}label-missing{{ end }}">Address</label>
-                  <input id="edit-address" name="address" value="{{ .Employee.Address }}" class="{{ if index .EmployeeMissingProfileFieldSet "Address" }}input-missing{{ end }}">
-                </div>
-              </div>
-
-              <div class="edit-form-grid three-col">
-                <div>
-                  <label for="edit-apt-number">Apt Number</label>
-                  <input id="edit-apt-number" name="apt_number" value="{{ .Employee.AptNumber }}">
-                </div>
-                <div>
-                  <label for="edit-city" class="{{ if index .EmployeeMissingProfileFieldSet "City" }}label-missing{{ end }}">City</label>
-                  <input id="edit-city" name="city" value="{{ .Employee.City }}" class="{{ if index .EmployeeMissingProfileFieldSet "City" }}input-missing{{ end }}">
-                </div>
-                <div>
-                  <label for="edit-state" class="{{ if index .EmployeeMissingProfileFieldSet "State" }}label-missing{{ end }}">State</label>
-                  <input id="edit-state" name="state" value="{{ .Employee.State }}" class="{{ if index .EmployeeMissingProfileFieldSet "State" }}input-missing{{ end }}">
-                </div>
-              </div>
-
-              <div class="edit-form-grid two-col">
-                <div>
-                  <label for="edit-zip-code" class="{{ if index .EmployeeMissingProfileFieldSet "Zip Code" }}label-missing{{ end }}">Zip Code</label>
-                  <input id="edit-zip-code" name="zip_code" value="{{ .Employee.ZipCode }}" class="{{ if index .EmployeeMissingProfileFieldSet "Zip Code" }}input-missing{{ end }}">
-                </div>
-                <div></div>
-              </div>
-
-              <div class="edit-form-grid two-col">
-                <div>
-                  <label for="edit-pay-type">Pay Type (from Pay Band)</label>
-                  <input id="edit-pay-type" value="{{ .Employee.PayType }}" disabled>
-                </div>
-                <div>
-                  <label for="edit-pay-amount">Base Pay Amount (from Pay Band)</label>
-                  <input id="edit-pay-amount" value="{{ .EmployeePayAmountInput }}" disabled>
-                </div>
-              </div>
-
-              <div class="button-row">
-                <button type="submit" class="btn btn-primary">Save Employee Details</button>
-              </div>
-            </form>
-          </section>
+          <div class="profile-section-nav">
+            <button class="profile-section-btn" type="button" data-profile-target="overview">Overview</button>
+            <button class="profile-section-btn" type="button" data-profile-target="role-pay">Role &amp; Pay</button>
+            <button class="profile-section-btn" type="button" data-profile-target="access">Access</button>
+            <button class="profile-section-btn" type="button" data-profile-target="photo">Photo</button>
+            <button class="profile-section-btn" type="button" data-profile-target="employment">Employment</button>
+          </div>
 
           <div class="section-stack">
+            <div class="profile-pane" data-profile-pane="overview">
+              <section class="section-card">
+                <h2 class="section-card-title">Personal Information</h2>
+                <p class="section-card-sub">Review and update core profile details for this team member.</p>
+                <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/details/update" style="display:grid; gap:1rem;">
+                  <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+
+                  <div class="edit-form-grid two-col">
+                    <div>
+                      <label>Time Punch Name</label>
+                      <div class="readonly-pill">{{ .Employee.TimePunchName }}</div>
+                    </div>
+                  </div>
+
+                  <div class="edit-form-grid two-col">
+                    <div>
+                      <label for="edit-first-name" class="{{ if index .EmployeeMissingProfileFieldSet "First Name" }}label-missing{{ end }}">First Name</label>
+                      <input id="edit-first-name" name="first_name" value="{{ .Employee.FirstName }}" required class="{{ if index .EmployeeMissingProfileFieldSet "First Name" }}input-missing{{ end }}">
+                    </div>
+                    <div>
+                      <label for="edit-last-name" class="{{ if index .EmployeeMissingProfileFieldSet "Last Name" }}label-missing{{ end }}">Last Name</label>
+                      <input id="edit-last-name" name="last_name" value="{{ .Employee.LastName }}" required class="{{ if index .EmployeeMissingProfileFieldSet "Last Name" }}input-missing{{ end }}">
+                    </div>
+                  </div>
+
+                  <div class="edit-form-grid two-col">
+                    <div>
+                      <label for="edit-email" class="{{ if index .EmployeeMissingProfileFieldSet "Email" }}label-missing{{ end }}">Email</label>
+                      <input id="edit-email" name="email" type="email" value="{{ .Employee.Email }}" class="{{ if index .EmployeeMissingProfileFieldSet "Email" }}input-missing{{ end }}">
+                    </div>
+                    <div>
+                      <label for="edit-phone" class="{{ if index .EmployeeMissingProfileFieldSet "Phone" }}label-missing{{ end }}">Phone</label>
+                      <input id="edit-phone" name="phone" value="{{ .Employee.Phone }}" class="{{ if index .EmployeeMissingProfileFieldSet "Phone" }}input-missing{{ end }}">
+                    </div>
+                  </div>
+
+                  <div class="edit-form-grid two-col">
+                    <div>
+                      <label class="{{ if index .EmployeeMissingProfileFieldSet "Birthday" }}label-missing{{ end }}">Birthday</label>
+                      <div class="edit-form-grid three-col">
+                        <div>
+                          <label for="edit-birthday-month" class="text-muted" style="margin-bottom:0.25rem;">Month</label>
+                          <select id="edit-birthday-month" name="birthday_month" data-selected="{{ .EmployeeBirthMonthInput }}" class="{{ if index .EmployeeMissingProfileFieldSet "Birthday" }}input-missing{{ end }}"></select>
+                        </div>
+                        <div>
+                          <label for="edit-birthday-day" class="text-muted" style="margin-bottom:0.25rem;">Day</label>
+                          <select id="edit-birthday-day" name="birthday_day" data-selected="{{ .EmployeeBirthDayInput }}" class="{{ if index .EmployeeMissingProfileFieldSet "Birthday" }}input-missing{{ end }}"></select>
+                        </div>
+                        <div>
+                          <label for="edit-birthday-year" class="text-muted" style="margin-bottom:0.25rem;">Year</label>
+                          <select id="edit-birthday-year" name="birthday_year" data-selected="{{ .EmployeeBirthYearInput }}" class="{{ if index .EmployeeMissingProfileFieldSet "Birthday" }}input-missing{{ end }}"></select>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label for="edit-address" class="{{ if index .EmployeeMissingProfileFieldSet "Address" }}label-missing{{ end }}">Address</label>
+                      <input id="edit-address" name="address" value="{{ .Employee.Address }}" class="{{ if index .EmployeeMissingProfileFieldSet "Address" }}input-missing{{ end }}">
+                    </div>
+                  </div>
+
+                  <div class="edit-form-grid three-col">
+                    <div>
+                      <label for="edit-apt-number">Apt Number</label>
+                      <input id="edit-apt-number" name="apt_number" value="{{ .Employee.AptNumber }}">
+                    </div>
+                    <div>
+                      <label for="edit-city" class="{{ if index .EmployeeMissingProfileFieldSet "City" }}label-missing{{ end }}">City</label>
+                      <input id="edit-city" name="city" value="{{ .Employee.City }}" class="{{ if index .EmployeeMissingProfileFieldSet "City" }}input-missing{{ end }}">
+                    </div>
+                    <div>
+                      <label for="edit-state" class="{{ if index .EmployeeMissingProfileFieldSet "State" }}label-missing{{ end }}">State</label>
+                      <input id="edit-state" name="state" value="{{ .Employee.State }}" class="{{ if index .EmployeeMissingProfileFieldSet "State" }}input-missing{{ end }}">
+                    </div>
+                  </div>
+
+                  <div class="edit-form-grid two-col">
+                    <div>
+                      <label for="edit-zip-code" class="{{ if index .EmployeeMissingProfileFieldSet "Zip Code" }}label-missing{{ end }}">Zip Code</label>
+                      <input id="edit-zip-code" name="zip_code" value="{{ .Employee.ZipCode }}" class="{{ if index .EmployeeMissingProfileFieldSet "Zip Code" }}input-missing{{ end }}">
+                    </div>
+                    <div></div>
+                  </div>
+
+                  <div class="edit-form-grid two-col">
+                    <div>
+                      <label for="edit-pay-type">Pay Type (from Pay Band)</label>
+                      <input id="edit-pay-type" value="{{ .Employee.PayType }}" disabled>
+                    </div>
+                    <div>
+                      <label for="edit-pay-amount">Base Pay Amount (from Pay Band)</label>
+                      <input id="edit-pay-amount" value="{{ .EmployeePayAmountInput }}" disabled>
+                    </div>
+                  </div>
+
+                  <div class="button-row">
+                    <button type="submit" class="btn btn-primary">Save Employee Details</button>
+                  </div>
+                </form>
+              </section>
+            </div>
+
+            <div class="profile-pane" data-profile-pane="role-pay">
             <section class="section-card">
               <h2 class="section-card-title">Role Assignment</h2>
               <p class="section-card-sub">Manage department, pay band, and stacked additional compensations.</p>
@@ -473,7 +517,9 @@
               </div>
               <div id="message" class="message">{{ if .SuccessMessage }}{{ .SuccessMessage }}{{ end }}{{ if .Error }}{{ .Error }}{{ end }}</div>
             </section>
+            </div>
 
+            <div class="profile-pane" data-profile-pane="access">
             <section class="section-card">
               <h2 class="section-card-title">Access</h2>
               <p class="section-card-sub">Set or replace the team member clock-in PIN.</p>
@@ -494,7 +540,9 @@
                 <span class="hint">{{ if .Employee.HasClockInPIN }}Start a team portal session as this employee for quick testing.{{ else }}Set a clock-in PIN first to enable team login.{{ end }}</span>
               </div>
             </section>
+            </div>
 
+            <div class="profile-pane" data-profile-pane="photo">
             <section class="section-card">
               <h2 class="section-card-title">Profile Photo</h2>
               <p class="section-card-sub">Upload, crop, and save the employee photo.</p>
@@ -531,7 +579,9 @@
               <button id="generate-link" type="button" class="btn btn-secondary btn-sm" style="margin-top:0.625rem;">Generate Secure Upload Link</button>
               <div id="upload-link-box" class="upload-link-box"></div>
             </section>
+            </div>
 
+            <div class="profile-pane" data-profile-pane="employment">
             <section class="section-card">
               <h2 class="section-card-title">Termination</h2>
               <p class="section-card-sub">Terminate this employee to move them out of the active list and into Terminated Employees.</p>
@@ -540,6 +590,7 @@
                 <button type="submit" class="btn btn-secondary btn-sm" style="border-color: var(--danger); color: var(--danger);">Terminate Employee</button>
               </form>
             </section>
+            </div>
           </div>
         </section>
         {{ end }}
@@ -1266,6 +1317,22 @@
 
   </script>
   {{ end }}
+  <script>
+    const profileSectionButtons = Array.from(document.querySelectorAll(".profile-section-btn"));
+    const profilePanes = Array.from(document.querySelectorAll(".profile-pane[data-profile-pane]"));
+
+    function showProfilePane(name) {
+      profileSectionButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.profileTarget === name));
+      profilePanes.forEach((pane) => pane.classList.toggle("active", pane.dataset.profilePane === name));
+    }
+
+    profileSectionButtons.forEach((btn) => {
+      btn.addEventListener("click", () => showProfilePane(btn.dataset.profileTarget));
+    });
+    if (profileSectionButtons.length > 0 && profilePanes.length > 0) {
+      showProfilePane("overview");
+    }
+  </script>
   <script>
     const submenuButtons = Array.from(document.querySelectorAll(".submenu-btn"));
     const panels = Array.from(document.querySelectorAll(".panel[data-panel]"));

@@ -8,45 +8,45 @@
   <title>Employee Paperwork</title>
   <style>
     :root {
-      --bg: #fafafa;
+      --bg: #edf3f9;
       --card: #ffffff;
-      --line: #e4e4e7;
-      --ink: #09090b;
-      --muted: #71717a;
-      --accent: #18181b;
-      --accent-hover: #09090b;
-      --accent-fg: #ffffff;
-      --soft: #f4f4f5;
-      --ok-fg: #166534;
-      --ok-bg: #f0fdf4;
-      --ok-line: #86efac;
-      --warn-fg: #003b55;
-      --warn-bg: #e6f2f7;
-      --warn-line: #2f8fb8;
-      --sig-ink: #18181b;
-      --focus: rgba(249, 115, 22, 0.25);
-      --shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
+      --line: #c8d6e5;
+      --ink: #0f1f2e;
+      --muted: #45596d;
+      --accent: #165b86;
+      --accent-hover: #0f496d;
+      --accent-fg: #f5fbff;
+      --soft: #f3f7fc;
+      --ok-fg: #0f5f37;
+      --ok-bg: #e6f5ee;
+      --ok-line: #8cd2ac;
+      --warn-fg: #0d4f78;
+      --warn-bg: #e5f1fa;
+      --warn-line: #68a7d2;
+      --sig-ink: #102132;
+      --focus: rgba(22, 91, 134, 0.24);
+      --shadow: 0 16px 34px rgba(9, 29, 52, 0.12);
     }
 
     html.dark {
-      --bg: #000000;
-      --card: #09090b;
-      --line: #27272a;
-      --ink: #f4f4f5;
-      --muted: #a1a1aa;
-      --accent: #f4f4f5;
-      --accent-hover: #e4e4e7;
-      --accent-fg: #09090b;
-      --soft: #18181b;
-      --ok-fg: #4ade80;
-      --ok-bg: #052e16;
-      --ok-line: #166534;
-      --warn-fg: #2f8fb8;
-      --warn-bg: #002a3c;
-      --warn-line: #003b55;
-      --sig-ink: #f4f4f5;
-      --focus: rgba(251, 146, 60, 0.3);
-      --shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
+      --bg: #08121d;
+      --card: #0f1c2a;
+      --line: #294057;
+      --ink: #e9f2fb;
+      --muted: #a8bdd3;
+      --accent: #79c7ff;
+      --accent-hover: #a5dbff;
+      --accent-fg: #07131f;
+      --soft: #122235;
+      --ok-fg: #8aefbe;
+      --ok-bg: #153325;
+      --ok-line: #2a8055;
+      --warn-fg: #a9ddff;
+      --warn-bg: #163449;
+      --warn-line: #3d7ea7;
+      --sig-ink: #f0f7ff;
+      --focus: rgba(121, 199, 255, 0.35);
+      --shadow: 0 16px 34px rgba(0, 0, 0, 0.5);
     }
 
     * { box-sizing: border-box; }
@@ -78,12 +78,14 @@
     }
     .sub {
       margin: 0 0 12px;
-      color: var(--muted);
+      color: #31495f !important;
       font-size: 0.9rem;
+      font-weight: 600;
     }
     .msg { margin: 0 0 10px; font-weight: 700; font-size: 0.9rem; }
     .msg.error { color: #dc2626; }
     .msg.ok { color: #16a34a; }
+    .msg.warn { color: #114f77 !important; }
     .req {
       color: #dc2626;
       font-weight: 900;
@@ -137,9 +139,9 @@
       color: var(--ok-fg);
     }
     .switch button.active {
-      border-color: #004f71;
-      box-shadow: inset 0 0 0 1px #004f71;
-      background: var(--soft);
+      border-color: color-mix(in srgb, var(--accent) 70%, var(--line) 30%);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 70%, var(--line) 30%);
+      background: color-mix(in srgb, var(--accent) 18%, var(--soft) 82%);
     }
     .panel { display: none; }
     .panel.active { display: block; }
@@ -154,7 +156,7 @@
       font-weight: 800;
       letter-spacing: 0.04em;
       text-transform: uppercase;
-      color: var(--muted);
+      color: #2f4b61 !important;
       line-height: 1.25;
       display: block;
     }
@@ -174,7 +176,7 @@
     }
     input:focus, select:focus, textarea:focus {
       outline: none;
-      border-color: #004f71;
+      border-color: var(--accent);
       box-shadow: 0 0 0 3px var(--focus);
     }
     .control-invalid {
@@ -182,9 +184,9 @@
       box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15);
     }
     .section-errors {
-      border: 1px solid #fca5a5;
-      background: #fff1f2;
-      color: #9f1239;
+      border: 1px solid #e78695;
+      background: #fff2f4;
+      color: #8f1230;
       border-radius: 10px;
       padding: 9px 10px;
       display: grid;
@@ -192,10 +194,13 @@
       font-size: 0.83rem;
       font-weight: 700;
     }
+    .section-errors[hidden] {
+      display: none !important;
+    }
     html.dark .section-errors {
-      border-color: #7f1d1d;
-      background: #2b0a0f;
-      color: #fda4af;
+      border-color: #8b2e3b;
+      background: #2e1318;
+      color: #ffb3bf;
     }
     .segment-row {
       display: grid;
@@ -258,7 +263,7 @@
     }
     .signature-status {
       min-height: 18px;
-      color: var(--muted);
+      color: #355168 !important;
       font-size: 0.82rem;
       font-weight: 700;
     }
@@ -272,9 +277,10 @@
     }
     .instruction-text {
       margin: 0;
-      color: var(--muted);
+      color: #365066 !important;
       font-size: 0.84rem;
       line-height: 1.45;
+      font-weight: 600;
     }
     .counter-row {
       display: grid;
@@ -302,6 +308,7 @@
       display: grid;
       place-items: center;
       font: 800 1rem/1 "Manrope", sans-serif;
+      color: #143148;
     }
     .total-value {
       min-height: 46px;
@@ -437,9 +444,28 @@
     }
     .file-dropzone-text {
       font: 700 0.82rem/1.35 "Manrope", sans-serif;
-      color: var(--muted);
+      color: #365066 !important;
       max-width: 260px;
       word-break: break-word;
+    }
+    html.dark .sub {
+      color: #d8e7f6 !important;
+    }
+    html.dark .msg.warn {
+      color: #c9e7ff !important;
+    }
+    html.dark .instruction-text,
+    html.dark .file-dropzone-text {
+      color: #d2e3f4 !important;
+    }
+    html.dark .label {
+      color: #d7e9fb !important;
+    }
+    html.dark .signature-status {
+      color: #d1e4f8 !important;
+    }
+    html.dark .counter-value {
+      color: #e4f1ff;
     }
     .file-dropzone-input {
       position: absolute;
@@ -681,6 +707,19 @@
         <div id="signature-errors" class="section-errors" hidden></div>
         <section class="wizard-step">
         <p class="sub" style="margin:0;">Draw your signature to sign all submitted paperwork and confirm the attestation below.</p>
+        <p class="msg warn">Profile photo upload is optional. Add one here if you want to create or replace the employee photo.</p>
+        <section class="instruction-card">
+          <p class="instruction-title">Profile Photo</p>
+          <p class="instruction-text">Upload a clear face photo (PNG, JPEG, or WEBP). We crop and optimize it automatically for the employee profile.</p>
+          <div class="field" style="margin:0;">
+            <label class="label" for="paperwork_photo_file">Profile Photo</label>
+            <div class="file-dropzone" data-dropzone data-dropzone-target="paperwork_photo_file">
+              <span class="file-dropzone-title">Drop Photo Here</span>
+              <span class="file-dropzone-text" data-dropzone-filename>Select or drop an image file</span>
+              <input id="paperwork_photo_file" class="file-dropzone-input" type="file" name="paperwork_photo_file" accept="image/png,image/jpeg,image/webp">
+            </div>
+          </div>
+        </section>
         <input id="i9_last_name" type="hidden" name="last_name" value="{{ .Employee.LastName }}">
         <input id="i9_first_name" type="hidden" name="first_name" value="{{ .Employee.FirstName }}">
         <input id="i9_middle_initial" type="hidden" name="middle_initial">
@@ -922,7 +961,6 @@
         if (!signatureCompletion.complete) {
           signatureErrors.push(`Complete required signature fields (${signatureCompletion.missing} remaining).`);
         }
-
         return {
           invalidIDs,
           i9Errors,

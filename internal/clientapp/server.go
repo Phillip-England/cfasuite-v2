@@ -430,6 +430,7 @@ type publicPaperworkTokenResponse struct {
 	TimePunchName  string `json:"timePunchName"`
 	FirstName      string `json:"firstName"`
 	LastName       string `json:"lastName"`
+	HasPhoto       bool   `json:"hasPhoto"`
 	ExpiresAt      string `json:"expiresAt"`
 }
 
@@ -807,7 +808,7 @@ type updateBusinessDayRequest struct {
 	LaborHours string `json:"laborHours"`
 }
 
-//go:embed templates/admin.html templates/login.html templates/team_login.html templates/team_portal.html templates/location_apps.html templates/location.html templates/location_settings.html templates/departments.html templates/archived_employees.html templates/time_punch.html templates/time_off.html templates/business_days.html templates/business_day.html templates/employee.html templates/uniforms.html templates/uniform_orders_archived.html templates/uniform_item.html templates/candidates.html templates/interview_process.html templates/candidate_detail.html templates/candidate_interview.html templates/candidate_interview_link.html templates/candidate_scorecard.html templates/public_photo_upload.html templates/public_employee_paperwork.html templates/public_candidate_interview.html templates/public_time_punch.html templates/public_time_off.html templates/public_uniform_order.html templates/public_uniform_order_item.html assets/app.css assets/upload-drop.js assets/shoe.svg assets/e2e-hooks.js
+//go:embed templates/admin.html templates/login.html templates/team_login.html templates/team_portal.html templates/location_apps.html templates/location.html templates/location_settings.html templates/departments.html templates/archived_employees.html templates/time_punch.html templates/time_off.html templates/business_days.html templates/business_day.html templates/employee.html templates/uniforms.html templates/uniform_orders_archived.html templates/uniform_item.html templates/candidates.html templates/interview_process.html templates/candidate_detail.html templates/candidate_interview.html templates/candidate_interview_link.html templates/candidate_scorecard.html templates/public_photo_upload.html templates/public_employee_paperwork.html templates/public_candidate_interview.html templates/public_time_punch.html templates/public_time_off.html templates/public_uniform_order.html templates/public_uniform_order_item.html assets/app.css assets/upload-drop.js assets/shoe.svg assets/e2e-hooks.js assets/nav-drawer.js
 var templatesFS embed.FS
 
 type server struct {
@@ -911,6 +912,7 @@ func Run(ctx context.Context, cfg Config) error {
 	mux.Handle("/assets/upload-drop.js", http.HandlerFunc(s.uploadDropFile))
 	mux.Handle("/assets/shoe.svg", http.HandlerFunc(s.shoeIconFile))
 	mux.Handle("/assets/e2e-hooks.js", http.HandlerFunc(s.e2eHooksFile))
+	mux.Handle("/assets/nav-drawer.js", http.HandlerFunc(s.navDrawerFile))
 	mux.Handle("/assets/i9-template.pdf", middleware.Chain(http.HandlerFunc(s.i9TemplateFile), s.requireLocationPortal))
 	mux.Handle("/assets/w4-template.pdf", middleware.Chain(http.HandlerFunc(s.w4TemplateFile), s.requireLocationPortal))
 	mux.Handle("/employee/photo-upload/", http.HandlerFunc(s.publicPhotoUploadRoutes))
@@ -1782,6 +1784,21 @@ func (s *server) e2eHooksFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data, err := templatesFS.ReadFile("assets/e2e-hooks.js")
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	w.Header().Set("Cache-Control", "private, max-age=300")
+	_, _ = w.Write(data)
+}
+
+func (s *server) navDrawerFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	data, err := templatesFS.ReadFile("assets/nav-drawer.js")
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -7390,6 +7407,7 @@ func (s *server) publicEmployeePaperworkPage(w http.ResponseWriter, r *http.Requ
 			TimePunchName: payload.TimePunchName,
 			FirstName:     payload.FirstName,
 			LastName:      payload.LastName,
+			HasPhoto:      payload.HasPhoto,
 		},
 		SuccessMessage: r.URL.Query().Get("message"),
 		Error:          r.URL.Query().Get("error"),
@@ -9537,23 +9555,29 @@ func renderHTMLTemplate(w http.ResponseWriter, tmpl *template.Template, data pag
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return err
 	}
-	body := injectE2EHooks(buf.Bytes())
+	body := injectSharedScripts(buf.Bytes())
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, err := w.Write(body)
 	return err
 }
 
-func injectE2EHooks(body []byte) []byte {
-	scriptPath := []byte("/assets/e2e-hooks.js")
+func injectSharedScripts(body []byte) []byte {
+	body = injectScript(body, "/assets/e2e-hooks.js")
+	body = injectScript(body, "/assets/nav-drawer.js")
+	return body
+}
+
+func injectScript(body []byte, path string) []byte {
+	scriptPath := []byte(path)
 	if bytes.Contains(body, scriptPath) {
 		return body
 	}
+	injectedScript := []byte("<script src=\"" + path + "\"></script>\n")
 	closingBody := []byte("</body>")
-	injection := []byte("<script src=\"/assets/e2e-hooks.js\"></script>\n</body>")
 	if bytes.Contains(body, closingBody) {
-		return bytes.Replace(body, closingBody, injection, 1)
+		return bytes.Replace(body, closingBody, append(injectedScript, closingBody...), 1)
 	}
-	return append(body, []byte("\n<script src=\"/assets/e2e-hooks.js\"></script>")...)
+	return append(body, injectedScript...)
 }
 
 func envOrDefault(name, fallback string) string {

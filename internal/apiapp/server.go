@@ -2600,6 +2600,7 @@ func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.R
 			"timePunchName":  timePunchName,
 			"firstName":      employeeRecord.FirstName,
 			"lastName":       employeeRecord.LastName,
+			"hasPhoto":       employeeRecord.HasPhoto,
 			"expiresAt":      expiresAt,
 		})
 	case http.MethodPost:
@@ -2628,6 +2629,22 @@ func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.R
 		if !saveI9 && !saveW4 {
 			writeError(w, http.StatusBadRequest, "invalid paperwork target")
 			return
+		}
+		if isMultipart {
+			photoData, photoMime, hasPhotoUpload, photoErr := parseOptionalUploadedPhotoWithField(r, "paperwork_photo_file")
+			if photoErr != nil {
+				writeError(w, http.StatusBadRequest, photoErr.Error())
+				return
+			}
+			if hasPhotoUpload {
+				if err := withSQLiteRetry(func() error {
+					return s.store.updateEmployeePhoto(r.Context(), locationNumber, timePunchName, photoData, photoMime)
+				}); err != nil {
+					writeError(w, http.StatusInternalServerError, "unable to persist photo: "+err.Error())
+					return
+				}
+				employeeRecord.HasPhoto = true
+			}
 		}
 		if normalizedState := normalizeUSStateCode(r.PostForm.Get("state")); normalizedState != "" {
 			r.PostForm.Set("state", normalizedState)
@@ -8470,15 +8487,16 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 	}
 
 	updated := 0
+	added := 0
 	terminated := 0
-	archived := 0
 
-	activeByKey := make(map[string]struct{})
 	terminatedByKey := make(map[string]struct{})
+	createdByEmployeeNumber := make(map[string]struct{})
 	for _, incoming := range parsedRows {
+		incomingEmployeeNumber := strings.TrimSpace(incoming.EmployeeNumber)
 		matchKey := ""
-		if strings.TrimSpace(incoming.EmployeeNumber) != "" {
-			if currentByNumber, found := employeesByNumber[strings.TrimSpace(incoming.EmployeeNumber)]; found {
+		if incomingEmployeeNumber != "" {
+			if currentByNumber, found := employeesByNumber[incomingEmployeeNumber]; found {
 				matchKey = currentByNumber.TimePunchName
 			}
 		}
@@ -8503,20 +8521,59 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 			}
 			terminatedByKey[matchKey] = struct{}{}
 			delete(employeesByKey, matchKey)
+			if incomingEmployeeNumber != "" {
+				delete(employeesByNumber, incomingEmployeeNumber)
+			}
 			terminated++
 			continue
 		}
 
 		current, found := employeesByKey[matchKey]
 		if !found {
-			// Candidate workflow is the only allowed employee creation path.
-			// Unknown bio rows are ignored instead of creating new employee records.
+			// Add missing active employees from the bio reader as new hires.
+			// They start with INIT department and blank pay/job fields until completed.
+			if incomingEmployeeNumber != "" {
+				if _, created := createdByEmployeeNumber[incomingEmployeeNumber]; created {
+					continue
+				}
+			}
+			timePunchName := incoming.TimePunchName
+			if timePunchName == "" {
+				continue
+			}
+			if _, exists := employeesByKey[timePunchName]; exists {
+				uniqueName, err := s.uniqueTimePunchNameForLocation(r.Context(), number, incoming.FirstName, incoming.LastName)
+				if err != nil {
+					writeError(w, http.StatusInternalServerError, "unable to prepare new-hire import")
+					return
+				}
+				timePunchName = uniqueName
+			}
+			newHire := employee{
+				TimePunchName:  timePunchName,
+				EmployeeNumber: incomingEmployeeNumber,
+				FirstName:      incoming.FirstName,
+				LastName:       incoming.LastName,
+				Department:     "INIT",
+			}
+			if err := withSQLiteRetry(func() error {
+				return s.store.upsertLocationEmployee(r.Context(), number, newHire)
+			}); err != nil {
+				writeError(w, http.StatusInternalServerError, "unable to add new hires from employee bio")
+				return
+			}
+			employeesByKey[newHire.TimePunchName] = newHire
+			if incomingEmployeeNumber != "" {
+				employeesByNumber[incomingEmployeeNumber] = newHire
+				createdByEmployeeNumber[incomingEmployeeNumber] = struct{}{}
+			}
+			added++
 			continue
 		}
 
 		changed := false
-		if strings.TrimSpace(incoming.EmployeeNumber) != "" && strings.TrimSpace(current.EmployeeNumber) != strings.TrimSpace(incoming.EmployeeNumber) {
-			current.EmployeeNumber = strings.TrimSpace(incoming.EmployeeNumber)
+		if incomingEmployeeNumber != "" && strings.TrimSpace(current.EmployeeNumber) != incomingEmployeeNumber {
+			current.EmployeeNumber = incomingEmployeeNumber
 			changed = true
 		}
 		if current.FirstName != incoming.FirstName {
@@ -8544,32 +8601,15 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 		if strings.TrimSpace(current.EmployeeNumber) != "" {
 			employeesByNumber[strings.TrimSpace(current.EmployeeNumber)] = current
 		}
-		activeByKey[current.TimePunchName] = struct{}{}
-	}
-
-	for _, existingEmployee := range existing {
-		if _, ok := activeByKey[existingEmployee.TimePunchName]; ok {
-			continue
-		}
-		if _, ok := terminatedByKey[existingEmployee.TimePunchName]; ok {
-			continue
-		}
-		if err := withSQLiteRetry(func() error {
-			return s.store.archiveAndDeleteLocationEmployee(r.Context(), number, existingEmployee.TimePunchName)
-		}); err != nil {
-			writeError(w, http.StatusInternalServerError, "unable to archive removed employees")
-			return
-		}
-		archived++
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"message":    "employee bio reader imported",
-		"added":      0,
+		"added":      added,
 		"updated":    updated,
 		"terminated": terminated,
-		"archived":   archived,
-		"count":      len(activeByKey),
+		"archived":   0,
+		"count":      len(parsedRows),
 	})
 }
 
@@ -12671,7 +12711,7 @@ func (s *sqliteStore) listLocationEmployees(ctx context.Context, number string) 
 				WHERE w.location_number = e.location_number
 					AND w.time_punch_name = e.time_punch_name
 					AND LENGTH(COALESCE(w.file_data, '')) > 0
-			) THEN 1 ELSE 0 END AS has_completed_paperwork
+			THEN 1 ELSE 0 END AS has_completed_paperwork
 		FROM location_employees e
 		LEFT JOIN location_jobs j ON j.id = e.job_id AND j.location_number = e.location_number
 		LEFT JOIN (
@@ -12837,7 +12877,7 @@ func (s *sqliteStore) getLocationEmployee(ctx context.Context, locationNumber, t
 				WHERE w.location_number = e.location_number
 					AND w.time_punch_name = e.time_punch_name
 					AND LENGTH(COALESCE(w.file_data, '')) > 0
-			) THEN 1 ELSE 0 END AS has_completed_paperwork
+			THEN 1 ELSE 0 END AS has_completed_paperwork
 		FROM location_employees e
 		LEFT JOIN location_jobs j ON j.id = e.job_id AND j.location_number = e.location_number
 		LEFT JOIN (
@@ -19931,6 +19971,39 @@ func parseUploadedPhotoWithField(r *http.Request, fieldName string) ([]byte, str
 	cropY := parsePositiveInt(r.FormValue("crop_y"), 0)
 	cropSize := parsePositiveInt(r.FormValue("crop_size"), 0)
 	return processUploadedPhotoBytes(raw, cropX, cropY, cropSize)
+}
+
+func parseOptionalUploadedPhotoWithField(r *http.Request, fieldName string) ([]byte, string, bool, error) {
+	if err := r.ParseMultipartForm(12 << 20); err != nil {
+		return nil, "", false, errors.New("invalid upload form")
+	}
+	if r.MultipartForm == nil {
+		return nil, "", false, nil
+	}
+	files := r.MultipartForm.File[fieldName]
+	if len(files) == 0 || files[0] == nil {
+		return nil, "", false, nil
+	}
+	file, err := files[0].Open()
+	if err != nil {
+		return nil, "", false, errors.New("unable to read photo file")
+	}
+	defer file.Close()
+	raw, err := io.ReadAll(io.LimitReader(file, 10<<20))
+	if err != nil {
+		return nil, "", false, errors.New("unable to read photo file")
+	}
+	if len(raw) == 0 {
+		return nil, "", false, errors.New("photo file is empty")
+	}
+	cropX := parsePositiveInt(r.FormValue("crop_x"), 0)
+	cropY := parsePositiveInt(r.FormValue("crop_y"), 0)
+	cropSize := parsePositiveInt(r.FormValue("crop_size"), 0)
+	processed, mime, err := processUploadedPhotoBytes(raw, cropX, cropY, cropSize)
+	if err != nil {
+		return nil, "", false, err
+	}
+	return processed, mime, true, nil
 }
 
 func processUploadedPhotoBytes(raw []byte, cropX, cropY, cropSize int) ([]byte, string, error) {
