@@ -57,8 +57,8 @@ First-time VPS bootstrap (Ubuntu/Debian):
 
 What run targets do:
   run api     Start API server only (default .env API_ADDR=:8080)
-  run client  Build assets if needed, then start client server (default CLIENT_ADDR=:3000)
-  run all     Build assets if needed, start API + client together
+  run client  Rebuild frontend assets, then start client server (default CLIENT_ADDR=:3000)
+  run all     Rebuild frontend assets, start API + client together
 
 Notes:
   - The CLI auto-builds frontend assets and auto-installs Tailwind and pdfcpu binaries into ./bin when needed.

@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" href="/assets/app.css">
+  <script defer src="/assets/nav-drawer.js"></script>
   <script defer src="/assets/upload-drop.js"></script>
   <title>Employee Paperwork</title>
   <style>
@@ -110,6 +111,7 @@
     .personal-grid {
       display: grid;
       gap: 10px;
+      align-items: start;
     }
     .switch {
       display: grid;
@@ -281,6 +283,13 @@
       font-size: 0.84rem;
       line-height: 1.45;
       font-weight: 600;
+    }
+    .status-detail-grid {
+      display: grid;
+      gap: 10px;
+    }
+    .status-detail-grid[hidden] {
+      display: none !important;
     }
     .counter-row {
       display: grid;
@@ -458,6 +467,16 @@
     html.dark .file-dropzone-text {
       color: #d2e3f4 !important;
     }
+    html.dark .legal-help summary {
+      color: #eff7ff;
+    }
+    html.dark .legal-help-body,
+    html.dark .legal-help-list li {
+      color: #d7e8f8;
+    }
+    html.dark .legal-help summary::after {
+      color: #bfd4e7;
+    }
     html.dark .label {
       color: #d7e9fb !important;
     }
@@ -513,35 +532,75 @@
   </script>
 
 </head>
-<body class="min-h-screen pt-6 bg-white text-zinc-900 dark:bg-black dark:text-zinc-100 transition-colors duration-200">
-  <section class="card relative mx-auto w-full max-w-[760px] rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950 md:p-6">
-    <button id="theme-toggle" type="button" aria-label="Toggle theme" class="absolute top-3 right-3 z-20 h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-white/90 dark:bg-zinc-900/90 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors backdrop-blur">
-      <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-      <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-    </button>
+<body class="min-h-screen bg-white text-zinc-900 dark:bg-black dark:text-zinc-100 transition-colors duration-200">
+  <header class="fixed inset-x-0 top-0 z-50 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
+    <div class="mx-auto max-w-6xl px-4">
+      <div class="flex items-center justify-between py-2">
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100" style="text-decoration:none">CFA Suite</a>
+        <div class="flex items-center gap-2">
+          <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
+          <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+          <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" class="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <span class="sr-only">Open menu</span>
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center flex-wrap gap-1 pt-2 pb-2 border-t border-zinc-200 dark:border-zinc-800" id="nav-desktop">
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employees</a>
+        <a href="/admin/locations/{{ .Location.Number }}/departments" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Departments</a>
+        <a href="/admin/locations/{{ .Location.Number }}/pay-bands" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Pay Bands</a>
+        <a href="/admin/locations/{{ .Location.Number }}/time-punch" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Time Punch</a>
+        <a href="/admin/locations/{{ .Location.Number }}/time-off" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Vacation Requests</a>
+        <a href="/admin/locations/{{ .Location.Number }}/uniforms" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Uniforms</a>
+        <a href="/admin/locations/{{ .Location.Number }}/business-days" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Business Days</a>
+        <a href="/admin/locations/{{ .Location.Number }}/settings" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Settings</a>
+        <a href="/employee/paperwork/location/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employee Paperwork</a>
+      </nav>
+    </div>
+    <div id="nav-mobile" class="hidden border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+      <div class="mx-auto max-w-6xl px-4 py-2 flex flex-col gap-1">
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employees</a>
+        <a href="/admin/locations/{{ .Location.Number }}/departments" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Departments</a>
+        <a href="/admin/locations/{{ .Location.Number }}/pay-bands" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Pay Bands</a>
+        <a href="/admin/locations/{{ .Location.Number }}/time-punch" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Time Punch</a>
+        <a href="/admin/locations/{{ .Location.Number }}/time-off" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Vacation Requests</a>
+        <a href="/admin/locations/{{ .Location.Number }}/uniforms" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Uniforms</a>
+        <a href="/admin/locations/{{ .Location.Number }}/business-days" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Business Days</a>
+        <a href="/admin/locations/{{ .Location.Number }}/settings" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Settings</a>
+        <a href="/employee/paperwork/location/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employee Paperwork</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="pt-24 min-h-[calc(100vh-6rem)] px-4 py-8">
+  <section class="card">
     <h1>Employee Paperwork</h1>
-    <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})<br>Employee: <strong>{{ .Employee.FirstName }} {{ .Employee.LastName }}</strong></p>
+    <p class="sub">{{ .Location.Name }} ({{ .Location.Number }})<br>Complete I-9 and W-4 paperwork for any individual.</p>
     {{ if .Error }}<p class="msg error">{{ .Error }}</p>{{ end }}
     {{ if .SuccessMessage }}<p class="msg ok">{{ .SuccessMessage }}</p>{{ end }}
 
 
     <div class="switch">
       <button id="show-i9" type="button" class="active">I-9</button>
-      <button id="show-legal" type="button">Legal Documents</button>
       <button id="show-w4" type="button">W-4</button>
-      <button id="show-signature" type="button">Signature</button>
     </div>
 
     <form id="paperwork-form" method="post" action="/employee/paperwork/{{ .Token }}" enctype="multipart/form-data">
-      <input id="paperwork_target" type="hidden" name="paperwork_target" value="all">
+      <input id="paperwork_target" type="hidden" name="paperwork_target" value="w4">
       <section id="panel-i9" class="panel panel-grid active">
         <div id="i9-errors" class="section-errors" hidden></div>
         <section class="personal-card">
           <h2>I-9 Personal Info</h2>
           <div class="personal-grid">
-            <div class="field"><label class="label" for="personal_first_name">First Name<span class="req">*</span></label><input id="personal_first_name" type="text" value="{{ .Employee.FirstName }}"></div>
+            <div class="field"><label class="label" for="personal_first_name">First Name<span class="req">*</span></label><input id="personal_first_name" type="text"></div>
             <div class="field"><label class="label" for="personal_middle_initial">Middle Initial</label><input id="personal_middle_initial" type="text"></div>
-            <div class="field"><label class="label" for="personal_last_name">Last Name<span class="req">*</span></label><input id="personal_last_name" type="text" value="{{ .Employee.LastName }}"></div>
+            <div class="field"><label class="label" for="personal_last_name">Last Name<span class="req">*</span></label><input id="personal_last_name" type="text"></div>
             <div class="field">
               <label class="label" for="personal_dob_month">Date of Birth<span class="req">*</span></label>
               <input id="personal_dob" type="hidden">
@@ -658,11 +717,40 @@
                 <option value="alien_authorized">4. An alien authorized to work until</option>
               </select>
             </div>
+            <section id="i9-status-lpr" class="instruction-card status-detail-grid" hidden>
+              <p class="instruction-title">Lawful Permanent Resident Details</p>
+              <p class="instruction-text">Enter either USCIS Number or A-Number. Fill exactly one of these fields.</p>
+              <div class="field">
+                <label class="label" for="i9_lpr_uscis_number">USCIS Number</label>
+                <input id="i9_lpr_uscis_number" type="text" name="citizenship_lpr_uscis_number" disabled>
+              </div>
+              <div class="field">
+                <label class="label" for="i9_lpr_anumber">A-Number</label>
+                <input id="i9_lpr_anumber" type="text" name="citizenship_lpr_anumber" disabled>
+              </div>
+            </section>
+            <section id="i9-status-alien" class="instruction-card status-detail-grid" hidden>
+              <p class="instruction-title">Alien Authorized To Work Details</p>
+              <p class="instruction-text">Alien To Work Expiration (If Any) is optional. Fill exactly one identifier below: USCIS Number, Form I-94 Admission Number, or Foreign Passport Number and Country of Issuance.</p>
+              <div class="field">
+                <label class="label" for="i9_alien_expiration">Alien To Work Expiration (If Any)</label>
+                <input id="i9_alien_expiration" type="text" name="alien_exp_date" placeholder="MM/DD/YYYY" disabled>
+              </div>
+              <div class="field">
+                <label class="label" for="i9_alien_uscis_number">USCIS Number</label>
+                <input id="i9_alien_uscis_number" type="text" name="alien_uscis_number" disabled>
+              </div>
+              <div class="field">
+                <label class="label" for="i9_alien_i94_number">Form I-94 Admission Number</label>
+                <input id="i9_alien_i94_number" type="text" name="alien_i94_number" disabled>
+              </div>
+              <div class="field">
+                <label class="label" for="i9_alien_passport_country">Foreign Passport Number and Country of Issuance</label>
+                <input id="i9_alien_passport_country" type="text" name="alien_passport_country" disabled>
+              </div>
+            </section>
           </div>
         </section>
-      </section>
-
-      <section id="panel-legal" class="panel panel-grid">
         <div id="legal-errors" class="section-errors" hidden></div>
         <section class="wizard-step">
           <section class="doc-upload-grid">
@@ -701,65 +789,90 @@
             <div id="i9-doc-rows"></div>
           </section>
         </section>
-      </section>
-
-      <section id="panel-signature" class="panel panel-grid">
-        <div id="signature-errors" class="section-errors" hidden></div>
-        <section class="wizard-step">
-        <p class="sub" style="margin:0;">Draw your signature to sign all submitted paperwork and confirm the attestation below.</p>
-        <p class="msg warn">Profile photo upload is optional. Add one here if you want to create or replace the employee photo.</p>
-        <section class="instruction-card">
-          <p class="instruction-title">Profile Photo</p>
-          <p class="instruction-text">Upload a clear face photo (PNG, JPEG, or WEBP). We crop and optimize it automatically for the employee profile.</p>
-          <div class="field" style="margin:0;">
-            <label class="label" for="paperwork_photo_file">Profile Photo</label>
-            <div class="file-dropzone" data-dropzone data-dropzone-target="paperwork_photo_file">
-              <span class="file-dropzone-title">Drop Photo Here</span>
-              <span class="file-dropzone-text" data-dropzone-filename>Select or drop an image file</span>
-              <input id="paperwork_photo_file" class="file-dropzone-input" type="file" name="paperwork_photo_file" accept="image/png,image/jpeg,image/webp">
-            </div>
-          </div>
-        </section>
-        <input id="i9_last_name" type="hidden" name="last_name" value="{{ .Employee.LastName }}">
-        <input id="i9_first_name" type="hidden" name="first_name" value="{{ .Employee.FirstName }}">
-        <input id="i9_middle_initial" type="hidden" name="middle_initial">
-        <input id="i9_dob" type="hidden" name="date_of_birth">
-        <input id="i9_address" type="hidden" name="address">
-        <input id="i9_apt" type="hidden" name="apt_number">
-        <input id="i9_city" type="hidden" name="city">
-        <input id="i9_state" type="hidden" name="state">
-        <input id="i9_zip" type="hidden" name="zip_code">
-        <input id="i9_ssn" type="hidden" name="ssn">
-        <input id="i9_email" type="hidden" name="email">
-        <input id="i9_phone" type="hidden" name="phone">
-        <section class="signature-pad-shell">
-          <div class="label" style="text-transform:none;letter-spacing:0;font-size:0.86rem;">Digital Signature (Draw)</div>
-          <canvas id="i9-signature-pad" class="signature-pad" width="560" height="170"></canvas>
-          <input id="i9_employee_signature_drawn" type="hidden" name="employee_signature_drawn" value="">
-          <div class="button-row">
-            <button id="i9-signature-clear" type="button" class="btn secondary">Clear</button>
-          </div>
-          <div id="i9-signature-status" class="signature-status"></div>
-        </section>
-        <div class="field">
-          <label class="label" for="employee_esign_attestation" style="text-transform:none;letter-spacing:0;">Electronic Signature Attestation<span class="req">*</span></label>
-          <label style="display:flex;align-items:flex-start;gap:8px;font-size:0.9rem;line-height:1.35;text-transform:none;letter-spacing:0;font-weight:600;">
-            <input id="employee_esign_attestation" name="employee_esign_attestation" type="checkbox" value="1" style="width:18px;height:18px;min-height:18px;margin-top:2px;">
-            I certify under penalty of perjury that the information submitted is true and complete, and I adopt my drawn signature for this I-9 and W-4 submission.
-          </label>
-        </div>
-        </section>
+        <div id="signature-mount-i9"></div>
         <div class="button-row">
-          <button id="paperwork-submit-btn" class="btn" type="submit">Submit Paperwork</button>
+          <button id="i9-submit-btn" class="btn" type="submit">Submit I-9</button>
         </div>
       </section>
 
       <section id="panel-w4" class="panel panel-grid">
         <div id="w4-errors" class="section-errors" hidden></div>
         <section class="wizard-step">
-        <p class="sub" style="margin:0;">Name, address, and SSN are pulled from Personal Info. Employer defaults come from this location's settings.</p>
-        <input id="w4_first_name_middle" type="hidden" name="first_name_middle" value="{{ .Employee.FirstName }}">
-        <input id="w4_last_name" type="hidden" name="last_name" value="{{ .Employee.LastName }}">
+        <p class="sub" style="margin:0;">Complete W-4 identity and withholding fields below. This section is independent from I-9.</p>
+        <div class="field"><label class="label" for="w4_first_name">First Name<span class="req">*</span></label><input id="w4_first_name" type="text" autocomplete="given-name"></div>
+        <div class="field"><label class="label" for="w4_last_name_visible">Last Name<span class="req">*</span></label><input id="w4_last_name_visible" type="text" autocomplete="family-name"></div>
+        <div class="field">
+          <label class="label" for="w4_ssn_1">Social Security Number<span class="req">*</span></label>
+          <div class="segment-row">
+            <input id="w4_ssn_1" class="segment" inputmode="numeric" maxlength="3" placeholder="XXX" autocomplete="off">
+            <span class="segment-sep">-</span>
+            <input id="w4_ssn_2" class="segment" inputmode="numeric" maxlength="2" placeholder="XX" autocomplete="off">
+            <span class="segment-sep">-</span>
+            <input id="w4_ssn_3" class="segment" inputmode="numeric" maxlength="4" placeholder="XXXX" autocomplete="off">
+          </div>
+        </div>
+        <div class="field"><label class="label" for="w4_address_visible">Street Address<span class="req">*</span></label><input id="w4_address_visible" type="text" autocomplete="street-address"></div>
+        <div class="field"><label class="label" for="w4_city_visible">City<span class="req">*</span></label><input id="w4_city_visible" type="text" maxlength="100" autocomplete="address-level2"></div>
+        <div class="field">
+          <label class="label" for="w4_state_visible">State<span class="req">*</span></label>
+          <select id="w4_state_visible" autocomplete="address-level1">
+            <option value="">Select State</option>
+            <option value="AL">AL - Alabama</option>
+            <option value="AK">AK - Alaska</option>
+            <option value="AZ">AZ - Arizona</option>
+            <option value="AR">AR - Arkansas</option>
+            <option value="CA">CA - California</option>
+            <option value="CO">CO - Colorado</option>
+            <option value="CT">CT - Connecticut</option>
+            <option value="DE">DE - Delaware</option>
+            <option value="DC">DC - District of Columbia</option>
+            <option value="FL">FL - Florida</option>
+            <option value="GA">GA - Georgia</option>
+            <option value="HI">HI - Hawaii</option>
+            <option value="ID">ID - Idaho</option>
+            <option value="IL">IL - Illinois</option>
+            <option value="IN">IN - Indiana</option>
+            <option value="IA">IA - Iowa</option>
+            <option value="KS">KS - Kansas</option>
+            <option value="KY">KY - Kentucky</option>
+            <option value="LA">LA - Louisiana</option>
+            <option value="ME">ME - Maine</option>
+            <option value="MD">MD - Maryland</option>
+            <option value="MA">MA - Massachusetts</option>
+            <option value="MI">MI - Michigan</option>
+            <option value="MN">MN - Minnesota</option>
+            <option value="MS">MS - Mississippi</option>
+            <option value="MO">MO - Missouri</option>
+            <option value="MT">MT - Montana</option>
+            <option value="NE">NE - Nebraska</option>
+            <option value="NV">NV - Nevada</option>
+            <option value="NH">NH - New Hampshire</option>
+            <option value="NJ">NJ - New Jersey</option>
+            <option value="NM">NM - New Mexico</option>
+            <option value="NY">NY - New York</option>
+            <option value="NC">NC - North Carolina</option>
+            <option value="ND">ND - North Dakota</option>
+            <option value="OH">OH - Ohio</option>
+            <option value="OK">OK - Oklahoma</option>
+            <option value="OR">OR - Oregon</option>
+            <option value="PA">PA - Pennsylvania</option>
+            <option value="RI">RI - Rhode Island</option>
+            <option value="SC">SC - South Carolina</option>
+            <option value="SD">SD - South Dakota</option>
+            <option value="TN">TN - Tennessee</option>
+            <option value="TX">TX - Texas</option>
+            <option value="UT">UT - Utah</option>
+            <option value="VT">VT - Vermont</option>
+            <option value="VA">VA - Virginia</option>
+            <option value="WA">WA - Washington</option>
+            <option value="WV">WV - West Virginia</option>
+            <option value="WI">WI - Wisconsin</option>
+            <option value="WY">WY - Wyoming</option>
+          </select>
+        </div>
+        <div class="field"><label class="label" for="w4_zip_visible">ZIP Code<span class="req">*</span></label><input id="w4_zip_visible" type="text" maxlength="10" placeholder="12345 or 12345-6789" autocomplete="postal-code"></div>
+        <input id="w4_first_name_middle" type="hidden" name="first_name_middle" value="">
+        <input id="w4_last_name" type="hidden" name="last_name" value="">
         <input id="w4_address" type="hidden" name="address">
         <input id="w4_city_state_zip" type="hidden" name="city_state_zip">
         <input id="w4_ssn" type="hidden" name="ssn">
@@ -815,25 +928,62 @@
         <div class="field"><label class="label" for="w4_extra">Extra withholding per pay period</label><input id="w4_extra" type="text" name="extra_withholding" inputmode="decimal" placeholder="$0.00"></div>
         <div class="field"><label class="label" for="w4_exempt">Exempt</label><select id="w4_exempt" name="exempt"><option value="">No</option><option value="1">Yes</option></select></div>
         </section>
+        <div id="signature-mount-w4"></div>
+        <div class="button-row">
+          <button id="w4-submit-btn" class="btn" type="submit">Submit W-4</button>
+        </div>
+      </section>
+
+      <section id="shared-signature-section" class="wizard-step" hidden>
+        <div id="signature-errors" class="section-errors" hidden></div>
+        <p class="sub" style="margin:0;">Draw your signature to sign the selected form and confirm the attestation below.</p>
+        <input id="i9_last_name" type="hidden" name="last_name" value="">
+        <input id="i9_first_name" type="hidden" name="first_name" value="">
+        <input id="i9_middle_initial" type="hidden" name="middle_initial">
+        <input id="i9_dob" type="hidden" name="date_of_birth">
+        <input id="i9_address" type="hidden" name="address">
+        <input id="i9_apt" type="hidden" name="apt_number">
+        <input id="i9_city" type="hidden" name="city">
+        <input id="i9_state" type="hidden" name="state">
+        <input id="i9_zip" type="hidden" name="zip_code">
+        <input id="i9_ssn" type="hidden" name="ssn">
+        <input id="i9_email" type="hidden" name="email">
+        <input id="i9_phone" type="hidden" name="phone">
+        <section class="signature-pad-shell">
+          <div class="label" style="text-transform:none;letter-spacing:0;font-size:0.86rem;">Digital Signature (Draw)</div>
+          <canvas id="i9-signature-pad" class="signature-pad" width="560" height="170"></canvas>
+          <input id="i9_employee_signature_drawn" type="hidden" name="employee_signature_drawn" value="">
+          <div class="button-row">
+            <button id="i9-signature-clear" type="button" class="btn secondary">Clear</button>
+          </div>
+          <div id="i9-signature-status" class="signature-status"></div>
+        </section>
+        <div class="field">
+          <label class="label" for="employee_esign_attestation" style="text-transform:none;letter-spacing:0;">Electronic Signature Attestation<span class="req">*</span></label>
+          <label style="display:flex;align-items:flex-start;gap:8px;font-size:0.9rem;line-height:1.35;text-transform:none;letter-spacing:0;font-weight:600;">
+            <input id="employee_esign_attestation" name="employee_esign_attestation" type="checkbox" value="1" style="width:18px;height:18px;min-height:18px;margin-top:2px;">
+            I certify under penalty of perjury that the information submitted is true and complete, and I adopt my drawn signature for this submission.
+          </label>
+        </div>
       </section>
 
     </form>
   </section>
+  </div>
 
   <script>
     (() => {
       const i9Btn = document.getElementById("show-i9");
-      const legalBtn = document.getElementById("show-legal");
       const w4Btn = document.getElementById("show-w4");
-      const signatureBtn = document.getElementById("show-signature");
       const i9Panel = document.getElementById("panel-i9");
-      const legalPanel = document.getElementById("panel-legal");
       const w4Panel = document.getElementById("panel-w4");
-      const signaturePanel = document.getElementById("panel-signature");
+      const signatureSection = document.getElementById("shared-signature-section");
+      const signatureMountI9 = document.getElementById("signature-mount-i9");
+      const signatureMountW4 = document.getElementById("signature-mount-w4");
       const paperworkTarget = document.getElementById("paperwork_target");
-      const paperworkSubmitBtn = document.getElementById("paperwork-submit-btn");
+      const i9SubmitBtn = document.getElementById("i9-submit-btn");
+      const w4SubmitBtn = document.getElementById("w4-submit-btn");
       const paperworkForm = document.getElementById("paperwork-form");
-      const draftKey = `cfasuite-paperwork-draft:{{ .Location.Number }}:{{ .Employee.TimePunchName }}`;
       const i9ErrorsEl = document.getElementById("i9-errors");
       const legalErrorsEl = document.getElementById("legal-errors");
       const w4ErrorsEl = document.getElementById("w4-errors");
@@ -842,14 +992,35 @@
       const zipPattern = /^\d{5}(-\d{4})?$/;
       const cityPattern = /^[A-Z][A-Z .'-]{0,99}$/;
       const currencyPattern = /^\d+(\.\d{1,2})?$/;
+      const slashDatePattern = /^(0[1-9]|1[0-2])\/(0[1-9]|[12]\d|3[01])\/\d{4}$/;
       let ink = false;
-      let draftSaveTimer = null;
       let invalidControlIDs = new Set();
       function hasText(id) {
         return (document.getElementById(id)?.value || "").trim() !== "";
       }
       function hasSegmented(ids, lengths) {
         return ids.every((id, idx) => digitsOnly(document.getElementById(id)?.value || "").length === lengths[idx]);
+      }
+      function countFilled(ids) {
+        return ids.filter((id) => hasText(id)).length;
+      }
+      const i9StatusSelect = document.getElementById("i9_status");
+      const i9StatusLPRSection = document.getElementById("i9-status-lpr");
+      const i9StatusAlienSection = document.getElementById("i9-status-alien");
+      const i9LPRFieldIDs = ["i9_lpr_uscis_number", "i9_lpr_anumber"];
+      const i9AlienFieldIDs = ["i9_alien_expiration", "i9_alien_uscis_number", "i9_alien_i94_number", "i9_alien_passport_country"];
+      function setI9StatusSectionState(section, fieldIDs, enabled) {
+        if (section) section.hidden = !enabled;
+        fieldIDs.forEach((id) => {
+          const field = document.getElementById(id);
+          if (!field) return;
+          field.disabled = !enabled;
+        });
+      }
+      function updateI9StatusFields() {
+        const status = (i9StatusSelect?.value || "").trim();
+        setI9StatusSectionState(i9StatusLPRSection, i9LPRFieldIDs, status === "lpr");
+        setI9StatusSectionState(i9StatusAlienSection, i9AlienFieldIDs, status === "alien_authorized");
       }
       function setSectionButtonState(btn, complete) {
         if (!btn) return;
@@ -931,6 +1102,38 @@
           invalidIDs.add("personal_ssn_2");
           invalidIDs.add("personal_ssn_3");
         }
+        const i9StatusValue = (document.getElementById("i9_status")?.value || "").trim();
+        const lprFilledCount = countFilled(["i9_lpr_uscis_number", "i9_lpr_anumber"]);
+        const alienIdentifierFilledCount = countFilled(["i9_alien_uscis_number", "i9_alien_i94_number", "i9_alien_passport_country"]);
+        const alienExpirationValue = (document.getElementById("i9_alien_expiration")?.value || "").trim();
+        if (i9StatusValue === "lpr") {
+          if (lprFilledCount === 0) {
+            i9Errors.push("Lawful permanent resident status requires either a USCIS Number or an A-Number.");
+            invalidIDs.add("i9_lpr_uscis_number");
+            invalidIDs.add("i9_lpr_anumber");
+          } else if (lprFilledCount > 1) {
+            i9Errors.push("Enter only one of USCIS Number or A-Number for lawful permanent resident status.");
+            invalidIDs.add("i9_lpr_uscis_number");
+            invalidIDs.add("i9_lpr_anumber");
+          }
+        }
+        if (i9StatusValue === "alien_authorized") {
+          if (alienExpirationValue !== "" && !slashDatePattern.test(alienExpirationValue)) {
+            i9Errors.push("Alien To Work Expiration (If Any) must use MM/DD/YYYY format.");
+            invalidIDs.add("i9_alien_expiration");
+          }
+          if (alienIdentifierFilledCount === 0) {
+            i9Errors.push("Alien authorized to work status requires exactly one identifier: USCIS Number, Form I-94 Admission Number, or Foreign Passport Number and Country of Issuance.");
+            invalidIDs.add("i9_alien_uscis_number");
+            invalidIDs.add("i9_alien_i94_number");
+            invalidIDs.add("i9_alien_passport_country");
+          } else if (alienIdentifierFilledCount > 1) {
+            i9Errors.push("Enter only one of USCIS Number, Form I-94 Admission Number, or Foreign Passport Number and Country of Issuance.");
+            invalidIDs.add("i9_alien_uscis_number");
+            invalidIDs.add("i9_alien_i94_number");
+            invalidIDs.add("i9_alien_passport_country");
+          }
+        }
 
         const w4AmountFields = [
           { id: "w4_other_income", label: "Other income" },
@@ -1008,6 +1211,12 @@
           }
           return hasSegmented(["personal_ssn_1", "personal_ssn_2", "personal_ssn_3"], [3, 2, 4]);
         }
+        if (targetId === "w4_ssn_1") {
+          if (invalidControlIDs.has("w4_ssn_1") || invalidControlIDs.has("w4_ssn_2") || invalidControlIDs.has("w4_ssn_3")) {
+            return false;
+          }
+          return hasSegmented(["w4_ssn_1", "w4_ssn_2", "w4_ssn_3"], [3, 2, 4]);
+        }
         if (targetId !== "") {
           if (invalidControlIDs.has(targetId)) return false;
           return isControlComplete(document.getElementById(targetId));
@@ -1021,7 +1230,8 @@
       }
       function updateRequiredLabelStates() {
         document.querySelectorAll("label.label").forEach((label) => {
-          if (!label.querySelector(".req")) {
+          const reqIndicator = label.querySelector(".req");
+          if (!reqIndicator) {
             label.classList.remove("required-empty", "required-complete", "required-invalid");
             return;
           }
@@ -1031,6 +1241,7 @@
           label.classList.toggle("required-empty", !complete || invalid);
           label.classList.toggle("required-complete", complete && !invalid);
           label.classList.toggle("required-invalid", invalid);
+          reqIndicator.hidden = complete && !invalid;
         });
       }
       function getI9Completion() {
@@ -1058,6 +1269,9 @@
         if (!hasText("i9_ssn")) missing += 1;
         if (!hasText("i9_email")) missing += 1;
         if (!hasText("i9_phone")) missing += 1;
+        const i9StatusValue = (document.getElementById("i9_status")?.value || "").trim();
+        if (i9StatusValue === "lpr" && countFilled(["i9_lpr_uscis_number", "i9_lpr_anumber"]) !== 1) missing += 1;
+        if (i9StatusValue === "alien_authorized" && countFilled(["i9_alien_uscis_number", "i9_alien_i94_number", "i9_alien_passport_country"]) !== 1) missing += 1;
         return { complete: missing === 0, missing };
       }
       function getLegalDocsCompletion() {
@@ -1087,12 +1301,8 @@
             continue;
           }
           validRowCount += 1;
-          if (!type || !list || !hasFile || !title || !issuing || !number) {
-            return { complete: false, reason: "Each legal document row must include document type, title, issuing authority, document number, and file." };
-          }
-          const typeConfig = i9DocumentTypes[type] || null;
-          if (typeConfig && typeConfig.requiresExpiration && expiration === "") {
-            return { complete: false, reason: "Expiration date is required for selected document types." };
+          if (!type || !list || !hasFile || !issuing || !number) {
+            return { complete: false, reason: "Each legal document row must include document type, issuing authority, document number, and file." };
           }
           if (list === "a") hasA = true;
           if (list === "b") hasB = true;
@@ -1211,6 +1421,13 @@
       }
       function getW4Completion() {
         let missing = 0;
+        if (!hasText("w4_first_name")) missing += 1;
+        if (!hasText("w4_last_name_visible")) missing += 1;
+        if (!hasSegmented(["w4_ssn_1", "w4_ssn_2", "w4_ssn_3"], [3, 2, 4])) missing += 1;
+        if (!hasText("w4_address_visible")) missing += 1;
+        if (!hasText("w4_city_visible")) missing += 1;
+        if (!hasText("w4_state_visible")) missing += 1;
+        if (!hasText("w4_zip_visible")) missing += 1;
         if ((document.getElementById("w4_filing_status")?.value || "") === "") missing += 1;
         return { complete: missing === 0, missing };
       }
@@ -1223,35 +1440,52 @@
         renderSectionErrors(legalErrorsEl, validation.legalErrors);
         renderSectionErrors(w4ErrorsEl, validation.w4Errors);
         renderSectionErrors(signatureErrorsEl, validation.signatureErrors);
-        setSectionButtonState(i9Btn, validation.i9Complete);
-        setSectionButtonState(legalBtn, validation.legalComplete);
-        setSectionButtonState(w4Btn, validation.w4Complete);
-        setSectionButtonState(signatureBtn, validation.signatureComplete);
+        setSectionButtonState(i9Btn, validation.i9Complete && validation.legalComplete && validation.signatureComplete);
+        setSectionButtonState(w4Btn, validation.w4Complete && validation.signatureComplete);
         updateRequiredLabelStates();
       }
       function show(panel) {
+        setAllPanelControlsEnabled();
         const i9Active = panel === "i9";
-        const legalActive = panel === "legal";
         const w4Active = panel === "w4";
-        const signatureActive = panel === "signature";
         i9Btn.classList.toggle("active", i9Active);
-        if (legalBtn) legalBtn.classList.toggle("active", legalActive);
         w4Btn.classList.toggle("active", w4Active);
-        if (signatureBtn) signatureBtn.classList.toggle("active", signatureActive);
         i9Panel.classList.toggle("active", i9Active);
-        if (legalPanel) legalPanel.classList.toggle("active", legalActive);
         w4Panel.classList.toggle("active", w4Active);
-        if (signaturePanel) signaturePanel.classList.toggle("active", signatureActive);
-        if (paperworkTarget) paperworkTarget.value = "all";
-        if (paperworkSubmitBtn) {
-          paperworkSubmitBtn.style.display = signatureActive ? "" : "none";
+        if (signatureSection) {
+          const targetMount = i9Active ? signatureMountI9 : signatureMountW4;
+          if (targetMount && signatureSection.parentElement !== targetMount) {
+            targetMount.appendChild(signatureSection);
+          }
+          signatureSection.hidden = false;
         }
         updateCompletionStatus();
       }
+      function setPanelControlsEnabled(panelEl, enabled) {
+        if (!panelEl) return;
+        panelEl.querySelectorAll("input, select, textarea").forEach((el) => {
+          el.disabled = !enabled;
+        });
+      }
+      function setAllPanelControlsEnabled() {
+        setPanelControlsEnabled(i9Panel, true);
+        setPanelControlsEnabled(w4Panel, true);
+      }
+      function setFormControlsForTarget(target) {
+        const normalizedTarget = target === "i9" ? "i9" : "w4";
+        setPanelControlsEnabled(i9Panel, normalizedTarget === "i9");
+        setPanelControlsEnabled(w4Panel, normalizedTarget === "w4");
+      }
       i9Btn.addEventListener("click", () => show("i9"));
-      if (legalBtn) legalBtn.addEventListener("click", () => show("legal"));
       w4Btn.addEventListener("click", () => show("w4"));
-      if (signatureBtn) signatureBtn.addEventListener("click", () => show("signature"));
+      i9SubmitBtn?.addEventListener("click", () => {
+        if (paperworkTarget) paperworkTarget.value = "i9";
+        setFormControlsForTarget("i9");
+      });
+      w4SubmitBtn?.addEventListener("click", () => {
+        if (paperworkTarget) paperworkTarget.value = "w4";
+        setFormControlsForTarget("w4");
+      });
 
       const i9DocRows = document.getElementById("i9-doc-rows");
       const i9DocumentTypes = {
@@ -1326,10 +1560,13 @@
         if (listInput) listInput.value = config.list;
         if (listBadge) listBadge.textContent = `Auto-list: ${config.list.toUpperCase()}`;
         if (expirationFieldLabel) {
-          expirationFieldLabel.innerHTML = config.requiresExpiration ? "Expiration Date<span class=\"req\">*</span>" : "Expiration Date";
+          expirationFieldLabel.innerHTML = "Expiration Date";
         }
         if (titleInput && titleInput.value.trim() === "") {
           titleInput.value = config.title || "";
+        }
+        if (issuingInput && issuingInput.value.trim() === "") {
+          issuingInput.value = config.authority || "";
         }
       }
       function getI9DocRowState(row) {
@@ -1403,7 +1640,6 @@
       function handleLegalRowsChanged() {
         ensureAutoRequiredLegalRows();
         updateCompletionStatus();
-        scheduleDraftSave();
       }
       function buildI9DocRow() {
         const row = document.createElement("div");
@@ -1421,7 +1657,7 @@
             <div class="doc-list-badge" data-doc-list-badge>Auto-list: Not selected</div>
           </div>
           <div class="field">
-            <label class="label">Document Title<span class="req">*</span></label>
+            <label class="label">Document Title</label>
             <input name="i9_document_title[]" type="text" placeholder="Ex: U.S. Passport">
           </div>
           <div class="field">
@@ -1509,6 +1745,7 @@
       if (i9DocRows && i9DocRows.children.length === 0) {
         addI9DocRow();
       }
+      updateI9StatusFields();
       show("i9");
 
       function digitsOnly(value) {
@@ -1586,158 +1823,9 @@
         otherHidden.value = otherTotal > 0 ? String(otherTotal) : "";
         totalHidden.value = combinedTotal > 0 ? String(combinedTotal) : "";
       }
-      function applySignatureDataURL(dataURL) {
-        const canvas = document.getElementById("i9-signature-pad");
-        const hidden = document.getElementById("i9_employee_signature_drawn");
-        const status = document.getElementById("i9-signature-status");
-        if (!canvas || !hidden) return;
-        const raw = String(dataURL || "").trim();
-        if (!raw.startsWith("data:image/")) return;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        const image = new Image();
-        image.onload = () => {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-          hidden.value = raw;
-          ink = true;
-          if (status) status.textContent = "Drawn signature restored from draft.";
-          updateCompletionStatus();
-        };
-        image.src = raw;
-      }
-      function collectDraftData() {
-        const read = (id) => document.getElementById(id)?.value || "";
-        const checked = (id) => !!document.getElementById(id)?.checked;
-        const rows = Array.from(document.querySelectorAll(".doc-upload-row")).map((row) => ({
-          type: row.querySelector("select[name='i9_document_type[]']")?.value || "",
-          list: row.querySelector("input[name='i9_document_list[]']")?.value || "",
-          title: row.querySelector("input[name='i9_document_title[]']")?.value || "",
-          issuing: row.querySelector("input[name='i9_document_issuing_authority[]']")?.value || "",
-          number: row.querySelector("input[name='i9_document_number[]']")?.value || "",
-          expMonth: row.querySelector("select[data-exp-part='month']")?.value || "",
-          expDay: row.querySelector("select[data-exp-part='day']")?.value || "",
-          expYear: row.querySelector("select[data-exp-part='year']")?.value || ""
-        }));
-        return {
-          panel:
-            i9Panel?.classList.contains("active") ? "i9" :
-            legalPanel?.classList.contains("active") ? "legal" :
-            w4Panel?.classList.contains("active") ? "w4" : "signature",
-          fields: {
-            personal_first_name: read("personal_first_name"),
-            personal_middle_initial: read("personal_middle_initial"),
-            personal_last_name: read("personal_last_name"),
-            personal_dob_month: read("personal_dob_month"),
-            personal_dob_day: read("personal_dob_day"),
-            personal_dob_year: read("personal_dob_year"),
-            personal_address: read("personal_address"),
-            personal_apt: read("personal_apt"),
-            personal_city: read("personal_city"),
-            personal_state: read("personal_state"),
-            personal_zip: read("personal_zip"),
-            personal_email: read("personal_email"),
-            personal_phone_1: read("personal_phone_1"),
-            personal_phone_2: read("personal_phone_2"),
-            personal_phone_3: read("personal_phone_3"),
-            personal_ssn_1: read("personal_ssn_1"),
-            personal_ssn_2: read("personal_ssn_2"),
-            personal_ssn_3: read("personal_ssn_3"),
-            i9_status: read("i9_status"),
-            w4_filing_status: read("w4_filing_status"),
-            w4_multiple_jobs: read("w4_multiple_jobs"),
-            w4_other_income: read("w4_other_income"),
-            w4_deductions: read("w4_deductions"),
-            w4_extra: read("w4_extra"),
-            w4_exempt: read("w4_exempt"),
-            w4_dep_under17_count: read("w4_dep_under17_count"),
-            w4_other_dep_count: read("w4_other_dep_count"),
-            employee_esign_attestation: checked("employee_esign_attestation") ? "1" : "",
-            i9_employee_signature_drawn: read("i9_employee_signature_drawn")
-          },
-          legalRows: rows
-        };
-      }
-      function saveDraftNow() {
-        try {
-          localStorage.setItem(draftKey, JSON.stringify(collectDraftData()));
-        } catch (_) {}
-      }
-      function scheduleDraftSave() {
-        if (draftSaveTimer) {
-          window.clearTimeout(draftSaveTimer);
-        }
-        draftSaveTimer = window.setTimeout(saveDraftNow, 160);
-      }
-      function restoreDraft() {
-        let raw = "";
-        try {
-          raw = localStorage.getItem(draftKey) || "";
-        } catch (_) {
-          return;
-        }
-        if (raw === "") return;
-        let parsed = null;
-        try {
-          parsed = JSON.parse(raw);
-        } catch (_) {
-          return;
-        }
-        if (!parsed || typeof parsed !== "object") return;
-        const fields = parsed.fields && typeof parsed.fields === "object" ? parsed.fields : {};
-        Object.keys(fields).forEach((id) => {
-          const el = document.getElementById(id);
-          if (!el) return;
-          if (el.type === "checkbox") {
-            el.checked = fields[id] === "1";
-            return;
-          }
-          if (el.type === "file") return;
-          el.value = String(fields[id] || "");
-        });
-        if (Array.isArray(parsed.legalRows) && i9DocRows) {
-          i9DocRows.innerHTML = "";
-          if (parsed.legalRows.length === 0) {
-            i9DocRows.appendChild(buildI9DocRow());
-          }
-          parsed.legalRows.forEach((entry) => {
-            const row = buildI9DocRow();
-            const type = row.querySelector("select[name='i9_document_type[]']");
-            const list = row.querySelector("input[name='i9_document_list[]']");
-            const title = row.querySelector("input[name='i9_document_title[]']");
-            const issuing = row.querySelector("input[name='i9_document_issuing_authority[]']");
-            const number = row.querySelector("input[name='i9_document_number[]']");
-            const expMonth = row.querySelector("select[data-exp-part='month']");
-            const expDay = row.querySelector("select[data-exp-part='day']");
-            const expYear = row.querySelector("select[data-exp-part='year']");
-            const restoredType = String(entry?.type || "");
-            const restoredList = String(entry?.list || "").toLowerCase();
-            const fallbackType = restoredList === "a" ? "custom_a" : restoredList === "b" ? "custom_b" : restoredList === "c" ? "custom_c" : "";
-            if (type) type.value = restoredType || fallbackType;
-            applyI9DocumentTypeSelection(row);
-            if (list && restoredList !== "") list.value = restoredList;
-            if (title) title.value = String(entry?.title || "");
-            if (issuing) issuing.value = String(entry?.issuing || "");
-            if (number) number.value = String(entry?.number || "");
-            if (expMonth) expMonth.value = String(entry?.expMonth || "");
-            if (expYear) expYear.value = String(entry?.expYear || "");
-            rebuildLegalExpirationDayDropdown(row);
-            if (expDay) expDay.value = String(entry?.expDay || "");
-            syncLegalDocumentExpirationForRow(row);
-            i9DocRows.appendChild(row);
-          });
-        }
-        rebuildDOBDayOptions();
-        updateW4DependentTotals();
-        syncPersonalInfoToForms();
-        syncAllLegalDocumentExpirations();
-        applySignatureDataURL(fields.i9_employee_signature_drawn || "");
-        if (parsed.panel === "i9" || parsed.panel === "legal" || parsed.panel === "w4" || parsed.panel === "signature") {
-          show(parsed.panel);
-        }
-      }
       setupSegmentedInputs(["personal_phone_1", "personal_phone_2", "personal_phone_3"]);
       setupSegmentedInputs(["personal_ssn_1", "personal_ssn_2", "personal_ssn_3"]);
+      setupSegmentedInputs(["w4_ssn_1", "w4_ssn_2", "w4_ssn_3"]);
       function adjustDependentCount(countId, delta) {
         const el = document.getElementById(countId);
         if (!el) return;
@@ -1870,22 +1958,33 @@
         if (i9Phone) i9Phone.value = phone;
         if (i9SSN) i9SSN.value = ssn;
 
+        const w4FirstName = personalValue("w4_first_name");
+        const w4LastName = personalValue("w4_last_name_visible");
+        const w4AddressVisible = personalValue("w4_address_visible");
+        const w4CityInput = document.getElementById("w4_city_visible");
+        const w4StateInput = document.getElementById("w4_state_visible");
+        const w4ZipInput = document.getElementById("w4_zip_visible");
+        const w4CityVisible = normalizeCityInput(personalValue("w4_city_visible"));
+        const w4StateVisible = String(personalValue("w4_state_visible") || "").toUpperCase().trim();
+        const w4ZipVisible = personalValue("w4_zip_visible");
+        const w4SSNVisible = segmentedValue(["w4_ssn_1", "w4_ssn_2", "w4_ssn_3"]);
+        if (w4CityInput && w4CityInput.value !== w4CityVisible) w4CityInput.value = w4CityVisible;
+        if (w4StateInput && w4StateInput.value !== w4StateVisible) w4StateInput.value = w4StateVisible;
+        if (w4ZipInput) w4ZipInput.value = w4ZipVisible;
+
         const w4FirstMiddle = document.getElementById("w4_first_name_middle");
         const w4Last = document.getElementById("w4_last_name");
         const w4Address = document.getElementById("w4_address");
         const w4CityStateZip = document.getElementById("w4_city_state_zip");
-        if (w4FirstMiddle) {
-          const middle = middleInitial === "" ? "" : ` ${middleInitial}`;
-          w4FirstMiddle.value = `${firstName}${middle}`.trim();
-        }
-        if (w4Last) w4Last.value = lastName;
-        if (w4Address) w4Address.value = apt === "" ? address : `${address}, Apt ${apt}`;
-        if (w4CityStateZip) {
-          const cityState = [city, state].filter(Boolean).join(", ");
-          w4CityStateZip.value = [cityState, zip].filter(Boolean).join(" ");
-        }
         const w4SSN = document.getElementById("w4_ssn");
-        if (w4SSN) w4SSN.value = ssn;
+        if (w4FirstMiddle) w4FirstMiddle.value = w4FirstName;
+        if (w4Last) w4Last.value = w4LastName;
+        if (w4Address) w4Address.value = w4AddressVisible;
+        if (w4CityStateZip) {
+          const cityState = [w4CityVisible, w4StateVisible].filter(Boolean).join(", ");
+          w4CityStateZip.value = [cityState, w4ZipVisible].filter(Boolean).join(" ");
+        }
+        if (w4SSN) w4SSN.value = w4SSNVisible;
         updateCompletionStatus();
       }
       personalFields.forEach((id) => {
@@ -1894,12 +1993,10 @@
         input.addEventListener("input", () => {
           syncPersonalInfoToForms();
           updateCompletionStatus();
-          scheduleDraftSave();
         });
         input.addEventListener("change", () => {
           syncPersonalInfoToForms();
           updateCompletionStatus();
-          scheduleDraftSave();
         });
       });
       [...personalDOBSegments, ...personalPhoneSegments, ...personalSSNSegments].forEach((id) => {
@@ -1912,18 +2009,30 @@
             }
             syncPersonalInfoToForms();
             updateCompletionStatus();
-            scheduleDraftSave();
           });
           return;
         }
         input.addEventListener("input", () => {
           syncPersonalInfoToForms();
           updateCompletionStatus();
-          scheduleDraftSave();
+        });
+      });
+      [
+        "w4_first_name", "w4_last_name_visible", "w4_address_visible", "w4_city_visible", "w4_state_visible", "w4_zip_visible",
+        "w4_ssn_1", "w4_ssn_2", "w4_ssn_3"
+      ].forEach((id) => {
+        const input = document.getElementById(id);
+        if (!input) return;
+        input.addEventListener("input", () => {
+          syncPersonalInfoToForms();
+          updateCompletionStatus();
+        });
+        input.addEventListener("change", () => {
+          syncPersonalInfoToForms();
+          updateCompletionStatus();
         });
       });
       syncPersonalInfoToForms();
-      restoreDraft();
 
       const canvas = document.getElementById("i9-signature-pad");
       const clearBtn = document.getElementById("i9-signature-clear");
@@ -1979,7 +2088,6 @@
         hidden.value = canvas.toDataURL("image/png");
         if (status) status.textContent = "Drawn signature will be submitted automatically.";
         updateCompletionStatus();
-        scheduleDraftSave();
       });
       clearBtn.addEventListener("click", () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1987,19 +2095,29 @@
         hidden.value = "";
         if (status) status.textContent = "Signature cleared.";
         updateCompletionStatus();
-        scheduleDraftSave();
       });
       if (attestation) attestation.addEventListener("change", () => {
         updateCompletionStatus();
-        scheduleDraftSave();
       });
       document.getElementById("i9_status")?.addEventListener("change", () => {
+        updateI9StatusFields();
         updateCompletionStatus();
-        scheduleDraftSave();
+      });
+      [
+        "i9_lpr_uscis_number",
+        "i9_lpr_anumber",
+        "i9_alien_expiration",
+        "i9_alien_uscis_number",
+        "i9_alien_i94_number",
+        "i9_alien_passport_country"
+      ].forEach((id) => {
+        const input = document.getElementById(id);
+        if (!input) return;
+        input.addEventListener("input", updateCompletionStatus);
+        input.addEventListener("change", updateCompletionStatus);
       });
       document.getElementById("w4_filing_status")?.addEventListener("change", () => {
         updateCompletionStatus();
-        scheduleDraftSave();
       });
       [
         "w4_filing_status", "w4_multiple_jobs", "w4_other_income", "w4_deductions", "w4_extra", "w4_exempt"
@@ -2008,34 +2126,51 @@
         if (!el) return;
         el.addEventListener("input", () => {
           updateCompletionStatus();
-          scheduleDraftSave();
         });
       });
-      paperworkForm?.addEventListener("submit", (event) => {
-        syncPersonalInfoToForms();
-        syncAllLegalDocumentExpirations();
-        if (ink && hidden.value === "") {
-          hidden.value = canvas.toDataURL("image/png");
-        }
-        if (paperworkTarget) paperworkTarget.value = "all";
-        updateW4DependentTotals();
-        updateCompletionStatus();
-        const validation = collectSectionValidation();
-        const hasErrors =
-          !validation.i9Complete ||
-          !validation.legalComplete ||
-          !validation.w4Complete ||
-          !validation.signatureComplete;
+	      paperworkForm?.addEventListener("submit", (event) => {
+	        syncPersonalInfoToForms();
+	        syncAllLegalDocumentExpirations();
+	        if (ink && hidden.value === "") {
+	          hidden.value = canvas.toDataURL("image/png");
+	        }
+	        const submitter = event.submitter;
+	        let submitTarget = "";
+	        if (submitter === i9SubmitBtn) {
+	          submitTarget = "i9";
+	        } else if (submitter === w4SubmitBtn) {
+	          submitTarget = "w4";
+	        } else if (w4Panel?.classList.contains("active")) {
+	          submitTarget = "w4";
+	        } else if (i9Panel?.classList.contains("active")) {
+	          submitTarget = "i9";
+	        } else {
+	          const hiddenTarget = (paperworkTarget?.value || "").trim().toLowerCase();
+	          submitTarget = hiddenTarget === "i9" ? "i9" : "w4";
+	        }
+	        if (paperworkTarget) paperworkTarget.value = submitTarget;
+	        setFormControlsForTarget(submitTarget);
+	        updateW4DependentTotals();
+	        updateCompletionStatus();
+	        const validation = collectSectionValidation();
+	        const requiresI9 = submitTarget === "i9";
+	        const requiresW4 = submitTarget === "w4";
+	        const hasErrors =
+	          (requiresI9 && !validation.i9Complete) ||
+	          (requiresI9 && !validation.legalComplete) ||
+	          (requiresW4 && !validation.w4Complete) ||
+	          !validation.signatureComplete;
         if (hasErrors) {
           event.preventDefault();
-          if (!validation.i9Complete) {
+          setAllPanelControlsEnabled();
+          if (requiresI9 && !validation.i9Complete) {
             show("i9");
-          } else if (!validation.legalComplete) {
-            show("legal");
-          } else if (!validation.w4Complete) {
+          } else if (requiresI9 && !validation.legalComplete) {
+            show("i9");
+          } else if (requiresW4 && !validation.w4Complete) {
             show("w4");
           } else if (!validation.signatureComplete) {
-            show("signature");
+            show(submitTarget === "w4" ? "w4" : "i9");
           }
           const firstInvalidID = Array.from(validation.invalidIDs)[0] || "";
           if (firstInvalidID !== "") {
@@ -2045,27 +2180,7 @@
         }
         disableCompletelyEmptyLegalDocRows();
         updateCompletionStatus();
-        try { localStorage.removeItem(draftKey); } catch (_) {}
       });
-      paperworkForm?.addEventListener("input", (event) => {
-        const target = event.target;
-        if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) {
-          return;
-        }
-        if (target.type === "file") return;
-        scheduleDraftSave();
-      });
-      paperworkForm?.addEventListener("change", (event) => {
-        const target = event.target;
-        if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) {
-          return;
-        }
-        if (target.type === "file") return;
-        scheduleDraftSave();
-      });
-      if (document.querySelector(".msg.ok")) {
-        try { localStorage.removeItem(draftKey); } catch (_) {}
-      }
     })();
   </script>
     <script>

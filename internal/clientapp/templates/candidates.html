@@ -148,6 +148,14 @@
       min-height:90px; border:1px solid var(--border); border-radius:.5rem; padding:.4rem;
       background:var(--card); cursor:pointer; display:flex; flex-direction:column; gap:.35rem;
     }
+    .calendar-day.has-interviews {
+      border-color: color-mix(in srgb, var(--primary) 58%, var(--border));
+      background: color-mix(in srgb, var(--primary) 11%, var(--card));
+    }
+    html.dark .calendar-day.has-interviews {
+      border-color: color-mix(in srgb, var(--primary) 64%, var(--border));
+      background: color-mix(in srgb, var(--primary) 18%, var(--card));
+    }
     .calendar-day.empty { cursor:default; background:color-mix(in srgb,var(--card) 98%,var(--muted)); }
     .calendar-day.selected { border-color:var(--primary); }
     .calendar-day-num { font-size:.8rem; font-weight:700; }
@@ -159,27 +167,44 @@
     .calendar-item { border:1px solid var(--border); border-radius:.5rem; padding:.6rem; display:grid; gap:.3rem; background:var(--card); }
     .calendar-item a { text-decoration:none; color:var(--primary); font-weight:700; }
     .calendar-item-meta { color:var(--muted-fg); font-size:.8rem; }
+    @media (max-width: 640px) {
+      .calendar-day-count { font-weight: 700; }
+    }
   </style>
 </head>
 <body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
-  <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
-    <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
-      <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
-      <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
+  <header class="fixed inset-x-0 top-0 z-50 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
+    <div class="mx-auto max-w-6xl px-4">
+      <div class="flex items-center justify-between py-2">
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100" style="text-decoration:none">CFA Suite</a>
+        <div class="flex items-center gap-2">
+          <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
+          <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+          <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" class="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <span class="sr-only">Open menu</span>
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center flex-wrap gap-1 pt-2 pb-2 border-t border-zinc-200 dark:border-zinc-800" id="nav-desktop">
         <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/employee/paperwork/location/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employee Paperwork</a>
         <a href="/admin/locations/{{ .Location.Number }}/candidates" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Candidates</a>
       </nav>
-      <div class="flex items-center gap-2 shrink-0">
-        <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
-        <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-          <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-        </button>
+    </div>
+    <div id="nav-mobile" class="hidden border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+      <div class="mx-auto max-w-6xl px-4 py-2 flex flex-col gap-1">
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/employee/paperwork/location/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employee Paperwork</a>
+        <a href="/admin/locations/{{ .Location.Number }}/candidates" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Candidates</a>
       </div>
     </div>
   </header>
 
-  <div class="pt-14 min-h-[calc(100vh-3.5rem)] px-4 py-8">
+  <div class="pt-24 min-h-[calc(100vh-6rem)] px-4 py-8">
     <div class="mx-auto max-w-[1100px] stack">
       <div class="card stack">
         <a class="back" href="/admin/locations/{{ .Location.Number }}">&#8592; Back to Apps</a>
@@ -367,6 +392,15 @@
           localStorage.setItem(storageKey, isDark ? "dark" : "light");
         });
       }
+      var navToggle = document.getElementById("nav-toggle");
+      var navMobile = document.getElementById("nav-mobile");
+      if (navToggle && navMobile) {
+        navToggle.addEventListener("click", function () {
+          var expanded = navToggle.getAttribute("aria-expanded") === "true";
+          navToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+          navMobile.classList.toggle("hidden", expanded);
+        });
+      }
 
       var interviewCalendar = [
         {{- range .InterviewCalendar }}
@@ -378,6 +412,7 @@
           interviewerTimePunchName: "{{ .InterviewerTimePunchName }}",
           interviewType: "{{ .InterviewType }}",
           scheduledAt: "{{ .ScheduledAt }}",
+          status: "{{ .Status }}",
           usedAt: "{{ .UsedAt }}"
         },
         {{- end }}
@@ -414,7 +449,7 @@
           var query = (activeSearchInput.value || "").toLowerCase().trim();
           activeRows.forEach(function (row) {
             var name = (row.getAttribute("data-search-name") || "").toLowerCase();
-            row.style.display = !query || name.indexOf(query) >= 0 ? "" : "none";
+            row.classList.toggle("hidden", !!query && name.indexOf(query) < 0);
           });
         });
       }
@@ -462,6 +497,7 @@
           candidateName: [entry.candidateFirstName, entry.candidateLastName].join(" ").trim(),
           interviewer: entry.interviewerTimePunchName,
           interviewType: entry.interviewType,
+          status: (entry.status || "").trim(),
           scheduledAt: parseScheduled(entry.scheduledAt),
           usedAt: parseScheduled(entry.usedAt)
         };
@@ -495,6 +531,13 @@
         return year + "-" + String(monthIndex + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
       }
 
+      function calendarCountLabel(count) {
+        if (window.matchMedia && window.matchMedia("(max-width: 640px)").matches) {
+          return String(count);
+        }
+        return count + (count === 1 ? " interview" : " interviews");
+      }
+
       function renderCalendarDayList(dateKey) {
         if (!calendarDayPanel || !calendarDayTitle || !calendarDayList) return;
         var entries = calendarByDate.get(dateKey) || [];
@@ -507,7 +550,7 @@
         var html = entries.map(function (entry) {
           var timeLabel = entry.scheduledAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
           var detailPath = "/interview/" + encodeURIComponent(entry.token);
-          var statusLabel = entry.usedAt ? "Completed" : "Scheduled";
+          var statusLabel = entry.status || (entry.usedAt ? "Completed" : "Active");
           return '' +
             '<article class="calendar-item">' +
               '<a href="' + detailPath + '">' + timeLabel + " · " + entry.candidateName + '</a>' +
@@ -539,9 +582,9 @@
             preview += '<div class="calendar-day-preview">+' + (entries.length - 2) + ' more</div>';
           }
           cells.push(
-            '<button type="button" class="calendar-day' + (selectedCalendarDate === key ? ' selected' : '') + '" data-calendar-date="' + key + '">' +
+            '<button type="button" class="calendar-day' + (entries.length > 0 ? ' has-interviews' : '') + (selectedCalendarDate === key ? ' selected' : '') + '" data-calendar-date="' + key + '">' +
               '<div class="calendar-day-num">' + day + '</div>' +
-              '<div class="calendar-day-count">' + entries.length + (entries.length === 1 ? ' interview' : ' interviews') + '</div>' +
+              '<div class="calendar-day-count">' + calendarCountLabel(entries.length) + '</div>' +
               preview +
             '</button>'
           );

@@ -80,7 +80,9 @@
         <p class="portal-sub">{{ .Location.Name }} ({{ .Location.Number }}){{ if .CurrentUser }} · {{ .CurrentUser.TimePunchName }}{{ end }}</p>
         {{ if .Error }}<p class="portal-message error">{{ .Error }}</p>{{ end }}
         {{ if .SuccessMessage }}<p class="portal-message ok">{{ .SuccessMessage }}</p>{{ end }}
-
+        {{ if not .CurrentUser.HasPhoto }}
+        <p class="portal-message error">Profile photo is required before you can submit requests. Please inform your manager.</p>
+        {{ else }}
         <div class="app-tabs">
           <button type="button" class="app-tab" data-app-tab="time-punch">Submit Time Punch</button>
           <button type="button" class="app-tab" data-app-tab="time-off">Vacation Requests</button>
@@ -245,7 +247,7 @@
                   <textarea id="u-note" name="note" maxlength="500"></textarea>
                 </div>
               </div>
-              <div id="uniform-shoe-fields" style="display:none;">
+              <div id="uniform-shoe-fields" class="hidden">
                 <div class="field" style="gap:.45rem;">
                   <p class="portal-sub" style="margin:0;">
                     Use the links below and copy the <strong>Style # (5 digits)</strong> from Shoes For Crews.
@@ -323,6 +325,7 @@
             {{ end }}
           </div>
         </section>
+        {{ end }}
       </section>
     </div>
   </div>
@@ -412,8 +415,8 @@
         if (orderTypeInput) {
           orderTypeInput.value = isShoe ? 'shoes' : '';
         }
-        if (standardFields) standardFields.style.display = isShoe ? 'none' : '';
-        if (shoeFields) shoeFields.style.display = isShoe ? '' : 'none';
+        if (standardFields) standardFields.classList.toggle('hidden', isShoe);
+        if (shoeFields) shoeFields.classList.toggle('hidden', !isShoe);
         if (standardQty) standardQty.required = !isShoe;
         if (standardQty) standardQty.disabled = isShoe;
         if (shoeItemNumber) {

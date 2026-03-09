@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pay Bands App</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/app.css">
+  <script>
+    (function () {
+      var stored = localStorage.getItem("cfasuite-theme");
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var theme = stored === "light" || stored === "dark" ? stored : (prefersDark ? "dark" : "light");
+      document.documentElement.classList.toggle("dark", theme === "dark");
+    })();
+  </script>
+  <style>
+    :root { --bg:#fff; --fg:#09090b; --card:#fff; --muted:#f4f4f5; --muted-fg:#71717a; --border:#e4e4e7; --primary:#004f71; --primary-fg:#fff; --danger:#dc2626; --success:#16a34a; }
+    html.dark { --bg:#09090b; --fg:#fafafa; --card:#09090b; --muted:#27272a; --muted-fg:#a1a1aa; --border:#3f3f46; --primary:#004f71; --primary-fg:#fff; --danger:#f87171; --success:#4ade80; }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font-family:"Manrope",sans-serif}
+    h1,h2{margin:0;font-family:"Space Grotesk",sans-serif}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem}
+    .wrap{padding:6.25rem 1rem 2rem}.inner{max-width:1024px;margin:0 auto;display:grid;gap:1rem}
+    .text-muted{color:var(--muted-fg);font-size:.875rem}
+    .back{font-size:.8125rem;color:var(--muted-fg);text-decoration:none}
+    .notice{font-size:.875rem;margin:0}
+    .notice.ok{color:var(--success)} .notice.error{color:var(--danger)}
+    form{display:grid;gap:.75rem}
+    label{display:block;font-size:.875rem;font-weight:600;margin-bottom:.35rem}
+    input,select{width:100%;min-height:2.35rem;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--fg);padding:.55rem .65rem;font:inherit}
+    .btn{display:inline-flex;align-items:center;justify-content:center;min-height:2.45rem;padding:.55rem .95rem;border-radius:10px;border:1px solid transparent;cursor:pointer;font-weight:700;transition:background-color 160ms,border-color 160ms,box-shadow 160ms,transform 160ms}
+    .btn-primary{background:linear-gradient(140deg,color-mix(in srgb,var(--primary) 86%,#fff 14%) 0%,color-mix(in srgb,var(--primary) 72%,#14364f 28%) 100%);color:var(--primary-fg);border-color:color-mix(in srgb,var(--primary) 58%,var(--border) 42%);box-shadow:0 8px 18px rgba(19,53,81,.2)}
+    .btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 20px rgba(19,53,81,.25)}
+    .btn-responsive{justify-self:start;width:auto}
+    @media (max-width:639px){.btn-responsive{width:100%}}
+    .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:8px}
+    table{width:100%;border-collapse:collapse}
+    th,td{text-align:left;padding:.55rem;border-bottom:1px solid var(--border)}
+    th{font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted-fg)}
+    tbody tr:last-child td{border-bottom:none}
+    .subnav{display:grid;gap:.5rem;margin:.25rem 0 .875rem}
+    @media (min-width:700px){.subnav{grid-template-columns:repeat(2,1fr)}}
+    .subbtn{width:100%;text-align:left;padding:.65rem .75rem;background:var(--bg);border:1px solid var(--border);border-radius:.55rem;cursor:pointer;font-family:inherit;color:var(--fg);transition:150ms;font-weight:700;font-size:.82rem;letter-spacing:.01em}
+    .subbtn:hover{background:var(--muted);border-color:color-mix(in srgb,var(--primary) 22%,var(--border))}
+    .subbtn.active{background:color-mix(in srgb,var(--primary) 12%,var(--bg));border-color:color-mix(in srgb,var(--primary) 48%,var(--border));color:var(--fg)}
+    .subpanel{display:none}
+    .subpanel.active{display:block}
+    .job-table-form{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:.5rem;align-items:center;padding:.55rem}
+    .btn-inline-save{min-height:2.1rem;padding:.45rem .75rem;border-radius:.55rem;font-size:.8rem;box-shadow:none}
+    @media (max-width:900px){.job-table-form{grid-template-columns:1fr}.btn-inline-save{width:100%}}
+    .payband-summary{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.85rem;flex-wrap:wrap}
+    .count-chip{display:inline-flex;align-items:center;gap:.4rem;padding:.32rem .62rem;border:1px solid var(--border);border-radius:999px;background:color-mix(in srgb,var(--primary) 8%,var(--bg));font-size:.78rem;font-weight:700}
+    .count-dot{width:.5rem;height:.5rem;border-radius:999px;background:var(--primary)}
+    .payband-grid{display:grid;gap:.75rem}
+    .payband-card{border:1px solid var(--border);border-radius:12px;padding:.75rem;background:color-mix(in srgb,var(--card) 94%,var(--muted) 6%)}
+    .payband-head{display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;margin-bottom:.65rem}
+    .payband-name{font-family:"Space Grotesk",sans-serif;font-weight:700;font-size:.95rem;letter-spacing:.01em}
+    .payband-badge{display:inline-flex;align-items:center;gap:.45rem;padding:.24rem .55rem;border:1px solid var(--border);border-radius:999px;font-size:.76rem;font-weight:700;color:var(--muted-fg);background:var(--bg)}
+    .payband-badge strong{color:var(--fg);font-size:.78rem}
+    .payband-form{display:grid;grid-template-columns:1.5fr 1fr 1fr auto;gap:.55rem;align-items:end}
+    .field{display:grid;gap:.35rem}
+    .field label{margin:0;font-size:.73rem;letter-spacing:.03em;text-transform:uppercase;color:var(--muted-fg);font-weight:700}
+    @media (max-width:980px){.payband-form{grid-template-columns:1fr 1fr}.payband-form .btn-inline-save{width:100%}}
+    @media (max-width:620px){.payband-form{grid-template-columns:1fr}}
+  </style>
+</head>
+<body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
+  <header class="fixed inset-x-0 top-0 z-50 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
+    <div class="mx-auto max-w-6xl px-4">
+      <div class="flex items-center justify-between py-2">
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100" style="text-decoration:none">CFA Suite</a>
+        <div class="flex items-center gap-2">
+          <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
+          <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+          <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" class="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <span class="sr-only">Open menu</span>
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center flex-wrap gap-1 pt-2 pb-2 border-t border-zinc-200 dark:border-zinc-800" id="nav-desktop">
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/employee/paperwork/location/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employee Paperwork</a>
+        <a href="/admin/locations/{{ .Location.Number }}/departments" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Departments</a>
+        <a href="/admin/locations/{{ .Location.Number }}/pay-bands" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Pay Bands</a>
+      </nav>
+    </div>
+    <div id="nav-mobile" class="hidden border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+      <div class="mx-auto max-w-6xl px-4 py-2 flex flex-col gap-1">
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/employee/paperwork/location/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employee Paperwork</a>
+        <a href="/admin/locations/{{ .Location.Number }}/departments" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Departments</a>
+        <a href="/admin/locations/{{ .Location.Number }}/pay-bands" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Pay Bands</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="inner">
+      <div class="card">
+        <a class="back" href="/admin/locations/{{ .Location.Number }}">&#8592; Back to Apps</a>
+        <h1 style="margin-top:.5rem;">Pay Bands</h1>
+        <p class="text-muted" style="margin-top:.35rem;">{{ .Location.Name }} ({{ .Location.Number }})</p>
+        {{ if .SuccessMessage }}<p class="notice ok" style="margin-top:.75rem;">{{ .SuccessMessage }}</p>{{ end }}
+        {{ if .Error }}<p class="notice error" style="margin-top:.75rem;">{{ .Error }}</p>{{ end }}
+      </div>
+
+      <div class="card">
+        <h2 style="margin-bottom:.75rem;">Pay Band Management</h2>
+        <div class="subnav">
+          <button class="subbtn" type="button" data-sub-target="create-job">Create Pay Band</button>
+          <button class="subbtn" type="button" data-sub-target="view-jobs">View Pay Bands</button>
+        </div>
+
+        <section class="subpanel" data-sub-panel="create-job" id="create-job">
+          <form method="post" action="/admin/locations/{{ .Location.Number }}/jobs/create">
+            <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+            <div>
+              <label for="job-name">Pay Band Name</label>
+              <input id="job-name" name="name" type="text" placeholder="Example: Team Leader I" required>
+            </div>
+            <div>
+              <label for="job-pay-type">Pay Type</label>
+              <select id="job-pay-type" name="pay_type" required>
+                <option value="">Select pay type</option>
+                <option value="hourly">Hourly</option>
+                <option value="salary">Salary</option>
+              </select>
+            </div>
+            <div>
+              <label for="job-pay-amount">Pay Amount</label>
+              <input id="job-pay-amount" name="pay_amount" type="number" step="0.01" min="0.01" placeholder="18.50" required>
+            </div>
+            <button class="btn btn-primary btn-responsive" type="submit">Create Pay Band</button>
+          </form>
+          <p class="text-muted" style="margin-top:.6rem;">Hourly pay displays like $19.25/hour and salary displays like $56,000/year.</p>
+        </section>
+
+        <section class="subpanel" data-sub-panel="view-jobs" id="view-jobs">
+          {{ if .LocationJobs }}
+            <div class="payband-summary">
+              <div class="count-chip"><span class="count-dot"></span>{{ len .LocationJobs }} pay bands</div>
+              <p class="text-muted">Edit name, pay type, and amount inline. Changes save per pay band.</p>
+            </div>
+            <div class="payband-grid">
+              {{ range .LocationJobs }}
+              <article class="payband-card">
+                <div class="payband-head">
+                  <div class="payband-name">{{ .Name }}</div>
+                  <div class="payband-badge">Current <strong>{{ .PayAmountDisplay }}</strong></div>
+                </div>
+                <form class="payband-form" method="post" action="/admin/locations/{{ $.Location.Number }}/jobs/{{ .ID }}/update">
+                  <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                  <div class="field">
+                    <label>Name</label>
+                    <input name="name" value="{{ .Name }}" required>
+                  </div>
+                  <div class="field">
+                    <label>Pay Type</label>
+                    <select name="pay_type" required>
+                      <option value="hourly" {{ if eq .PayType "hourly" }}selected{{ end }}>Hourly</option>
+                      <option value="salary" {{ if eq .PayType "salary" }}selected{{ end }}>Salary</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>Amount</label>
+                    <input name="pay_amount" type="number" step="0.01" min="0.01" value="{{ .PayAmountDisplay }}" required>
+                  </div>
+                  <button class="btn btn-primary btn-inline-save" type="submit">Save</button>
+                </form>
+              </article>
+              {{ end }}
+            </div>
+          {{ else }}
+            <p class="text-muted">No pay bands yet.</p>
+          {{ end }}
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var storageKey = "cfasuite-theme";
+      var root = document.documentElement;
+      var toggle = document.getElementById("theme-toggle");
+      if (toggle) {
+        toggle.addEventListener("click", function () {
+          var isDark = root.classList.toggle("dark");
+          localStorage.setItem(storageKey, isDark ? "dark" : "light");
+        });
+      }
+      var navToggle = document.getElementById("nav-toggle");
+      var navMobile = document.getElementById("nav-mobile");
+      if (navToggle && navMobile) {
+        navToggle.addEventListener("click", function () {
+          var expanded = navToggle.getAttribute("aria-expanded") === "true";
+          navToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+          navMobile.classList.toggle("hidden", expanded);
+        });
+      }
+      var subButtons = Array.from(document.querySelectorAll(".subbtn"));
+      var subPanels = Array.from(document.querySelectorAll(".subpanel[data-sub-panel]"));
+      function showSubPanel(name) {
+        subButtons.forEach(function (btn) { btn.classList.toggle("active", btn.getAttribute("data-sub-target") === name); });
+        subPanels.forEach(function (panel) { panel.classList.toggle("active", panel.getAttribute("data-sub-panel") === name); });
+        if (window.location.hash !== "#" + name) { window.history.replaceState(null, "", "#" + name); }
+      }
+      subButtons.forEach(function (btn) {
+        btn.addEventListener("click", function () { showSubPanel(btn.getAttribute("data-sub-target")); });
+      });
+      var initial = window.location.hash ? window.location.hash.slice(1) : "create-job";
+      if (initial !== "create-job" && initial !== "view-jobs") {
+        initial = "create-job";
+      }
+      showSubPanel(initial);
+    })();
+  </script>
+</body>
+</html>

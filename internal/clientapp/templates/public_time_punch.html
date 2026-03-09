@@ -225,7 +225,7 @@
       <div class="field">
         <label class="label" for="time_out">Time Out</label>
         <input id="time_out" type="time" name="time_out" required>
-        <p id="time-order-error" role="alert" style="display:none; margin:0; font-size:0.8rem; font-weight:700; color:#9f1e1e;">Time Out must be after Time In.</p>
+        <p id="time-order-error" role="alert" class="hidden" style="margin:0; font-size:0.8rem; font-weight:700; color:#9f1e1e;">Time Out must be after Time In.</p>
       </div>
 
       <div class="field">
@@ -319,7 +319,7 @@
       function validateTimes() {
         if (!timeIn || !timeOut || !timeIn.value || !timeOut.value) return true;
         const valid = timeOut.value > timeIn.value;
-        if (timeError) timeError.style.display = valid ? "none" : "block";
+        if (timeError) timeError.classList.toggle("hidden", valid);
         return valid;
       }
 

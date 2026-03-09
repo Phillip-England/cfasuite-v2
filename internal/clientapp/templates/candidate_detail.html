@@ -59,6 +59,62 @@
     .availability-times{display:grid;gap:.5rem;grid-template-columns:1fr}
     @media (min-width:520px){.availability-times{grid-template-columns:1fr 1fr}}
     .availability-times label{margin-bottom:.2rem;font-weight:600;font-size:.78rem}
+    .interview-list{display:grid;gap:.45rem}
+    .interview-row-link{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:.6rem;
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:.55rem .65rem;
+      text-decoration:none;
+      color:var(--fg);
+      background:color-mix(in srgb,var(--card) 97%,var(--muted));
+    }
+    .interview-row-main{min-width:0}
+    .interview-row-type{
+      font-size:.88rem;
+      font-weight:700;
+      line-height:1.2;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .interview-row-meta{
+      font-size:.74rem;
+      color:var(--muted-fg);
+      line-height:1.2;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      margin-top:.1rem;
+    }
+    .interview-row-status{
+      flex:0 0 auto;
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:.15rem .45rem;
+      font-size:.68rem;
+      font-weight:700;
+      color:var(--muted-fg);
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+    .time-select-row{display:flex;gap:.4rem;align-items:center;flex-wrap:nowrap}
+    .decision-actions{display:flex;gap:.5rem;align-items:center;flex-wrap:nowrap}
+    @media (max-width:780px){
+      .wrap{padding:4.5rem .75rem 1rem}
+      .card{padding:.85rem}
+      .btn{width:100%}
+      .row .btn{width:100%}
+      .time-select-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.45rem}
+      .time-select-row .meta{display:none}
+      .time-select-row select{max-width:none !important}
+      .decision-actions{flex-wrap:wrap}
+      .decision-actions .btn{width:100%}
+      .table-wrap{overflow:visible}
+    }
   </style>
 </head>
 <body>
@@ -144,7 +200,7 @@
                   </div>
                   <div>
                     <label>Interview Time</label>
-                    <div class="row" style="gap:.4rem;flex-wrap:nowrap;">
+                    <div class="time-select-row">
                       <select id="scheduled_hour" name="scheduled_hour" required style="max-width:6rem;">
                         <option value="">HH</option>
                         <option value="01">01</option><option value="02">02</option><option value="03">03</option><option value="04">04</option>
@@ -189,42 +245,16 @@
         <div style="margin-top:1rem;">
           <h2 style="font-size:1.05rem;">All Interviews</h2>
           {{ if .InterviewLinks }}
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Interview Type</th>
-                    <th>Interviewer</th>
-                    <th>Scheduled</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {{ range .InterviewLinks }}
-                    <tr>
-                      <td>{{ .InterviewType }}</td>
-                      <td>{{ .InterviewerTimePunchName }}</td>
-                      <td>{{ .ScheduledAt }}</td>
-                      <td>{{ if .UsedAt }}Completed{{ else }}Active{{ end }}</td>
-                      <td>
-                        <div class="session-actions">
-                          {{ if not .UsedAt }}
-                            <button class="btn btn-outline copy-session-link" type="button" data-link="{{ .Link }}">Copy Link</button>
-                            <a class="btn btn-outline" href="{{ .Link }}" target="_blank" rel="noreferrer">Conduct Interview</a>
-                            <form method="post" action="/admin/locations/{{ $.Location.Number }}/candidates/{{ $.Candidate.ID }}/interview-links/{{ .Token }}/delete">
-                              <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                              <button class="btn btn-danger" type="submit" onclick="return confirm('Delete this interview session?');">Delete</button>
-                            </form>
-                          {{ else }}
-                            <span class="meta">Interview completed (link hidden)</span>
-                          {{ end }}
-                        </div>
-                      </td>
-                    </tr>
-                  {{ end }}
-                </tbody>
-              </table>
+            <div class="interview-list">
+              {{ range .InterviewLinks }}
+                <a class="interview-row-link" href="/admin/locations/{{ $.Location.Number }}/candidates/{{ $.Candidate.ID }}/interview-links/{{ .Token }}">
+                  <div class="interview-row-main">
+                    <div class="interview-row-type">{{ .InterviewType }}</div>
+                    <div class="interview-row-meta">{{ .ScheduledAt }} · {{ .InterviewerTimePunchName }}</div>
+                  </div>
+                  <span class="interview-row-status">{{ .Status }}</span>
+                </a>
+              {{ end }}
             </div>
           {{ else }}
             <p class="meta">No interviews yet.</p>
@@ -266,7 +296,7 @@
                   </div>
                 </div>
               </form>
-              <div class="row" style="flex-wrap:nowrap;">
+              <div class="decision-actions">
                 <button class="btn btn-primary" type="submit" form="candidate-hire-form" {{ if or (not .LocationJobs) (not .LocationDepartments) }}disabled{{ end }}>Hire Candidate</button>
                 <form method="post" action="/admin/locations/{{ .Location.Number }}/candidates/{{ .Candidate.ID }}/decision" style="margin:0;">
                 <input type="hidden" name="csrf_token" value="{{ .CSRF }}"><input type="hidden" name="decision" value="pass">
@@ -304,24 +334,6 @@
       if (openSessionToken) {
         showPanel("view-interviews");
       }
-
-      Array.from(document.querySelectorAll(".copy-session-link")).forEach(function (btn) {
-        btn.addEventListener("click", async function (event) {
-          var value = (btn.getAttribute("data-link") || "").trim();
-          if (!value) return;
-          var absolute = value.startsWith("http://") || value.startsWith("https://")
-            ? value
-            : (window.location.origin + value);
-          try {
-            await navigator.clipboard.writeText(absolute);
-            btn.textContent = "Copied";
-            setTimeout(function () { btn.textContent = "Copy Link"; }, 1200);
-          } catch (e) {
-            btn.textContent = "Unable";
-            setTimeout(function () { btn.textContent = "Copy Link"; }, 1200);
-          }
-        });
-      });
 
       var hireDepartment = document.getElementById("hire-department-id");
       var hirePayBand = document.getElementById("hire-pay-band-id");

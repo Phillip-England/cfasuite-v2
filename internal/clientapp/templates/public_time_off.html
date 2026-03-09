@@ -193,10 +193,10 @@
         <label class="range-wrap"><input id="is_range" type="checkbox" style="min-height:auto; width:auto;"> Request a date range</label>
       </div>
 
-      <div class="field" id="end_date_field" style="display:none;">
+      <div class="field hidden" id="end_date_field">
         <label class="label" for="end_date">End Date</label>
         <input id="end_date" type="date" name="end_date">
-        <p id="date-order-error" role="alert" style="display:none; margin:0; font-size:0.8rem; font-weight:700; color:#9f1e1e;">End Date must be on or after Start Date.</p>
+        <p id="date-order-error" role="alert" class="hidden" style="margin:0; font-size:0.8rem; font-weight:700; color:#9f1e1e;">End Date must be on or after Start Date.</p>
       </div>
 
       <button id="submit-btn" class="submit-btn" type="submit">Submit Vacation Request</button>
@@ -275,7 +275,7 @@
       if (!rangeToggle || !endField || !endInput) return;
       const sync = () => {
         const enabled = rangeToggle.checked;
-        endField.style.display = enabled ? "grid" : "none";
+        endField.classList.toggle("hidden", !enabled);
         endInput.required = enabled;
         if (!enabled) endInput.value = "";
       };
@@ -293,7 +293,7 @@
       function validateDates() {
         if (!startInput || !endInput || !endInput.value) return true;
         const valid = endInput.value >= startInput.value;
-        if (dateError) dateError.style.display = valid ? "none" : "block";
+        if (dateError) dateError.classList.toggle("hidden", valid);
         return valid;
       }
 

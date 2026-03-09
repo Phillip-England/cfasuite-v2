@@ -325,30 +325,34 @@
 </head>
 <body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
 
-  <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
-    <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
-      <a href="/admin" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
-      <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
+  <header class="fixed inset-x-0 top-0 z-50 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
+    <div class="mx-auto max-w-6xl px-4">
+      <div class="flex items-center justify-between py-2">
+        <a href="/admin" class="text-sm font-bold text-zinc-900 dark:text-zinc-100" style="text-decoration:none">CFA Suite</a>
+        <div class="flex items-center gap-2">
+          <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
+          <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+          <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" class="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <span class="sr-only">Open menu</span>
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center flex-wrap gap-1 pt-2 pb-2 border-t border-zinc-200 dark:border-zinc-800" id="nav-desktop">
         <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Locations</a>
       </nav>
-      <div class="flex items-center gap-2 shrink-0">
-        <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
-        <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-          <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-        </button>
-        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" class="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-          <span class="sr-only">Open menu</span>
-          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-        </button>
-      </div>
     </div>
-    <div id="nav-mobile" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 bg-white dark:bg-zinc-950 flex-col gap-1">
-      <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Locations</a>
+    <div id="nav-mobile" class="hidden border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+      <div class="mx-auto max-w-6xl px-4 py-2 flex flex-col gap-1">
+        <a href="/admin" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Locations</a>
+      </div>
     </div>
   </header>
 
-  <div class="pt-14 min-h-[calc(100vh-3.5rem)] px-4 py-8">
+  <div class="pt-24 min-h-[calc(100vh-6rem)] px-4 py-8">
     <div class="mx-auto w-full max-w-[800px]">
 
       <section class="panel">
@@ -368,11 +372,11 @@
             <div class="grid-2">
               <label class="required">
                 <span class="label-text">Location Name</span>
-                <input id="name" name="name" type="text" placeholder="Example: Nashville Downtown" required>
+                <input id="name" name="name" type="text" maxlength="80" placeholder="Example: Nashville Downtown" required>
               </label>
               <label class="required">
                 <span class="label-text">Location Number</span>
-                <input id="number" name="number" type="text" placeholder="Example: TN-1024" required>
+                <input id="number" name="number" type="text" inputmode="numeric" maxlength="5" pattern="[0-9]{5}" placeholder="Example: 03253" required>
               </label>
               <label class="required">
                 <span class="label-text">Location Login Email</span>
@@ -389,20 +393,24 @@
                 </div>
               </label>
               <label class="required">
-                <span class="label-text">Owner/Operator</span>
-                <input id="employer_rep_signature" name="employer_rep_signature" type="text" maxlength="120" placeholder="Example: Jane Smith, HR Manager" required>
+                <span class="label-text">Owner/Operator First Name</span>
+                <input id="owner_first_name" name="owner_first_name" type="text" maxlength="40" placeholder="Example: Jane" required>
+              </label>
+              <label class="required">
+                <span class="label-text">Owner/Operator Last Name</span>
+                <input id="owner_last_name" name="owner_last_name" type="text" maxlength="40" placeholder="Example: Smith" required>
               </label>
               <label class="required">
                 <span class="label-text">Business or Organization Name</span>
-                <input id="business_name" name="business_name" type="text" placeholder="Example: Chick-fil-A Downtown Nashville LLC" required>
+                <input id="business_name" name="business_name" type="text" maxlength="120" placeholder="Example: Chick-fil-A Downtown Nashville LLC" required>
               </label>
               <label class="required">
                 <span class="label-text">Business Street Address</span>
-                <input id="business_street" name="business_street" type="text" placeholder="Example: 123 Main St" required>
+                <input id="business_street" name="business_street" type="text" maxlength="140" placeholder="Example: 123 Main St" required>
               </label>
               <label class="required">
                 <span class="label-text">Business City</span>
-                <input id="business_city" name="business_city" type="text" placeholder="Example: Nashville" required>
+                <input id="business_city" name="business_city" type="text" maxlength="80" placeholder="Example: Nashville" required>
               </label>
               <label class="required">
                 <span class="label-text">Business State</span>
@@ -535,10 +543,18 @@
     const tabPanels = Array.from(document.querySelectorAll(".tab-panel"));
     const numberInput = document.getElementById("number");
     const emailInput = document.getElementById("email");
+    const ownerFirstNameInput = document.getElementById("owner_first_name");
+    const ownerLastNameInput = document.getElementById("owner_last_name");
     const requiredInputs = Array.from(document.querySelectorAll("#create-location-form input[required], #create-location-form select[required]"));
+    const locationNamePattern = /^[A-Za-z0-9][A-Za-z0-9 .,'()/#&-]{1,79}$/;
+    const personNamePattern = /^[A-Za-z][A-Za-z .'-]{0,39}$/;
+    const businessNamePattern = /^[A-Za-z0-9][A-Za-z0-9 .,'()/#&-]{1,119}$/;
+    const businessStreetPattern = /^[A-Za-z0-9#][A-Za-z0-9 .,'/#-]{5,139}$/;
+    const cityPattern = /^[A-Za-z][A-Za-z .'-]{1,79}$/;
 
     function syncAutoEmail() {
       if (!numberInput || !emailInput) return;
+      numberInput.value = (numberInput.value || "").replace(/\D+/g, "").slice(0, 5);
       const number = (numberInput.value || "").trim().toLowerCase();
       emailInput.value = number ? `${number}@chick-fil-a.com` : "";
     }
@@ -556,31 +572,56 @@
       label.classList.toggle("required-complete", labelComplete);
     }
 
+    function looksLikeStreetAddress(value) {
+      const trimmed = (value || "").trim();
+      if (!trimmed) return false;
+      if (/^PO BOX\b/i.test(trimmed)) return true;
+      if (/\d/.test(trimmed)) return true;
+      return /(street|st|avenue|ave|road|rd|boulevard|blvd|lane|ln|drive|dr|highway|hwy|way|court|ct|circle|cir|parkway|pkwy|plaza|plz|terrace|ter|suite|ste|unit|building|bldg)\b/i.test(trimmed);
+    }
+
     function isFieldValid(input) {
       if (!input) return false;
       const value = (input.value || "").trim();
       if (value === "") return false;
-      if (input.id === "phone_1" || input.id === "phone_2") return value.length === 3;
-      if (input.id === "phone_3") return value.length === 4;
-      if (input.id === "business_ein_1") return value.length === 2;
-      if (input.id === "business_ein_2") return value.length === 7;
-      if (input.id === "email") return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+      if (input.id === "name") return locationNamePattern.test(value);
+      if (input.id === "number") return /^\d{5}$/.test(value);
+      if (input.id === "phone_1" || input.id === "phone_2") return /^\d{3}$/.test(value);
+      if (input.id === "phone_3") return /^\d{4}$/.test(value);
+      if (input.id === "owner_first_name" || input.id === "owner_last_name") return personNamePattern.test(value);
+      if (input.id === "business_name") return businessNamePattern.test(value);
+      if (input.id === "business_street") return businessStreetPattern.test(value) && looksLikeStreetAddress(value);
+      if (input.id === "business_city") return cityPattern.test(value);
+      if (input.id === "business_state") return /^[A-Z]{2}$/.test(value);
+      if (input.id === "business_ein_1") return /^\d{2}$/.test(value);
+      if (input.id === "business_ein_2") return /^\d{7}$/.test(value);
+      if (input.id === "email") return /^\d{5}@chick-fil-a\.com$/i.test(value);
       return true;
     }
 
     function validateAllFields() {
+      let firstError = "";
       let allValid = true;
       requiredInputs.forEach((input) => {
         const valid = isFieldValid(input);
         setFieldState(input, valid);
-        if (!valid) allValid = false;
+        if (!valid) {
+          allValid = false;
+          if (!firstError) {
+            const fieldLabel = input.closest("label")?.querySelector(".label-text")?.textContent || "field";
+            firstError = `${fieldLabel} is invalid.`;
+          }
+        }
       });
-      return allValid;
+      if (allValid) return { valid: true, message: "" };
+      return { valid: false, message: firstError || "Please complete all required fields." };
     }
 
     requiredInputs.forEach((input) => {
       input.addEventListener("input", () => {
-        if (input.id === "number") syncAutoEmail();
+        if (input.id === "number") {
+          syncAutoEmail();
+        }
         setFieldState(input, isFieldValid(input));
         if (input.id === "number" && emailInput) {
           setFieldState(emailInput, isFieldValid(emailInput));
@@ -624,8 +665,9 @@
       statusEl.className = "status";
       submitBtn.disabled = true;
 
-      if (!validateAllFields()) {
-        statusEl.textContent = "Please complete all required fields.";
+      const validation = validateAllFields();
+      if (!validation.valid) {
+        statusEl.textContent = validation.message;
         statusEl.classList.add("error");
         submitBtn.disabled = false;
         return;
@@ -635,12 +677,16 @@
       const phonePart1 = (document.getElementById("phone_1").value || "").replace(/\D+/g, "").slice(0, 3);
       const phonePart2 = (document.getElementById("phone_2").value || "").replace(/\D+/g, "").slice(0, 3);
       const phonePart3 = (document.getElementById("phone_3").value || "").replace(/\D+/g, "").slice(0, 4);
+      const ownerFirstName = (ownerFirstNameInput?.value || "").trim();
+      const ownerLastName = (ownerLastNameInput?.value || "").trim();
       const payload = {
         name: document.getElementById("name").value.trim(),
         number: document.getElementById("number").value.trim(),
         email: document.getElementById("email").value.trim(),
         phone: `${phonePart1}-${phonePart2}-${phonePart3}`,
-        employerRepSignature: document.getElementById("employer_rep_signature").value.trim(),
+        ownerFirstName,
+        ownerLastName,
+        employerRepSignature: `${ownerFirstName} ${ownerLastName}`.trim(),
         businessName: document.getElementById("business_name").value.trim(),
         businessStreet: document.getElementById("business_street").value.trim(),
         businessCity: document.getElementById("business_city").value.trim(),
@@ -689,6 +735,13 @@
     const phone2 = document.getElementById("phone_2");
     const phone3 = document.getElementById("phone_3");
     const digitsOnly = (value, maxLen) => (value || "").replace(/\D+/g, "").slice(0, maxLen);
+    if (numberInput) {
+      numberInput.addEventListener("input", () => {
+        numberInput.value = digitsOnly(numberInput.value, 5);
+        syncAutoEmail();
+        setFieldState(numberInput, isFieldValid(numberInput));
+      });
+    }
     if (ein1 && ein2) {
       ein1.addEventListener("input", () => {
         ein1.value = digitsOnly(ein1.value, 2);
@@ -750,7 +803,6 @@
           var expanded = navToggle.getAttribute("aria-expanded") === "true";
           navToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
           navMobile.classList.toggle("hidden", expanded);
-          navMobile.style.display = expanded ? "" : "flex";
         });
       }
     })();

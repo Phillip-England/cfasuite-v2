@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Departments</title>
+  <title>Departments App</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
@@ -22,7 +22,7 @@
     *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font-family:"Manrope",sans-serif}
     h1,h2{margin:0;font-family:"Space Grotesk",sans-serif}
     .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem}
-    .wrap{padding:5rem 1rem 2rem}.inner{max-width:1024px;margin:0 auto;display:grid;gap:1rem}
+    .wrap{padding:6.25rem 1rem 2rem}.inner{max-width:1024px;margin:0 auto;display:grid;gap:1rem}
     .text-muted{color:var(--muted-fg);font-size:.875rem}
     .back{font-size:.8125rem;color:var(--muted-fg);text-decoration:none}
     .notice{font-size:.875rem;margin:0}
@@ -113,35 +113,43 @@
   </style>
 </head>
 <body class="departments-page min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
-  <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
-    <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
-      <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
-      <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
-        <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
-        <a href="/admin/locations/{{ .Location.Number }}/departments" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Departments</a>
-      </nav>
-      <div class="flex items-center gap-2 shrink-0">
-        <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
-        <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-          <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-        </button>
-        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" class="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-          <span class="sr-only">Open menu</span>
-          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-        </button>
+  <header class="fixed inset-x-0 top-0 z-50 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
+    <div class="mx-auto max-w-6xl px-4">
+      <div class="flex items-center justify-between py-2">
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100" style="text-decoration:none">CFA Suite</a>
+        <div class="flex items-center gap-2">
+          <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
+          <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+          <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" class="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <span class="sr-only">Open menu</span>
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+        </div>
       </div>
+      <nav class="hidden md:flex items-center flex-wrap gap-1 pt-2 pb-2 border-t border-zinc-200 dark:border-zinc-800" id="nav-desktop">
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/employee/paperwork/location/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employee Paperwork</a>
+        <a href="/admin/locations/{{ .Location.Number }}/departments" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Departments</a>
+        <a href="/admin/locations/{{ .Location.Number }}/pay-bands" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Pay Bands</a>
+      </nav>
     </div>
-    <div id="nav-mobile" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 bg-white dark:bg-zinc-950 flex-col gap-1">
-      <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
-      <a href="/admin/locations/{{ .Location.Number }}/departments" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Departments</a>
+    <div id="nav-mobile" class="hidden border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+      <div class="mx-auto max-w-6xl px-4 py-2 flex flex-col gap-1">
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/employee/paperwork/location/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employee Paperwork</a>
+        <a href="/admin/locations/{{ .Location.Number }}/departments" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Departments</a>
+        <a href="/admin/locations/{{ .Location.Number }}/pay-bands" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Pay Bands</a>
+      </div>
     </div>
   </header>
   <div class="wrap">
     <div class="inner">
       <div class="card">
         <a class="back" href="/admin/locations/{{ .Location.Number }}">&#8592; Back to Apps</a>
-        <h1 style="margin-top:.5rem;">Departments &amp; Pay Bands</h1>
+        <h1 style="margin-top:.5rem;">Departments</h1>
         <p class="text-muted" style="margin-top:.35rem;">{{ .Location.Name }} ({{ .Location.Number }})</p>
         {{ if .SuccessMessage }}<p class="notice ok" style="margin-top:.75rem;">{{ .SuccessMessage }}</p>{{ end }}
         {{ if .Error }}<p class="notice error" style="margin-top:.75rem;">{{ .Error }}</p>{{ end }}
@@ -150,7 +158,7 @@
       <div class="card">
         <div class="process-hub">
           <button class="process-btn" type="button" data-process-target="departments">Departments</button>
-          <button class="process-btn" type="button" data-process-target="jobs">Pay Bands</button>
+          <button class="process-btn" type="button" data-process-target="hotschedules">HotSchedules</button>
         </div>
       </div>
 
@@ -168,20 +176,32 @@
                 <label for="department-name">Department Name</label>
                 <input id="department-name" name="name" type="text" placeholder="Example: Front of House" required>
               </div>
+              <div>
+                <label for="department-hotschedules-job">HotSchedules Job Mapping</label>
+                <select id="department-hotschedules-job" name="hotschedules_job_id">
+                  <option value="0">No Mapping Yet</option>
+                  {{ range .HotSchedulesJobs }}
+                  <option value="{{ .ID }}">{{ .Name }}</option>
+                  {{ end }}
+                </select>
+              </div>
               <button class="btn btn-primary btn-responsive" type="submit">Create Department</button>
             </form>
           </section>
           <section class="subpanel" data-sub-panel="departments-view">
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Name</th></tr></thead>
+                <thead><tr><th>Name</th><th>HotSchedules Job</th></tr></thead>
                 <tbody>
                   {{ if .LocationDepartments }}
                     {{ range .LocationDepartments }}
-                      <tr><td>{{ .Name }}</td></tr>
+                      <tr>
+                        <td>{{ .Name }}</td>
+                        <td>{{ if .HotSchedulesJobName }}{{ .HotSchedulesJobName }}{{ else }}-{{ end }}</td>
+                      </tr>
                     {{ end }}
                   {{ else }}
-                    <tr><td>No departments yet.</td></tr>
+                    <tr><td colspan="2">No departments yet.</td></tr>
                   {{ end }}
                 </tbody>
               </table>
@@ -190,65 +210,75 @@
         </div>
       </section>
 
-      <section class="process-panel" data-process-panel="jobs">
-        <div class="card">
-          <h2 style="margin-bottom:.75rem;">Pay Bands</h2>
+      <section class="process-panel" data-process-panel="hotschedules">
+        <div class="card" id="hotschedules">
+          <h2 style="margin-bottom:.75rem;">HotSchedules Sync</h2>
+          <p class="text-muted" style="margin-bottom:.75rem;">Map departments to HotSchedules jobs and configure precedence. Upload the HotSchedules PDF from the Import Employee Data app.</p>
           <div class="subnav">
-            <button class="subbtn" type="button" data-sub-target="jobs-create">Create Pay Band</button>
-            <button class="subbtn" type="button" data-sub-target="jobs-view">View Pay Bands</button>
+            <button class="subbtn" type="button" data-sub-target="hotschedules-map">Department Mapping</button>
+            <button class="subbtn" type="button" data-sub-target="hotschedules-precedence">Precedence</button>
           </div>
-          <section class="subpanel" data-sub-panel="jobs-create">
-            <form method="post" action="/admin/locations/{{ .Location.Number }}/jobs/create">
-              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-              <div>
-                <label for="job-name">Pay Band Name</label>
-                <input id="job-name" name="name" type="text" placeholder="Example: Team Leader I" required>
-              </div>
-              <div>
-                <label for="job-pay-type">Pay Type</label>
-                <select id="job-pay-type" name="pay_type" required>
-                  <option value="">Select pay type</option>
-                  <option value="hourly">Hourly</option>
-                  <option value="salary">Salary</option>
-                </select>
-              </div>
-              <div>
-                <label for="job-pay-amount">Pay Amount</label>
-                <input id="job-pay-amount" name="pay_amount" type="number" step="0.01" min="0.01" placeholder="18.50" required>
-              </div>
-              <button class="btn btn-primary btn-responsive" type="submit">Create Pay Band</button>
-            </form>
-            <p class="text-muted" style="margin-top:.6rem;">Pay bands define base pay and can be assigned at candidate hire.</p>
-          </section>
-          <section class="subpanel" data-sub-panel="jobs-view">
-            {{ if .LocationJobs }}
-              <div class="table-wrap">
-                <table>
-                  <thead><tr><th>Name</th><th>Pay Type</th><th>Amount</th><th>Action</th></tr></thead>
-                  <tbody>
-                    {{ range .LocationJobs }}
-                      <tr>
-                        <td colspan="4" style="padding:0;">
-                          <form class="job-table-form" method="post" action="/admin/locations/{{ $.Location.Number }}/jobs/{{ .ID }}/update">
-                            <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                            <input name="name" value="{{ .Name }}" required>
-                            <select name="pay_type" required>
-                              <option value="hourly" {{ if eq .PayType "hourly" }}selected{{ end }}>Hourly</option>
-                              <option value="salary" {{ if eq .PayType "salary" }}selected{{ end }}>Salary</option>
-                            </select>
-                            <input name="pay_amount" type="number" step="0.01" min="0.01" value="{{ .PayAmountDisplay }}" required>
-                            <button class="btn btn-primary btn-inline-save" type="submit">Save Changes</button>
-                          </form>
-                        </td>
-                      </tr>
+
+          <section class="subpanel" data-sub-panel="hotschedules-map">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Department</th><th>Mapped HotSchedules Job</th><th>Action</th></tr></thead>
+                <tbody>
+                  {{ if .LocationDepartments }}
+                    {{ range .LocationDepartments }}
+                    <tr>
+                      <td>{{ .Name }}</td>
+                      <td>
+                        <form method="post" action="/admin/locations/{{ $.Location.Number }}/departments/{{ .ID }}/hotschedules-job/assign" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+                          <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                          <select name="hotschedules_job_id">
+                            <option value="0">No Mapping</option>
+                            {{ $mappedID := .HotSchedulesJobID }}
+                            {{ range $.HotSchedulesJobs }}
+                            <option value="{{ .ID }}" {{ if eq .ID $mappedID }}selected{{ end }}>{{ .Name }}</option>
+                            {{ end }}
+                          </select>
+                          <button class="btn btn-primary btn-inline-save" type="submit">Save</button>
+                        </form>
+                      </td>
+                      <td>{{ if .HotSchedulesJobName }}Mapped{{ else }}Unmapped{{ end }}</td>
+                    </tr>
                     {{ end }}
-                  </tbody>
-                </table>
-              </div>
-            {{ else }}
-              <p class="text-muted">No pay bands yet.</p>
-            {{ end }}
+                  {{ else }}
+                    <tr><td colspan="3">No departments yet.</td></tr>
+                  {{ end }}
+                </tbody>
+              </table>
+            </div>
           </section>
+
+          <section class="subpanel" data-sub-panel="hotschedules-precedence">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>HotSchedules Job</th><th>Precedence</th><th>Action</th></tr></thead>
+                <tbody>
+                  {{ if .HotSchedulesJobs }}
+                    {{ range .HotSchedulesJobs }}
+                    <tr>
+                      <td>{{ .Name }}</td>
+                      <td>
+                        <form method="post" action="/admin/locations/{{ $.Location.Number }}/hotschedules/jobs/{{ .ID }}/precedence/update" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+                          <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
+                          <input type="number" min="1" step="1" name="precedence" value="{{ .Precedence }}" required>
+                          <button class="btn btn-primary btn-inline-save" type="submit">Save</button>
+                        </form>
+                      </td>
+                      <td>{{ .UpdatedAt }}</td>
+                    </tr>
+                    {{ end }}
+                  {{ else }}
+                    <tr><td colspan="3">No HotSchedules jobs imported yet.</td></tr>
+                  {{ end }}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
         </div>
       </section>
     </div>
@@ -271,7 +301,6 @@
           var expanded = navToggle.getAttribute("aria-expanded") === "true";
           navToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
           navMobile.classList.toggle("hidden", expanded);
-          if (!expanded) { navMobile.style.display = "flex"; } else { navMobile.style.removeProperty("display"); }
         });
       }
 
@@ -285,8 +314,8 @@
         if (window.location.hash !== "#" + name) { window.history.replaceState(null, "", "#" + name); }
         if (name === "departments") {
           showSubPanel("departments-create");
-        } else if (name === "jobs") {
-          showSubPanel("jobs-create");
+        } else if (name === "hotschedules") {
+          showSubPanel("hotschedules-map");
         }
       }
       buttons.forEach(function (btn) { btn.addEventListener("click", function () { showPanel(btn.getAttribute("data-process-target")); }); });

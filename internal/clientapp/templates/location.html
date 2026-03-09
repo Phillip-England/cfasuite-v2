@@ -147,7 +147,7 @@
     .bulk-panel { display: none; }
     .bulk-panel.active { display: block; }
     .employee-status-subnav { display: grid; gap: 0.5rem; margin: 0.5rem 0 0.875rem; }
-    @media (min-width: 640px) { .employee-status-subnav { grid-template-columns: 1fr 1fr 1fr; } }
+    @media (min-width: 640px) { .employee-status-subnav { grid-template-columns: 1fr 1fr; } }
     .employee-status-btn {
       width: 100%;
       text-align: left;
@@ -204,32 +204,38 @@
 </head>
 <body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
 
-  <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
-    <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
-      <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
-      <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
+  <header class="fixed inset-x-0 top-0 z-50 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
+    <div class="mx-auto max-w-6xl px-4">
+      <div class="flex items-center justify-between py-2">
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100" style="text-decoration:none">CFA Suite</a>
+        <div class="flex items-center gap-2">
+          <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
+          <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+          <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" class="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <span class="sr-only">Open menu</span>
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center flex-wrap gap-1 pt-2 pb-2 border-t border-zinc-200 dark:border-zinc-800" id="nav-desktop">
         <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/employee/paperwork/location/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employee Paperwork</a>
         <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employees</a>
       </nav>
-      <div class="flex items-center gap-2 shrink-0">
-        <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
-        <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-          <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-        </button>
-        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" class="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-          <span class="sr-only">Open menu</span>
-          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-        </button>
-      </div>
     </div>
-    <div id="nav-mobile" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 bg-white dark:bg-zinc-950 flex-col gap-1">
-      <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
-      <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employees</a>
+    <div id="nav-mobile" class="hidden border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+      <div class="mx-auto max-w-6xl px-4 py-2 flex flex-col gap-1">
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/employee/paperwork/location/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employee Paperwork</a>
+        <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employees</a>
+      </div>
     </div>
   </header>
 
-  <div class="pt-14 min-h-[calc(100vh-3.5rem)] px-4 py-8">
+  <div class="pt-24 min-h-[calc(100vh-6rem)] px-4 py-8">
     <div class="mx-auto max-w-[800px]">
       <div class="card">
         <a class="back" href="/admin/locations/{{ .Location.Number }}">&#8592; Back to Apps</a>
@@ -242,32 +248,78 @@
 
         {{ if .SuccessMessage }}<p class="notice ok">{{ .SuccessMessage }}</p>{{ end }}
         {{ if .Error }}<p class="notice error">{{ .Error }}</p>{{ end }}
-        {{ if .NewHireEmployees }}
-          <div class="warning-banner" role="alert">
-            <strong>Warning: New hire paperwork is pending.</strong>
-            <span>All new hires need their paperwork completed immediately.</span>
-          </div>
-        {{ end }}
         <section class="hub">
           <button class="hub-btn" type="button" data-target="bulk-import">
-            <strong>Employee Bio Upload</strong>
-            <span>Drag and drop the Employee Bio report to sync employee numbers and status.</span>
+            <strong>Import Employee Data</strong>
+            <span>Upload the Employee Bio report to sync active employees from your source-of-truth system.</span>
           </button>
           <button class="hub-btn" type="button" data-target="view-employees">
             <strong>View Employees</strong>
-            <span>Browse new hires, active employees, and terminated employees.</span>
+            <span>Browse active and terminated employees, and identify missing clock-in PINs.</span>
           </button>
         </section>
 
         <section class="section" data-panel="bulk-import" id="bulk-import">
-          <h2>Employee Bio Upload</h2>
-          <p class="text-muted" style="margin-bottom:0.75rem;">Upload the Employee Bio report to terminate matched employees marked terminated, add missing active employees as new hires, and backfill employee numbers for existing employees.</p>
-          <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/import" enctype="multipart/form-data">
-            <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-            <label for="bio-file">Employee Bio File (.xlsx, .xls, .csv)</label>
-            <input id="bio-file" type="file" name="bio_file" accept=".xlsx,.xls,.csv" required>
-            <button type="submit" class="btn-inline">Upload Employee Bio</button>
-          </form>
+          <h2>Employee Imports</h2>
+          <p class="text-muted" style="margin-bottom:0.75rem;">Use these reports to keep employee profiles synced.</p>
+          <div class="bulk-subnav">
+            <button class="bulk-subbtn" type="button" data-bulk-target="bulk-bio">Employee Bio</button>
+            <button class="bulk-subbtn" type="button" data-bulk-target="bulk-birthdays">Birthday Report</button>
+            <button class="bulk-subbtn" type="button" data-bulk-target="bulk-contacts">Contact Report</button>
+            <button class="bulk-subbtn" type="button" data-bulk-target="bulk-pins">Clock In PIN PDF</button>
+            <button class="bulk-subbtn" type="button" data-bulk-target="bulk-hotschedules">HotSchedules PDF</button>
+          </div>
+
+          <div class="bulk-panel" data-bulk-panel="bulk-bio">
+            <p class="text-muted" style="margin-bottom:0.75rem;">Employee Bio is the source of truth for active and terminated employee status. It syncs employee number, name, and hire date.</p>
+            <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/import" enctype="multipart/form-data">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+              <label for="bio-file">Employee Bio File (.xlsx, .xls, .csv)</label>
+              <input id="bio-file" type="file" name="bio_file" accept=".xlsx,.xls,.csv" required>
+              <button type="submit" class="btn-inline">Upload Employee Bio</button>
+            </form>
+          </div>
+
+          <div class="bulk-panel" data-bulk-panel="bulk-birthdays">
+            <p class="text-muted" style="margin-bottom:0.75rem;">Birthday report updates employee birthdays in bulk.</p>
+            <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/birthdates/import" enctype="multipart/form-data">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+              <label for="birthdate-file">Birthday Report File (.xlsx, .xls, .csv)</label>
+              <input id="birthdate-file" type="file" name="birthdate_file" accept=".xlsx,.xls,.csv" required>
+              <button type="submit" class="btn-inline">Upload Birthday Report</button>
+            </form>
+          </div>
+
+          <div class="bulk-panel" data-bulk-panel="bulk-contacts">
+            <p class="text-muted" style="margin-bottom:0.75rem;">Employee Telephone and Contact report updates phone/email. Cell phone is preferred when both cell and home exist.</p>
+            <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/contacts/import" enctype="multipart/form-data">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+              <label for="contact-file">Contact Report File (.xlsx, .xls, .csv)</label>
+              <input id="contact-file" type="file" name="contact_file" accept=".xlsx,.xls,.csv" required>
+              <button type="submit" class="btn-inline">Upload Contact Report</button>
+            </form>
+          </div>
+
+          <div class="bulk-panel" data-bulk-panel="bulk-pins">
+            <p class="text-muted" style="margin-bottom:0.75rem;">Clock-In PIN report imports PINs from a PDF export. Only matched active employees are updated.</p>
+            <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/clock-in-pins/import" enctype="multipart/form-data">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+              <label for="pin-file">Clock In PIN Report PDF</label>
+              <input id="pin-file" type="file" name="pin_file" accept=".pdf,application/pdf" required>
+              <button type="submit" class="btn-inline">Upload PIN Report</button>
+            </form>
+          </div>
+
+          <div class="bulk-panel" data-bulk-panel="bulk-hotschedules">
+            <p class="text-muted" style="margin-bottom:0.75rem;">Upload the HotSchedules staff PDF to sync employee departments. HotSchedules jobs are preloaded and available in Department Mapping.</p>
+            <form method="post" action="/admin/locations/{{ .Location.Number }}/hotschedules/staff/import" enctype="multipart/form-data">
+              <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
+              <input type="hidden" name="return_to" value="employees">
+              <label for="hotschedules-staff-file">HotSchedules Staff Report PDF</label>
+              <input id="hotschedules-staff-file" type="file" name="hotschedules_file" accept=".pdf,application/pdf" required>
+              <button type="submit" class="btn-inline">Sync Employee Departments</button>
+            </form>
+          </div>
         </section>
 
         <section class="section" data-panel="view-employees">
@@ -275,71 +327,45 @@
             <h2>Employee Status</h2>
           </div>
           <div class="employee-status-subnav">
-            <button class="employee-status-btn" type="button" data-employee-status-target="new-hires">New Hires</button>
             <button class="employee-status-btn" type="button" data-employee-status-target="active-employees">Active Employees</button>
             <button class="employee-status-btn" type="button" data-employee-status-target="terminated-employees">Terminated Employees</button>
           </div>
           <div class="employee-search">
-            <input id="employee-search-input" type="text" placeholder="Search employee by name">
-            <div id="employee-search-meta" class="employee-search-meta">Showing {{ len .NewHireEmployees }} of {{ len .NewHireEmployees }}</div>
-          </div>
-          <div class="employee-status-panel" data-employee-status-panel="new-hires">
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th colspan="4">New Hires ({{ len .NewHireEmployees }})</th>
-                  </tr>
-                  <tr>
-                    <th>Name</th>
-                    <th>Department</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {{ if .NewHireEmployees }}
-                    {{ range .NewHireEmployees }}
-                      <tr class="employee-row" data-search-name="{{ .FirstName }} {{ .LastName }}">
-                        <td><a class="location-link" href="/admin/locations/{{ $.Location.Number }}/employees/{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }}</a></td>
-                        <td>{{ if .Department }}{{ .Department }}{{ else }}INIT{{ end }}</td>
-                        <td>{{ if .Email }}{{ .Email }}{{ else }}-{{ end }}</td>
-                        <td>{{ if .Phone }}{{ .Phone }}{{ else }}-{{ end }}</td>
-                      </tr>
-                    {{ end }}
-                  {{ else }}
-                    <tr><td colspan="4">No new hires right now.</td></tr>
-                  {{ end }}
-                </tbody>
-              </table>
-            </div>
+            <input id="employee-search-input" type="text" placeholder="Search employee by time punch name">
+            <div id="employee-search-meta" class="employee-search-meta">Showing {{ len .ActiveEmployees }} of {{ len .ActiveEmployees }}</div>
           </div>
           <div class="employee-status-panel" data-employee-status-panel="active-employees">
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th colspan="4">Active Employees ({{ len .ActiveEmployees }})</th>
+                    <th colspan="7">Active Employees ({{ len .ActiveEmployees }})</th>
                   </tr>
                   <tr>
-                    <th>Name</th>
+                    <th>Time Punch Name</th>
+                    <th>Hire Date</th>
                     <th>Department</th>
+                    <th>Pay</th>
                     <th>Email</th>
                     <th>Phone</th>
+                    <th>Clock In PIN</th>
                   </tr>
                 </thead>
                 <tbody>
                   {{ if .ActiveEmployees }}
                     {{ range .ActiveEmployees }}
-                      <tr class="employee-row" data-search-name="{{ .FirstName }} {{ .LastName }}">
-                        <td><a class="location-link" href="/admin/locations/{{ $.Location.Number }}/employees/{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }}</a></td>
+                      <tr class="employee-row" data-search-name="{{ .TimePunchName }}">
+                        <td><a class="location-link" href="/admin/locations/{{ $.Location.Number }}/employees/{{ .TimePunchName }}">{{ .TimePunchName }}</a></td>
+                        <td>{{ if .HireDate }}{{ .HireDate }}{{ else }}-{{ end }}</td>
                         <td>{{ if .Department }}{{ .Department }}{{ else }}INIT{{ end }}</td>
+                        <td>{{ .PayAmountDisplay }}</td>
                         <td>{{ if .Email }}{{ .Email }}{{ else }}-{{ end }}</td>
                         <td>{{ if .Phone }}{{ .Phone }}{{ else }}-{{ end }}</td>
+                        <td>{{ if .HasClockInPIN }}Set{{ else }}Missing{{ end }}</td>
                       </tr>
                     {{ end }}
                   {{ else }}
-                    <tr><td colspan="4">No active employees right now.</td></tr>
+                    <tr><td colspan="7">No active employees right now.</td></tr>
                   {{ end }}
                 </tbody>
               </table>
@@ -353,7 +379,7 @@
                     <th colspan="4">Terminated Employees ({{ len .ArchivedEmployees }})</th>
                   </tr>
                   <tr>
-                    <th>Name</th>
+                    <th>Time Punch Name</th>
                     <th>Time Punch</th>
                     <th>Email</th>
                     <th>Terminated At (UTC)</th>
@@ -362,8 +388,8 @@
                 <tbody>
                   {{ if .ArchivedEmployees }}
                     {{ range .ArchivedEmployees }}
-                      <tr class="employee-row" data-search-name="{{ .FirstName }} {{ .LastName }}">
-                        <td><a class="location-link" href="/admin/locations/{{ $.Location.Number }}/employees/archived/{{ .TimePunchName }}">{{ .FirstName }} {{ .LastName }}</a></td>
+                      <tr class="employee-row" data-search-name="{{ .TimePunchName }}">
+                        <td><a class="location-link" href="/admin/locations/{{ $.Location.Number }}/employees/archived/{{ .TimePunchName }}">{{ .TimePunchName }}</a></td>
                         <td>{{ .TimePunchName }}</td>
                         <td>{{ if .Email }}{{ .Email }}{{ else }}-{{ end }}</td>
                         <td>{{ .ArchivedAt }}</td>
@@ -387,6 +413,8 @@
     const employeeSearchMeta = document.getElementById("employee-search-meta");
     const hubButtons = Array.from(document.querySelectorAll(".hub-btn"));
     const panels = Array.from(document.querySelectorAll(".section[data-panel]"));
+    const bulkButtons = Array.from(document.querySelectorAll(".bulk-subbtn"));
+    const bulkPanels = Array.from(document.querySelectorAll(".bulk-panel[data-bulk-panel]"));
     const employeeStatusButtons = Array.from(document.querySelectorAll(".employee-status-btn"));
     const employeeStatusPanels = Array.from(document.querySelectorAll(".employee-status-panel[data-employee-status-panel]"));
 
@@ -402,6 +430,15 @@
       btn.addEventListener("click", () => showPanel(btn.dataset.target));
     });
 
+    function showBulkPanel(panelName) {
+      bulkButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.bulkTarget === panelName));
+      bulkPanels.forEach((panel) => panel.classList.toggle("active", panel.dataset.bulkPanel === panelName));
+    }
+
+    bulkButtons.forEach((btn) => {
+      btn.addEventListener("click", () => showBulkPanel(btn.dataset.bulkTarget));
+    });
+
     function showEmployeeStatusPanel(panelName) {
       employeeStatusButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.employeeStatusTarget === panelName));
       employeeStatusPanels.forEach((panel) => panel.classList.toggle("active", panel.dataset.employeeStatusPanel === panelName));
@@ -412,13 +449,14 @@
       btn.addEventListener("click", () => showEmployeeStatusPanel(btn.dataset.employeeStatusTarget));
     });
 
-    showEmployeeStatusPanel("new-hires");
+    showEmployeeStatusPanel("active-employees");
     const initialPanel = (window.location.hash || "").replace("#", "");
     if (initialPanel && panels.some((panel) => panel.dataset.panel === initialPanel)) {
       showPanel(initialPanel);
     } else {
       showPanel("view-employees");
     }
+    showBulkPanel("bulk-bio");
 
     function normalizeSearchText(value) {
       return (value || "").toLowerCase().trim();
@@ -436,7 +474,7 @@
         const isInActivePanel = scopedRows.includes(row);
         const fullName = normalizeSearchText(row.dataset.searchName);
         const match = isInActivePanel && (query === "" || fullName.includes(query));
-        row.style.display = match ? "" : "none";
+        row.classList.toggle("hidden", !match);
         if (match) {
           visible += 1;
         }
@@ -471,7 +509,6 @@
           var expanded = navToggle.getAttribute("aria-expanded") === "true";
           navToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
           navMobile.classList.toggle("hidden", expanded);
-          if (!expanded) { navMobile.style.display = "flex"; } else { navMobile.style.removeProperty("display"); }
         });
       }
     })();

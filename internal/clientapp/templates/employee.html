@@ -192,34 +192,40 @@
 </head>
 <body class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
 
-  <header class="fixed inset-x-0 top-0 z-50 h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
-    <div class="mx-auto max-w-6xl h-full px-4 flex items-center justify-between gap-4">
-      <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100 shrink-0" style="text-decoration:none">CFA Suite</a>
-      <nav class="hidden md:flex items-center gap-1 flex-1" id="nav-desktop">
+  <header class="fixed inset-x-0 top-0 z-50 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm transition-colors">
+    <div class="mx-auto max-w-6xl px-4">
+      <div class="flex items-center justify-between py-2">
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-sm font-bold text-zinc-900 dark:text-zinc-100" style="text-decoration:none">CFA Suite</a>
+        <div class="flex items-center gap-2">
+          <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
+          <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          </button>
+          <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" class="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
+            <span class="sr-only">Open menu</span>
+            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+        </div>
+      </div>
+      <nav class="hidden md:flex items-center flex-wrap gap-1 pt-2 pb-2 border-t border-zinc-200 dark:border-zinc-800" id="nav-desktop">
         <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/employee/paperwork/location/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employee Paperwork</a>
         <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employees</a>
         <a href="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employee</a>
       </nav>
-      <div class="flex items-center gap-2 shrink-0">
-        <a href="/logout" class="text-xs font-semibold px-2.5 py-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Logout</a>
-        <button id="theme-toggle" type="button" aria-label="Toggle theme" class="h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-          <svg class="h-4 w-4 block dark:hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          <svg class="h-4 w-4 hidden dark:block" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-        </button>
-        <button id="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-mobile" class="md:hidden h-8 w-8 inline-flex items-center justify-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-transparent text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">
-          <span class="sr-only">Open menu</span>
-          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-        </button>
-      </div>
     </div>
-    <div id="nav-mobile" class="hidden md:hidden border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 bg-white dark:bg-zinc-950 flex-col gap-1">
-      <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
-      <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employees</a>
-      <a href="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employee</a>
+    <div id="nav-mobile" class="hidden border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+      <div class="mx-auto max-w-6xl px-4 py-2 flex flex-col gap-1">
+        <a href="/admin/locations/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Apps</a>
+        <a href="/employee/paperwork/location/{{ .Location.Number }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employee Paperwork</a>
+        <a href="/admin/locations/{{ .Location.Number }}/employees" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors">Employees</a>
+        <a href="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}" class="text-xs font-semibold px-2.5 py-1.5 rounded-md bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900">Employee</a>
+      </div>
     </div>
   </header>
 
-  <div class="pt-14 min-h-[calc(100vh-3.5rem)] px-4 py-8">
+  <div class="pt-24 min-h-[calc(100vh-6rem)] px-4 py-8">
     <div class="mx-auto max-w-[720px]">
       <div class="card employee-main-stack">
 
@@ -229,7 +235,7 @@
           <p class="profile-kicker">Employee Profile</p>
           <div class="profile-name-row">
             <h1>{{ .Employee.FirstName }} {{ .Employee.LastName }}</h1>
-            <span class="status-pill {{ if .IsArchivedEmployee }}archived{{ else if .Employee.HasCompletedPaperwork }}active{{ else }}new-hire{{ end }}">{{ if .IsArchivedEmployee }}Terminated{{ else if .Employee.HasCompletedPaperwork }}Active{{ else }}New Hire{{ end }}</span>
+            <span class="status-pill {{ if .IsArchivedEmployee }}archived{{ else }}active{{ end }}">{{ if .IsArchivedEmployee }}Terminated{{ else }}Active{{ end }}</span>
           </div>
           <p class="sub">Location {{ .Location.Name }} ({{ .Location.Number }}){{ if .IsArchivedEmployee }} &bull; Terminated {{ .Employee.ArchivedAt }}{{ end }}</p>
         </div>
@@ -241,40 +247,16 @@
           <p class="profile-photo-note">{{ if .Employee.HasPhoto }}Current profile photo{{ else }}No profile photo uploaded yet{{ end }}</p>
         </div>
 
-        {{ if not .IsNewHireEmployee }}
         <section class="submenu">
           <button class="submenu-btn" type="button" data-target="employee">Employee</button>
-          {{ if not .IsArchivedEmployee }}
-            <button class="submenu-btn" type="button" data-target="paperwork-upload">{{ if .IsNewHireEmployee }}Paperwork Link{{ else if .IsActiveEmployee }}Update Paperwork{{ end }}</button>
-          {{ end }}
-          <button class="submenu-btn" type="button" data-target="paperwork-view">View Paperwork</button>
         </section>
-        {{ end }}
 
         {{ if or .SuccessMessage .Error }}
         <div class="message {{ if .Error }}error{{ else }}ok{{ end }}">{{ if .Error }}{{ .Error }}{{ else }}{{ .SuccessMessage }}{{ end }}</div>
         {{ end }}
         {{ if and (not .IsArchivedEmployee) .HasEmployeeMissingProfileFields }}
         <div class="message error" style="margin-top:0.5rem;">
-          {{ if .IsNewHireEmployee }}
-          This new hire must complete paperwork before becoming active.
-          {{ else }}
           Employee profile is missing required fields: {{ range $idx, $field := .EmployeeMissingProfileFields }}{{ if $idx }}, {{ end }}{{ $field }}{{ end }}.
-          {{ end }}
-        </div>
-        {{ end }}
-        {{ if and (not .IsArchivedEmployee) .IsNewHireEmployee }}
-        <div class="section-card" style="margin-top:0.75rem;">
-          <h2 class="section-card-title">Complete New-Hire Paperwork</h2>
-          <p class="section-card-sub">This profile is read-only until paperwork is completed. Use the paperwork link to move this team member to Active.</p>
-          <div style="margin-top:0.625rem;">
-            <div class="copy-row">
-              <input id="paperwork-link-input" type="text" value="{{ .EmployeePaperworkLink }}" readonly>
-              <button id="copy-paperwork-link" class="btn btn-secondary btn-sm" type="button">Copy Link</button>
-              <button id="view-paperwork-link" class="btn btn-secondary btn-sm" type="button">View Form</button>
-            </div>
-            <div id="paperwork-link-box" class="upload-link-box"></div>
-          </div>
         </div>
         {{ end }}
 
@@ -290,6 +272,10 @@
               <p class="summary-value">{{ if .Employee.EmployeeNumber }}{{ .Employee.EmployeeNumber }}{{ else }}-{{ end }}</p>
             </article>
             <article class="summary-card">
+              <p class="summary-label">Hire Date</p>
+              <p class="summary-value">{{ if .Employee.HireDate }}{{ .Employee.HireDate }}{{ else }}-{{ end }}</p>
+            </article>
+            <article class="summary-card">
               <p class="summary-label">Birthday</p>
               <p class="summary-value">{{ .Employee.Birthday }}</p>
             </article>
@@ -299,7 +285,7 @@
             </article>
             <article class="summary-card">
               <p class="summary-label">Pay</p>
-              <p class="summary-value">{{ if gt .Employee.PayAmountCents 0 }}{{ .Employee.PayAmountCents }} cents{{ else }}-{{ end }}</p>
+              <p class="summary-value">{{ .Employee.PayAmountDisplay }}</p>
             </article>
             <article class="summary-card">
               <p class="summary-label">Email</p>
@@ -313,8 +299,6 @@
 
           {{ if .IsArchivedEmployee }}
           <p class="hint" style="margin-top:0.75rem;">Terminated employee profiles are read-only.</p>
-          {{ else if .IsNewHireEmployee }}
-          <p class="hint" style="margin-top:0.75rem;">New hire profiles are read-only. Complete paperwork to activate this employee.</p>
           {{ else }}
           <p class="hint" style="margin-top:0.75rem;">You can review and edit this employee in this section.</p>
           {{ end }}
@@ -330,7 +314,6 @@
             <button class="profile-section-btn" type="button" data-profile-target="role-pay">Role &amp; Pay</button>
             <button class="profile-section-btn" type="button" data-profile-target="access">Access</button>
             <button class="profile-section-btn" type="button" data-profile-target="photo">Photo</button>
-            <button class="profile-section-btn" type="button" data-profile-target="employment">Employment</button>
           </div>
 
           <div class="section-stack">
@@ -389,32 +372,9 @@
                       </div>
                     </div>
                     <div>
-                      <label for="edit-address" class="{{ if index .EmployeeMissingProfileFieldSet "Address" }}label-missing{{ end }}">Address</label>
-                      <input id="edit-address" name="address" value="{{ .Employee.Address }}" class="{{ if index .EmployeeMissingProfileFieldSet "Address" }}input-missing{{ end }}">
+                      <label>Hire Date</label>
+                      <input value="{{ if .Employee.HireDate }}{{ .Employee.HireDate }}{{ else }}-{{ end }}" disabled>
                     </div>
-                  </div>
-
-                  <div class="edit-form-grid three-col">
-                    <div>
-                      <label for="edit-apt-number">Apt Number</label>
-                      <input id="edit-apt-number" name="apt_number" value="{{ .Employee.AptNumber }}">
-                    </div>
-                    <div>
-                      <label for="edit-city" class="{{ if index .EmployeeMissingProfileFieldSet "City" }}label-missing{{ end }}">City</label>
-                      <input id="edit-city" name="city" value="{{ .Employee.City }}" class="{{ if index .EmployeeMissingProfileFieldSet "City" }}input-missing{{ end }}">
-                    </div>
-                    <div>
-                      <label for="edit-state" class="{{ if index .EmployeeMissingProfileFieldSet "State" }}label-missing{{ end }}">State</label>
-                      <input id="edit-state" name="state" value="{{ .Employee.State }}" class="{{ if index .EmployeeMissingProfileFieldSet "State" }}input-missing{{ end }}">
-                    </div>
-                  </div>
-
-                  <div class="edit-form-grid two-col">
-                    <div>
-                      <label for="edit-zip-code" class="{{ if index .EmployeeMissingProfileFieldSet "Zip Code" }}label-missing{{ end }}">Zip Code</label>
-                      <input id="edit-zip-code" name="zip_code" value="{{ .Employee.ZipCode }}" class="{{ if index .EmployeeMissingProfileFieldSet "Zip Code" }}input-missing{{ end }}">
-                    </div>
-                    <div></div>
                   </div>
 
                   <div class="edit-form-grid two-col">
@@ -459,7 +419,7 @@
                       <option
                         value="{{ .ID }}"
                         {{ if eq .ID $currentJobID }}selected{{ end }}
-                      >{{ .Name }} ({{ if eq .PayType "salary" }}Salary{{ else }}Hourly{{ end }} / {{ .PayAmountCents }} cents)</option>
+                      >{{ .Name }} ({{ .PayAmountDisplay }})</option>
                     {{ end }}
                   </select>
                 </div>
@@ -467,11 +427,11 @@
               <div class="field-grid">
                 <div>
                   <label>Base Pay</label>
-                  <input value="{{ .Employee.PayAmountCents }} cents" disabled>
+                  <input value="{{ .Employee.PayAmountDisplay }}" disabled>
                 </div>
                 <div>
                   <label>Total Pay After Additional Compensation</label>
-                  <input value="{{ .Employee.EffectivePayCents }} cents" disabled>
+                  <input value="{{ .Employee.EffectivePayDisplay }}" disabled>
                 </div>
               </div>
               <div style="margin-top:.75rem;">
@@ -484,7 +444,7 @@
                         {{ range .EmployeeAdditionalCompensations }}
                           <tr>
                             <td>{{ .Label }}</td>
-                            <td>{{ .AmountCents }} cents</td>
+                            <td>{{ .AmountDisplay }}</td>
                             <td>{{ .CreatedAt }}</td>
                             <td>
                               <form method="post" action="/admin/locations/{{ $.Location.Number }}/employees/{{ $.Employee.TimePunchName }}/additional-compensations/{{ .ID }}/delete" onsubmit="return confirm('Delete this additional compensation?');">
@@ -500,6 +460,9 @@
                 {{ else }}
                   <p class="hint" style="margin-bottom:.65rem;">No additional compensations yet.</p>
                 {{ end }}
+                {{ if eq .Employee.PayType "salary" }}
+                <p class="hint" style="margin-bottom:.65rem;">Salary employees cannot have additional compensations. Update salary by changing pay band.</p>
+                {{ else }}
                 <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/additional-compensations/add/create" class="field-grid">
                   <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
                   <div>
@@ -514,6 +477,7 @@
                     <button class="btn btn-secondary btn-sm" type="submit">Add Additional Compensation</button>
                   </div>
                 </form>
+                {{ end }}
               </div>
               <div id="message" class="message">{{ if .SuccessMessage }}{{ .SuccessMessage }}{{ end }}{{ if .Error }}{{ .Error }}{{ end }}</div>
             </section>
@@ -526,7 +490,7 @@
               <label for="clock-in-pin" class="{{ if index .EmployeeMissingProfileFieldSet "Clock In PIN" }}label-missing{{ end }}">Clock In PIN</label>
               <input id="clock-in-pin" type="text" inputmode="numeric" pattern="[0-9]{5,6}" minlength="5" maxlength="6" autocomplete="off" placeholder="{{ if .Employee.HasClockInPIN }}Enter new PIN to replace existing{{ else }}Set a 5-6 digit PIN{{ end }}" class="{{ if index .EmployeeMissingProfileFieldSet "Clock In PIN" }}input-missing{{ end }}">
               {{ if index .EmployeeMissingProfileFieldSet "Clock In PIN" }}
-              <p class="notice error">Clock in PIN is required for employees with completed paperwork.</p>
+              <p class="notice error">Clock in PIN is required.</p>
               {{ end }}
               <div class="button-row" style="margin-top:0.625rem;">
                 <button id="save-clock-in-pin" type="button" class="btn btn-secondary btn-sm">Save Clock In PIN</button>
@@ -581,184 +545,6 @@
             </section>
             </div>
 
-            <div class="profile-pane" data-profile-pane="employment">
-            <section class="section-card">
-              <h2 class="section-card-title">Termination</h2>
-              <p class="section-card-sub">Terminate this employee to move them out of the active list and into Terminated Employees.</p>
-              <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/terminate" onsubmit="return confirm('Terminate this employee? They will be removed from active employees and moved to terminated employees.');">
-                <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-                <button type="submit" class="btn btn-secondary btn-sm" style="border-color: var(--danger); color: var(--danger);">Terminate Employee</button>
-              </form>
-            </section>
-            </div>
-          </div>
-        </section>
-        {{ end }}
-
-        {{ if not .IsNewHireEmployee }}
-        <section class="panel" data-panel="paperwork-upload">
-          <label style="margin-bottom:0.5rem;">{{ if .IsNewHireEmployee }}Employee Paperwork Link{{ else if .IsActiveEmployee }}Update Paperwork Link{{ else }}Employee Paperwork{{ end }}</label>
-          {{ if .IsArchivedEmployee }}
-            <p class="hint">Terminated employees do not have access to paperwork submission links.</p>
-          {{ else }}
-            <div style="margin-bottom:0.625rem;">
-              <div class="copy-row">
-                <input id="paperwork-link-input" type="text" value="{{ .EmployeePaperworkLink }}" readonly>
-                <button id="copy-paperwork-link" class="btn btn-secondary btn-sm" type="button">Copy Link</button>
-                <button id="view-paperwork-link" class="btn btn-secondary btn-sm" type="button">View Form</button>
-              </div>
-              <div id="paperwork-link-box" class="upload-link-box"></div>
-            </div>
-            {{ if .IsNewHireEmployee }}
-              <p class="hint">Send this link to complete new-hire paperwork.</p>
-            {{ else if .IsActiveEmployee }}
-              <p class="hint">Send this update link to resubmit paperwork. Previous versions remain in employee files for audit history.</p>
-            {{ end }}
-            {{ if .CanManualPaperworkUpload }}
-              <div class="paperwork-cards" style="margin-top:0.75rem;">
-                <article class="paperwork-card">
-                  <p class="paperwork-card-title">Manual I-9 Upload</p>
-                  <p class="paperwork-meta">Upload a completed I-9 PDF directly to this employee file.</p>
-                  <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/i9" enctype="multipart/form-data" style="display:grid;gap:0.5rem;">
-                    <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-                    <input type="file" name="i9_file" accept="application/pdf" required>
-                    <button class="btn btn-secondary btn-sm" type="submit">Upload I-9 PDF</button>
-                  </form>
-                </article>
-
-                <article class="paperwork-card">
-                  <p class="paperwork-card-title">Manual W-4 Upload</p>
-                  <p class="paperwork-meta">Upload a completed W-4 PDF directly to this employee file.</p>
-                  <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/w4" enctype="multipart/form-data" style="display:grid;gap:0.5rem;">
-                    <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-                    <input type="file" name="w4_file" accept="application/pdf" required>
-                    <button class="btn btn-secondary btn-sm" type="submit">Upload W-4 PDF</button>
-                  </form>
-                </article>
-
-                <article class="paperwork-card">
-                  <p class="paperwork-card-title">Other Paperwork Upload</p>
-                  <p class="paperwork-meta">Upload additional supporting paperwork (PDF or image).</p>
-                  <form method="post" action="/admin/locations/{{ .Location.Number }}/employees/{{ .Employee.TimePunchName }}/i9/documents" enctype="multipart/form-data" style="display:grid;gap:0.5rem;">
-                    <input type="hidden" name="csrf_token" value="{{ .CSRF }}">
-                    <input type="text" name="document_title" placeholder="Document title (optional)">
-                    <select name="list_type">
-                      <option value="other">Other</option>
-                      <option value="a">List A</option>
-                      <option value="b">List B</option>
-                      <option value="c">List C</option>
-                    </select>
-                    <input type="file" name="document_file" accept="application/pdf,image/png,image/jpeg,image/webp" required>
-                    <button class="btn btn-secondary btn-sm" type="submit">Upload Supporting Document</button>
-                  </form>
-                </article>
-              </div>
-            {{ else }}
-              <p class="hint" style="color: var(--danger); margin-top:0.625rem;">Manual paperwork upload is blocked until all required employee fields are complete.</p>
-              <p class="hint" style="margin-top:0.25rem;">Missing fields: {{ range $idx, $field := .ManualPaperworkUploadMissing }}{{ if $idx }}, {{ end }}{{ $field }}{{ end }}</p>
-            {{ end }}
-          {{ end }}
-        </section>
-        {{ end }}
-
-        {{ if not .IsNewHireEmployee }}
-        <section class="panel" data-panel="paperwork-view">
-          <label style="margin-bottom:0.5rem;">View Employee Paperwork</label>
-          <div class="paperwork-cards">
-            {{ if and .EmployeeI9 .EmployeeI9.HasFile }}
-              <article class="paperwork-card">
-                <p class="paperwork-card-title">I-9 Form</p>
-                <p class="paperwork-meta">Document Title: {{ .EmployeeI9.FileName }}</p>
-                <div class="paperwork-actions">
-                  <a class="doc-link" href="/admin/locations/{{ .Location.Number }}/employees{{ if .IsArchivedEmployee }}/archived{{ end }}/{{ .Employee.TimePunchName }}/i9/file" target="_blank" rel="noreferrer">View Document</a>
-                </div>
-              </article>
-            {{ else }}
-              <article class="paperwork-card">
-                <p class="paperwork-card-title">I-9 Form</p>
-                <p class="paperwork-meta">No I-9 uploaded yet.</p>
-              </article>
-            {{ end }}
-            {{ if .EmployeeI9History }}
-              {{ range .EmployeeI9History }}
-                <article class="paperwork-card">
-                  <p class="paperwork-card-title">I-9 Previous Version</p>
-                  <p class="paperwork-meta">Document Title: {{ .FileName }}</p>
-                  <p class="paperwork-meta">Submitted: {{ .CreatedAt }}</p>
-                  <div class="paperwork-actions">
-                    <a class="doc-link" href="/admin/locations/{{ $.Location.Number }}/employees/{{ $.Employee.TimePunchName }}/i9/file?version_id={{ .ID }}" target="_blank" rel="noreferrer">View Previous Version</a>
-                  </div>
-                </article>
-              {{ end }}
-            {{ end }}
-
-            {{ if and .EmployeeW4 .EmployeeW4.HasFile }}
-              <article class="paperwork-card">
-                <p class="paperwork-card-title">W-4 Form</p>
-                <p class="paperwork-meta">Document Title: {{ .EmployeeW4.FileName }}</p>
-                <div class="paperwork-actions">
-                  <a class="doc-link" href="/admin/locations/{{ .Location.Number }}/employees{{ if .IsArchivedEmployee }}/archived{{ end }}/{{ .Employee.TimePunchName }}/w4/file" target="_blank" rel="noreferrer">View Document</a>
-                </div>
-              </article>
-            {{ else }}
-              <article class="paperwork-card">
-                <p class="paperwork-card-title">W-4 Form</p>
-                <p class="paperwork-meta">No W-4 uploaded yet.</p>
-              </article>
-            {{ end }}
-            {{ if .EmployeeW4History }}
-              {{ range .EmployeeW4History }}
-                <article class="paperwork-card">
-                  <p class="paperwork-card-title">W-4 Previous Version</p>
-                  <p class="paperwork-meta">Document Title: {{ .FileName }}</p>
-                  <p class="paperwork-meta">Submitted: {{ .CreatedAt }}</p>
-                  <div class="paperwork-actions">
-                    <a class="doc-link" href="/admin/locations/{{ $.Location.Number }}/employees/{{ $.Employee.TimePunchName }}/w4/file?version_id={{ .ID }}" target="_blank" rel="noreferrer">View Previous Version</a>
-                  </div>
-                </article>
-              {{ end }}
-            {{ end }}
-
-            {{ if .EmployeeScorecards }}
-              {{ range .EmployeeScorecards }}
-                <article class="paperwork-card">
-                  <p class="paperwork-card-title">Interview Scorecard</p>
-                  <p class="paperwork-meta">Candidate: {{ .FirstName }} {{ .LastName }}</p>
-                  <p class="paperwork-meta">Status: {{ .Status }}</p>
-                  <div class="paperwork-actions">
-                    <a class="doc-link" href="/admin/locations/{{ $.Location.Number }}/candidates/{{ .ID }}/scorecard" target="_blank" rel="noreferrer">View Scorecard</a>
-                  </div>
-                </article>
-              {{ end }}
-            {{ else }}
-              <article class="paperwork-card">
-                <p class="paperwork-card-title">Interview Scorecard</p>
-                <p class="paperwork-meta">No scorecards available for this employee.</p>
-              </article>
-            {{ end }}
-
-            {{ if .EmployeeI9Documents }}
-              {{ range .EmployeeI9Documents }}
-                <article class="paperwork-card">
-                  <p class="paperwork-card-title">I-9 Supporting Document{{ if .ListType }} ({{ if eq .ListType "a" }}List A{{ else if eq .ListType "b" }}List B{{ else if eq .ListType "c" }}List C{{ else if eq .ListType "signature" }}Signature{{ else }}{{ .ListType }}{{ end }}){{ end }}</p>
-                  <p class="paperwork-meta">Document Title: {{ .FileName }}</p>
-                  <div class="paperwork-actions">
-                    <a class="doc-link" href="/admin/locations/{{ $.Location.Number }}/employees{{ if $.IsArchivedEmployee }}/archived{{ end }}/{{ $.Employee.TimePunchName }}/i9/documents/{{ .ID }}" target="_blank" rel="noreferrer">View Document</a>
-                    {{ if not $.IsArchivedEmployee }}
-                      <form method="post" action="/admin/locations/{{ $.Location.Number }}/employees/{{ $.Employee.TimePunchName }}/i9/documents/{{ .ID }}/delete" onsubmit="return confirm('Delete this document?');">
-                        <input type="hidden" name="csrf_token" value="{{ $.CSRF }}">
-                        <button class="btn btn-secondary btn-sm" type="submit">Delete</button>
-                      </form>
-                    {{ end }}
-                  </div>
-                </article>
-              {{ end }}
-            {{ else }}
-              <article class="paperwork-card">
-                <p class="paperwork-card-title">I-9 Supporting Documents</p>
-                <p class="paperwork-meta">No I-9 supporting documents uploaded yet.</p>
-              </article>
-            {{ end }}
           </div>
         </section>
         {{ end }}
@@ -794,20 +580,6 @@
     const cancelUploadBtn = document.getElementById("cancel-upload");
     const generateLinkBtn = document.getElementById("generate-link");
     const uploadLinkBox = document.getElementById("upload-link-box");
-    const paperworkLinkInput = document.getElementById("paperwork-link-input");
-    const copyPaperworkLinkBtn = document.getElementById("copy-paperwork-link");
-    const viewPaperworkLinkBtn = document.getElementById("view-paperwork-link");
-    const paperworkLinkBox = document.getElementById("paperwork-link-box");
-    const paperworkButtons = Array.from(document.querySelectorAll(".paperwork-btn"));
-    const paperworkCards = Array.from(document.querySelectorAll(".paperwork-form-card"));
-    const i9SignaturePad = document.getElementById("i9-signature-pad");
-    const i9SignatureUseBtn = document.getElementById("i9-signature-use");
-    const i9SignatureClearBtn = document.getElementById("i9-signature-clear");
-    const i9SignatureHidden = document.getElementById("i9_employee_signature_drawn");
-    const i9SignatureText = document.getElementById("i9_employee_signature");
-    const i9SignatureStatus = document.getElementById("i9-signature-status");
-    const i9FormMain = document.getElementById("i9-form-main");
-    const w4FormMain = document.getElementById("w4-form-main");
     const editBirthdayMonth = document.getElementById("edit-birthday-month");
     const editBirthdayDay = document.getElementById("edit-birthday-day");
     const editBirthdayYear = document.getElementById("edit-birthday-year");
@@ -821,7 +593,6 @@
     let rectStart = { x: 0, y: 0, size: 0 };
     let cropConfirmed = false;
     let cropLocked = false;
-    let i9HasInk = false;
 
     function populateBirthdaySelect(select, min, max, selectedValue, pad) {
       if (!select) return;
@@ -1142,179 +913,6 @@
       });
     }
 
-    if (copyPaperworkLinkBtn && paperworkLinkInput) {
-      copyPaperworkLinkBtn.addEventListener("click", async () => {
-        paperworkLinkBox.textContent = "";
-        const value = paperworkLinkInput.value || "";
-        if (!value) return;
-        try {
-          await navigator.clipboard.writeText(value);
-          paperworkLinkBox.textContent = "Paperwork link copied.";
-        } catch (error) {
-          paperworkLinkInput.focus();
-          paperworkLinkInput.select();
-          paperworkLinkBox.textContent = "Copy failed. Link is selected so you can copy manually.";
-        }
-      });
-    }
-    if (viewPaperworkLinkBtn && paperworkLinkInput) {
-      viewPaperworkLinkBtn.addEventListener("click", () => {
-        const value = paperworkLinkInput.value || "";
-        if (value) {
-          window.location.href = value;
-        }
-      });
-    }
-
-    function showPaperworkForm(targetId) {
-      paperworkButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.paperworkForm === targetId));
-      paperworkCards.forEach((card) => card.classList.toggle("active", card.id === targetId));
-    }
-    paperworkButtons.forEach((btn) => {
-      btn.addEventListener("click", () => showPaperworkForm(btn.dataset.paperworkForm));
-    });
-    if (paperworkButtons.length > 0 && paperworkCards.length > 0) {
-      showPaperworkForm("i9-form-card");
-    }
-
-    function digitsOnly(value) {
-      return (value || "").replace(/\D+/g, "");
-    }
-    function setupSegmentedInputs(ids) {
-      const inputs = ids.map((id) => document.getElementById(id)).filter(Boolean);
-      inputs.forEach((input, index) => {
-        input.addEventListener("input", () => {
-          input.value = digitsOnly(input.value).slice(0, Number(input.maxLength || 32));
-          if (input.value.length === Number(input.maxLength || 0) && inputs[index + 1]) {
-            inputs[index + 1].focus();
-          }
-        });
-        input.addEventListener("keydown", (event) => {
-          if (event.key === "Backspace" && input.value === "" && inputs[index - 1]) {
-            inputs[index - 1].focus();
-          }
-        });
-      });
-    }
-    setupSegmentedInputs(["admin_i9_ssn_1", "admin_i9_ssn_2", "admin_i9_ssn_3"]);
-    setupSegmentedInputs(["admin_i9_phone_1", "admin_i9_phone_2", "admin_i9_phone_3"]);
-    setupSegmentedInputs(["admin_w4_ssn_1", "admin_w4_ssn_2", "admin_w4_ssn_3"]);
-    if (i9FormMain) {
-      i9FormMain.addEventListener("submit", () => {
-        const ssnHidden = document.getElementById("admin_i9_ssn");
-        const phoneHidden = document.getElementById("admin_i9_phone");
-        if (ssnHidden) {
-          ssnHidden.value = [
-            document.getElementById("admin_i9_ssn_1")?.value || "",
-            document.getElementById("admin_i9_ssn_2")?.value || "",
-            document.getElementById("admin_i9_ssn_3")?.value || ""
-          ].map(digitsOnly).join("-");
-        }
-        if (phoneHidden) {
-          phoneHidden.value = [
-            document.getElementById("admin_i9_phone_1")?.value || "",
-            document.getElementById("admin_i9_phone_2")?.value || "",
-            document.getElementById("admin_i9_phone_3")?.value || ""
-          ].map(digitsOnly).join("-");
-        }
-      });
-    }
-    if (w4FormMain) {
-      w4FormMain.addEventListener("submit", () => {
-        const ssnHidden = document.getElementById("admin_w4_ssn");
-        if (ssnHidden) {
-          ssnHidden.value = [
-            document.getElementById("admin_w4_ssn_1")?.value || "",
-            document.getElementById("admin_w4_ssn_2")?.value || "",
-            document.getElementById("admin_w4_ssn_3")?.value || ""
-          ].map(digitsOnly).join("-");
-        }
-      });
-    }
-
-    if (i9SignaturePad && i9SignatureUseBtn && i9SignatureClearBtn && i9SignatureHidden && i9FormMain) {
-      const sigCtx = i9SignaturePad.getContext("2d");
-      let drawing = false;
-      let lastX = 0;
-      let lastY = 0;
-      function signatureInkColor() {
-        const rootStyles = getComputedStyle(document.documentElement);
-        const cssInk = (rootStyles.getPropertyValue("--sig-ink") || "").trim();
-        return cssInk || "#1f232a";
-      }
-
-      function signaturePos(event) {
-        const rect = i9SignaturePad.getBoundingClientRect();
-        return {
-          x: ((event.clientX - rect.left) * i9SignaturePad.width) / rect.width,
-          y: ((event.clientY - rect.top) * i9SignaturePad.height) / rect.height
-        };
-      }
-
-      function clearSignatureStatus(text) {
-        if (!i9SignatureStatus) return;
-        i9SignatureStatus.textContent = text;
-      }
-
-      i9SignaturePad.addEventListener("pointerdown", (event) => {
-        drawing = true;
-        const pos = signaturePos(event);
-        lastX = pos.x;
-        lastY = pos.y;
-        i9SignaturePad.setPointerCapture(event.pointerId);
-        event.preventDefault();
-      });
-      i9SignaturePad.addEventListener("pointermove", (event) => {
-        if (!drawing || !sigCtx) return;
-        const pos = signaturePos(event);
-        sigCtx.lineCap = "round";
-        sigCtx.lineJoin = "round";
-        sigCtx.lineWidth = 2.4;
-        sigCtx.strokeStyle = signatureInkColor();
-        sigCtx.beginPath();
-        sigCtx.moveTo(lastX, lastY);
-        sigCtx.lineTo(pos.x, pos.y);
-        sigCtx.stroke();
-        lastX = pos.x;
-        lastY = pos.y;
-        i9HasInk = true;
-        event.preventDefault();
-      });
-      const endDraw = () => { drawing = false; };
-      i9SignaturePad.addEventListener("pointerup", endDraw);
-      i9SignaturePad.addEventListener("pointercancel", endDraw);
-
-      i9SignatureClearBtn.addEventListener("click", () => {
-        if (sigCtx) {
-          sigCtx.clearRect(0, 0, i9SignaturePad.width, i9SignaturePad.height);
-        }
-        i9HasInk = false;
-        i9SignatureHidden.value = "";
-        clearSignatureStatus("Signature cleared.");
-      });
-
-      i9SignatureUseBtn.addEventListener("click", () => {
-        if (!i9HasInk) {
-          clearSignatureStatus("Draw a signature first.");
-          return;
-        }
-        i9SignatureHidden.value = i9SignaturePad.toDataURL("image/png");
-        if (i9SignatureText && i9SignatureText.value.trim() === "") {
-          i9SignatureText.value = "Digital Signature on File";
-        }
-        clearSignatureStatus("Drawn signature will be saved with this I-9.");
-      });
-
-      i9FormMain.addEventListener("submit", () => {
-        if (i9HasInk && i9SignatureHidden.value === "") {
-          i9SignatureHidden.value = i9SignaturePad.toDataURL("image/png");
-          if (i9SignatureText && i9SignatureText.value.trim() === "") {
-            i9SignatureText.value = "Digital Signature on File";
-          }
-        }
-      });
-    }
-
   </script>
   {{ end }}
   <script>
@@ -1377,7 +975,6 @@
           var expanded = navToggle.getAttribute("aria-expanded") === "true";
           navToggle.setAttribute("aria-expanded", expanded ? "false" : "true");
           navMobile.classList.toggle("hidden", expanded);
-          if (!expanded) { navMobile.style.display = "flex"; } else { navMobile.style.removeProperty("display"); }
         });
       }
     })();

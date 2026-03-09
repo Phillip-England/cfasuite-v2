@@ -1,5 +1,6 @@
 
 run:
+	go run ./cmd/cfasuite assets build
 	go run ./cmd/cfasuite run all
 
 setup:

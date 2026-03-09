@@ -72,6 +72,15 @@ var (
 	errNotFound                = errors.New("not found")
 	errPINInUse                = errors.New("pin in use")
 	shoeStylePattern           = regexp.MustCompile(`^\d{5}$`)
+	locationNumberPattern      = regexp.MustCompile(`^\d{5}$`)
+	locationNamePattern        = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 .,'()/#&-]{1,79}$`)
+	personNamePattern          = regexp.MustCompile(`^[A-Za-z][A-Za-z .'-]{0,39}$`)
+	businessNamePattern        = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 .,'()/#&-]{1,119}$`)
+	businessStreetLoosePattern = regexp.MustCompile(`^[A-Za-z0-9#][A-Za-z0-9 .,'/#-]{5,139}$`)
+	cityNamePattern            = regexp.MustCompile(`^[A-Za-z][A-Za-z .'-]{1,79}$`)
+	stateCodePattern           = regexp.MustCompile(`^[A-Z]{2}$`)
+	einPattern                 = regexp.MustCompile(`^\d{2}-\d{7}$`)
+	phonePattern               = regexp.MustCompile(`^\d{3}-\d{3}-\d{4}$`)
 	zipCodePattern             = regexp.MustCompile(`^\d{5}(-\d{4})?$`)
 	cityPattern                = regexp.MustCompile(`^[A-Z][A-Z .'-]{0,99}$`)
 	w4CurrencyAmountPattern    = regexp.MustCompile(`^\d+(?:\.\d{1,2})?$`)
@@ -136,6 +145,8 @@ type createLocationRequest struct {
 	Number               string `json:"number"`
 	Email                string `json:"email"`
 	Phone                string `json:"phone"`
+	OwnerFirstName       string `json:"ownerFirstName"`
+	OwnerLastName        string `json:"ownerLastName"`
 	EmployerRepSignature string `json:"employerRepSignature"`
 	BusinessName         string `json:"businessName"`
 	BusinessStreet       string `json:"businessStreet"`
@@ -175,13 +186,6 @@ type updateEmployeeDetailsRequest struct {
 	Birthday  string `json:"birthday"`
 	Email     string `json:"email"`
 	Phone     string `json:"phone"`
-	Address   string `json:"address"`
-	AptNumber string `json:"aptNumber"`
-	City      string `json:"city"`
-	State     string `json:"state"`
-	ZipCode   string `json:"zipCode"`
-	PayType   string `json:"payType"`
-	PayAmount string `json:"payAmount"`
 }
 
 type createTimePunchEntryRequest struct {
@@ -289,7 +293,16 @@ type updateCandidateDecisionRequest struct {
 }
 
 type createDepartmentRequest struct {
-	Name string `json:"name"`
+	Name              string `json:"name"`
+	HotSchedulesJobID int64  `json:"hotSchedulesJobId"`
+}
+
+type updateDepartmentHotSchedulesJobRequest struct {
+	HotSchedulesJobID int64 `json:"hotSchedulesJobId"`
+}
+
+type updateHotSchedulesJobPrecedenceRequest struct {
+	Precedence int64 `json:"precedence"`
 }
 
 type createJobRequest struct {
@@ -403,6 +416,7 @@ type employee struct {
 	PayAmountCents        int64  `json:"payAmountCents,omitempty"`
 	AdditionalCompCents   int64  `json:"additionalCompCents,omitempty"`
 	EffectivePayCents     int64  `json:"effectivePayCents,omitempty"`
+	HireDate              string `json:"hireDate,omitempty"`
 	Birthday              string `json:"birthday,omitempty"`
 	Email                 string `json:"email,omitempty"`
 	Phone                 string `json:"phone,omitempty"`
@@ -418,10 +432,21 @@ type employee struct {
 }
 
 type locationDepartment struct {
+	ID                  int64     `json:"id"`
+	LocationNumber      string    `json:"locationNumber"`
+	Name                string    `json:"name"`
+	HotSchedulesJobID   int64     `json:"hotSchedulesJobId"`
+	HotSchedulesJobName string    `json:"hotSchedulesJobName"`
+	CreatedAt           time.Time `json:"createdAt"`
+}
+
+type locationHotSchedulesJob struct {
 	ID             int64     `json:"id"`
 	LocationNumber string    `json:"locationNumber"`
 	Name           string    `json:"name"`
+	Precedence     int64     `json:"precedence"`
 	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
 }
 
 type locationJob struct {
@@ -536,6 +561,7 @@ type archivedEmployeeRecord struct {
 	LastName       string
 	Department     string
 	JobID          int64
+	HireDate       string
 	Birthday       string
 	Email          string
 	Phone          string
@@ -554,12 +580,50 @@ type bioEmployeeRow struct {
 	FirstName      string
 	LastName       string
 	TimePunchName  string
+	HireDate       string
 	Terminated     bool
 }
 
 type birthdateRow struct {
 	TimePunchName string
 	Birthday      string
+}
+
+type contactReportRow struct {
+	EmployeeNumber string
+	FirstName      string
+	LastName       string
+	TimePunchName  string
+	Email          string
+	Phone          string
+}
+
+type clockInPINReportRow struct {
+	FirstName     string
+	LastName      string
+	TimePunchName string
+	PIN           string
+}
+
+type hotSchedulesStaffRow struct {
+	FirstName     string
+	LastName      string
+	TimePunchName string
+	Jobs          []string
+}
+
+type hotSchedulesDefaultJob struct {
+	Name string
+}
+
+var defaultHotSchedulesJobs = []hotSchedulesDefaultJob{
+	{Name: "In Training"},
+	{Name: "FOH"},
+	{Name: "BOH"},
+	{Name: "Front Counter Stager"},
+	{Name: "Lemons"},
+	{Name: "Mobile Drinks"},
+	{Name: "Dispatcher"},
 }
 
 type sqliteStore struct {
@@ -808,6 +872,7 @@ type candidateInterviewLink struct {
 	InterviewerTimePunchName string     `json:"interviewerTimePunchName"`
 	InterviewType            string     `json:"interviewType"`
 	ScheduledAt              time.Time  `json:"scheduledAt"`
+	Status                   string     `json:"status"`
 	Link                     string     `json:"link,omitempty"`
 	ExpiresAt                time.Time  `json:"expiresAt"`
 	UsedAt                   *time.Time `json:"usedAt,omitempty"`
@@ -823,6 +888,7 @@ type interviewCalendarEntry struct {
 	InterviewerTimePunchName string     `json:"interviewerTimePunchName"`
 	InterviewType            string     `json:"interviewType"`
 	ScheduledAt              time.Time  `json:"scheduledAt"`
+	Status                   string     `json:"status"`
 	UsedAt                   *time.Time `json:"usedAt,omitempty"`
 	CreatedAt                time.Time  `json:"createdAt"`
 }
@@ -1339,6 +1405,14 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	if len(parts) >= 2 {
+		segment := strings.TrimSpace(parts[1])
+		if segment == "candidates" || strings.HasPrefix(segment, "candidate-") {
+			writeError(w, http.StatusGone, "candidate and interview workflows have been removed; use employee bio import and employee paperwork")
+			return
+		}
+	}
+
 	if len(parts) == 2 && parts[1] == "candidate-values" {
 		switch r.Method {
 		case http.MethodGet:
@@ -1823,6 +1897,20 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	if len(parts) == 4 && parts[1] == "departments" && parts[3] == "hotschedules-job" {
+		if r.Method != http.MethodPut {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		departmentID, err := strconv.ParseInt(strings.TrimSpace(parts[2]), 10, 64)
+		if err != nil || departmentID <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid department id")
+			return
+		}
+		s.updateLocationDepartmentHotSchedulesJob(w, r, locationNumber, departmentID)
+		return
+	}
+
 	if len(parts) == 2 && parts[1] == "jobs" {
 		switch r.Method {
 		case http.MethodGet:
@@ -1835,6 +1923,47 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
+	}
+
+	if len(parts) == 3 && parts[1] == "hotschedules" && parts[2] == "jobs" {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		s.listLocationHotSchedulesJobs(w, r, locationNumber)
+		return
+	}
+
+	if len(parts) == 4 && parts[1] == "hotschedules" && parts[2] == "jobs" && parts[3] == "import" {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		s.importLocationHotSchedulesJobs(w, r, locationNumber)
+		return
+	}
+
+	if len(parts) == 4 && parts[1] == "hotschedules" && parts[2] == "staff" && parts[3] == "import" {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		s.importLocationHotSchedulesStaff(w, r, locationNumber)
+		return
+	}
+
+	if len(parts) == 5 && parts[1] == "hotschedules" && parts[2] == "jobs" && parts[4] == "precedence" {
+		if r.Method != http.MethodPut {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		jobID, err := strconv.ParseInt(strings.TrimSpace(parts[3]), 10, 64)
+		if err != nil || jobID <= 0 {
+			writeError(w, http.StatusBadRequest, "invalid hotschedules job id")
+			return
+		}
+		s.updateLocationHotSchedulesJobPrecedence(w, r, locationNumber, jobID)
+		return
 	}
 
 	if len(parts) == 3 && parts[1] == "jobs" {
@@ -2080,16 +2209,7 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	if len(parts) == 4 && parts[1] == "employees" && parts[3] == "terminate" {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		timePunchName, err := url.PathUnescape(parts[2])
-		if err != nil || strings.TrimSpace(timePunchName) == "" {
-			writeError(w, http.StatusBadRequest, "invalid employee identifier")
-			return
-		}
-		s.terminateLocationEmployee(w, r, locationNumber, timePunchName)
+		writeError(w, http.StatusGone, "manual termination has been removed; terminate employees through employee bio import")
 		return
 	}
 
@@ -2357,6 +2477,22 @@ func (s *server) locationByNumberHandler(w http.ResponseWriter, r *http.Request)
 		s.importLocationBirthdates(w, r, locationNumber)
 		return
 	}
+	if len(parts) == 4 && parts[1] == "employees" && parts[2] == "contacts" && parts[3] == "import" {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		s.importLocationContacts(w, r, locationNumber)
+		return
+	}
+	if len(parts) == 4 && parts[1] == "employees" && parts[2] == "clock-in-pins" && parts[3] == "import" {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		s.importLocationClockInPINs(w, r, locationNumber)
+		return
+	}
 
 	http.NotFound(w, r)
 }
@@ -2479,6 +2615,7 @@ func (s *server) publicEmployeePhotoUploadHandler(w http.ResponseWriter, r *http
 }
 
 func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.Request) {
+	const genericPaperworkTimePunchName = "__generic_paperwork__"
 	trimmed := strings.TrimPrefix(r.URL.Path, "/api/public/employee-paperwork/")
 	trimmed = strings.Trim(trimmed, "/")
 	if trimmed == "" {
@@ -2488,6 +2625,7 @@ func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.R
 	parts := strings.Split(trimmed, "/")
 	locationNumber := ""
 	timePunchName := ""
+	genericMode := false
 	expiresAt := ""
 	routeParts := []string{}
 	resolveTokenRecord := func(token string) (*employeePaperworkToken, error) {
@@ -2528,6 +2666,15 @@ func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.R
 			return
 		}
 		routeParts = append(routeParts, parts[2:]...)
+	} else if len(parts) == 2 && strings.EqualFold(strings.TrimSpace(parts[0]), "location") {
+		var err error
+		locationNumber, err = url.PathUnescape(strings.TrimSpace(parts[1]))
+		if err != nil || strings.TrimSpace(locationNumber) == "" {
+			writeError(w, http.StatusBadRequest, "invalid location")
+			return
+		}
+		timePunchName = genericPaperworkTimePunchName
+		genericMode = true
 	} else if len(parts) == 1 {
 		token := strings.TrimSpace(parts[0])
 		record, err := s.store.getEmployeePaperworkToken(r.Context(), token)
@@ -2562,29 +2709,149 @@ func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.R
 		s.publicEmployeePaperworkPacketRoutes(w, r, locationNumber, timePunchName, routeParts)
 		return
 	}
-	employeeRecord, err := s.store.getLocationEmployee(r.Context(), locationNumber, timePunchName)
-	if err != nil {
-		if errors.Is(err, errNotFound) {
-			writeError(w, http.StatusNotFound, "employee not found")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "unable to load employee")
-		return
-	}
-	submitted, err := s.store.hasEmployeePaperworkSubmission(r.Context(), locationNumber, timePunchName)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "unable to validate paperwork status")
-		return
-	}
-	// New-hire links remain one-time after first full submission.
-	// Active employees must be allowed to reopen paperwork for updates.
-	if submitted && !employeeRecord.HasCompletedPaperwork {
-		writeError(w, http.StatusGone, "paperwork link has already been used")
-		return
-	}
-
 	switch r.Method {
 	case http.MethodGet:
+		var employeeRecord *employee
+		employeeRecord, err := s.store.getLocationEmployee(r.Context(), locationNumber, timePunchName)
+		if err != nil {
+			if !genericMode || !errors.Is(err, errNotFound) {
+				if errors.Is(err, errNotFound) {
+					writeError(w, http.StatusNotFound, "employee not found")
+					return
+				}
+				writeError(w, http.StatusInternalServerError, "unable to load employee")
+				return
+			}
+			employeeRecord = &employee{
+				TimePunchName: timePunchName,
+			}
+		}
+		if !genericMode {
+			submitted, err := s.store.hasEmployeePaperworkSubmission(r.Context(), locationNumber, timePunchName)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "unable to validate paperwork status")
+				return
+			}
+			downloadMode := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("download")))
+			isDownloadRequest := downloadMode == "zip" || downloadMode == "pdf"
+			// New-hire links remain one-time after first full submission.
+			// Active employees must be allowed to reopen paperwork for updates.
+			if submitted && !employeeRecord.HasCompletedPaperwork && !isDownloadRequest {
+				writeError(w, http.StatusGone, "paperwork link has already been used")
+				return
+			}
+		}
+		downloadMode := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("download")))
+		if downloadMode == "zip" {
+			target := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("target")))
+			if target == "" {
+				target = "all"
+			}
+			includeI9 := target == "all" || target == "i9"
+			includeW4 := target == "all" || target == "w4"
+			if !includeI9 && !includeW4 {
+				writeError(w, http.StatusBadRequest, "invalid download target")
+				return
+			}
+			var i9Data []byte
+			var w4Data []byte
+			if includeI9 {
+				var err error
+				i9Data, _, _, err = s.store.getEmployeeI9File(r.Context(), locationNumber, timePunchName)
+				if err != nil {
+					if errors.Is(err, errNotFound) {
+						writeError(w, http.StatusNotFound, "i-9 file not found")
+						return
+					}
+					writeError(w, http.StatusInternalServerError, "unable to load i-9 file")
+					return
+				}
+			}
+			if includeW4 {
+				var err error
+				w4Data, _, _, err = s.store.getEmployeeW4File(r.Context(), locationNumber, timePunchName)
+				if err != nil {
+					if errors.Is(err, errNotFound) {
+						writeError(w, http.StatusNotFound, "w-4 file not found")
+						return
+					}
+					writeError(w, http.StatusInternalServerError, "unable to load w-4 file")
+					return
+				}
+			}
+			var archive bytes.Buffer
+			zipWriter := zip.NewWriter(&archive)
+			if includeI9 {
+				entry, err := zipWriter.Create("i9.pdf")
+				if err != nil {
+					writeError(w, http.StatusInternalServerError, "unable to create i-9 archive entry")
+					return
+				}
+				if _, err := entry.Write(i9Data); err != nil {
+					writeError(w, http.StatusInternalServerError, "unable to write i-9 archive entry")
+					return
+				}
+			}
+			if includeW4 {
+				entry, err := zipWriter.Create("w4.pdf")
+				if err != nil {
+					writeError(w, http.StatusInternalServerError, "unable to create w-4 archive entry")
+					return
+				}
+				if _, err := entry.Write(w4Data); err != nil {
+					writeError(w, http.StatusInternalServerError, "unable to write w-4 archive entry")
+					return
+				}
+			}
+			if err := zipWriter.Close(); err != nil {
+				writeError(w, http.StatusInternalServerError, "unable to finalize archive")
+				return
+			}
+			archiveName := fmt.Sprintf("employee-paperwork-%s.zip", strings.TrimSpace(locationNumber))
+			w.Header().Set("Content-Type", "application/zip")
+			w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(archiveName))
+			w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(archive.Bytes())
+			return
+		}
+		if downloadMode == "pdf" {
+			target := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("target")))
+			if target != "i9" && target != "w4" {
+				writeError(w, http.StatusBadRequest, "invalid pdf download target")
+				return
+			}
+			var (
+				fileData []byte
+				fileName string
+				err      error
+			)
+			if target == "i9" {
+				fileData, _, _, err = s.store.getEmployeeI9File(r.Context(), locationNumber, timePunchName)
+				fileName = "i9.pdf"
+			} else {
+				fileData, _, _, err = s.store.getEmployeeW4File(r.Context(), locationNumber, timePunchName)
+				fileName = "w4.pdf"
+			}
+			if err != nil {
+				if errors.Is(err, errNotFound) {
+					if target == "i9" {
+						writeError(w, http.StatusNotFound, "i-9 file not found")
+					} else {
+						writeError(w, http.StatusNotFound, "w-4 file not found")
+					}
+					return
+				}
+				writeError(w, http.StatusInternalServerError, "unable to load "+target+" file")
+				return
+			}
+			w.Header().Set("Content-Type", "application/pdf")
+			w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote(fileName))
+			w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(fileData)
+			return
+		}
 		loc, err := s.store.getLocationByNumber(r.Context(), locationNumber)
 		if err != nil {
 			if errors.Is(err, errNotFound) {
@@ -2594,13 +2861,23 @@ func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.R
 			writeError(w, http.StatusInternalServerError, "unable to load location")
 			return
 		}
+		responseTimePunchName := timePunchName
+		responseFirstName := employeeRecord.FirstName
+		responseLastName := employeeRecord.LastName
+		responseHasPhoto := employeeRecord.HasPhoto
+		if genericMode {
+			responseTimePunchName = ""
+			responseFirstName = ""
+			responseLastName = ""
+			responseHasPhoto = false
+		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"locationNumber": locationNumber,
 			"locationName":   loc.Name,
-			"timePunchName":  timePunchName,
-			"firstName":      employeeRecord.FirstName,
-			"lastName":       employeeRecord.LastName,
-			"hasPhoto":       employeeRecord.HasPhoto,
+			"timePunchName":  responseTimePunchName,
+			"firstName":      responseFirstName,
+			"lastName":       responseLastName,
+			"hasPhoto":       responseHasPhoto,
 			"expiresAt":      expiresAt,
 		})
 	case http.MethodPost:
@@ -2617,34 +2894,17 @@ func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.R
 				return
 			}
 		}
+		// Populate form defaults (read-only from location settings) without persisting any employee data.
 		s.applyPaperworkDefaults(r.Context(), locationNumber, r.PostForm)
-		employeePatch, err := paperworkEmployeePatchFromForm(employeeRecord, r.PostForm)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
+		// Keep first date of employment/date field empty per paperwork requirement.
+		r.PostForm.Set("first_day_employed", "")
+		r.PostForm.Set("employer_date", "")
 		target := strings.ToLower(strings.TrimSpace(r.PostForm.Get("paperwork_target")))
 		saveI9 := target == "" || target == "i9" || target == "both" || target == "all"
 		saveW4 := target == "w4" || target == "both" || target == "all"
 		if !saveI9 && !saveW4 {
 			writeError(w, http.StatusBadRequest, "invalid paperwork target")
 			return
-		}
-		if isMultipart {
-			photoData, photoMime, hasPhotoUpload, photoErr := parseOptionalUploadedPhotoWithField(r, "paperwork_photo_file")
-			if photoErr != nil {
-				writeError(w, http.StatusBadRequest, photoErr.Error())
-				return
-			}
-			if hasPhotoUpload {
-				if err := withSQLiteRetry(func() error {
-					return s.store.updateEmployeePhoto(r.Context(), locationNumber, timePunchName, photoData, photoMime)
-				}); err != nil {
-					writeError(w, http.StatusInternalServerError, "unable to persist photo: "+err.Error())
-					return
-				}
-				employeeRecord.HasPhoto = true
-			}
 		}
 		if normalizedState := normalizeUSStateCode(r.PostForm.Get("state")); normalizedState != "" {
 			r.PostForm.Set("state", normalizedState)
@@ -2665,6 +2925,8 @@ func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.R
 			return
 		}
 		savedAny := false
+		var i9Data []byte
+		var w4Data []byte
 		if saveI9 {
 			if !isMultipart {
 				writeError(w, http.StatusBadRequest, "upload at least one i-9 supporting document")
@@ -2680,7 +2942,8 @@ func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.R
 				return
 			}
 			applyI9DocumentValuesToForm(r.PostForm, i9Uploads)
-			i9Data, i9Err := generateFilledI9PDF(r.PostForm)
+			var i9Err error
+			i9Data, i9Err = generateFilledI9PDF(r.PostForm)
 			if i9Err != nil {
 				writeError(w, http.StatusBadRequest, i9Err.Error())
 				return
@@ -2690,47 +2953,24 @@ func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.R
 				writeError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
-			if err := withSQLiteRetry(func() error {
-				return s.store.upsertEmployeeI9Form(r.Context(), locationNumber, timePunchName, i9Data, "application/pdf", "i9-filled.pdf")
-			}); err != nil {
-				writeError(w, http.StatusInternalServerError, "unable to persist i9 form")
+			i9Data, err = appendI9SupportingDocumentsToPDF(i9Data, i9Uploads)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, err.Error())
 				return
-			}
-			if err := withSQLiteRetry(func() error {
-				return s.store.deleteEmployeeI9DocumentsForEmployee(r.Context(), locationNumber, timePunchName)
-			}); err != nil {
-				writeError(w, http.StatusInternalServerError, "unable to reset i9 documents")
-				return
-			}
-			for _, upload := range i9Uploads {
-				current := upload
-				if err := withSQLiteRetry(func() error {
-					return s.store.addEmployeeI9Document(
-						r.Context(),
-						locationNumber,
-						timePunchName,
-						current.ListType,
-						current.DocumentTitle,
-						current.IssuingAuthority,
-						current.DocumentNumber,
-						current.ExpirationDate,
-						current.Data,
-						current.Mime,
-						current.FileName,
-					)
-				}); err != nil {
-					writeError(w, http.StatusInternalServerError, "unable to persist i9 supporting document")
-					return
-				}
 			}
 			savedAny = true
 		}
 		if saveW4 {
+			if err := validateRequiredW4IdentityFields(r.PostForm); err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
 			if err := normalizeW4DollarFields(r.PostForm); err != nil {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			w4Data, w4Err := generateFilledW4PDF(r.PostForm)
+			var w4Err error
+			w4Data, w4Err = generateFilledW4PDF(r.PostForm)
 			if w4Err != nil {
 				writeError(w, http.StatusBadRequest, w4Err.Error())
 				return
@@ -2740,71 +2980,70 @@ func (s *server) publicEmployeePaperworkHandler(w http.ResponseWriter, r *http.R
 				writeError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
-			if err := withSQLiteRetry(func() error {
-				return s.store.upsertEmployeeW4Form(r.Context(), locationNumber, timePunchName, w4Data, "application/pdf", "w4-filled.pdf")
-			}); err != nil {
-				writeError(w, http.StatusInternalServerError, "unable to persist w4 form")
-				return
-			}
 			savedAny = true
-		}
-		signatureFileName := "employee-signature.png"
-		signatureMime := "image/png"
-		if len(signatureImageData) > 0 {
-			// Keep original format if provided by the browser.
-			if len(signatureImageData) >= 12 && string(signatureImageData[0:4]) == "RIFF" && string(signatureImageData[8:12]) == "WEBP" {
-				signatureFileName = "employee-signature.webp"
-				signatureMime = "image/webp"
-			} else if len(signatureImageData) >= 3 && signatureImageData[0] == 0xFF && signatureImageData[1] == 0xD8 && signatureImageData[2] == 0xFF {
-				signatureFileName = "employee-signature.jpg"
-				signatureMime = "image/jpeg"
-			}
-		}
-		if err := withSQLiteRetry(func() error {
-			return s.store.deleteEmployeeI9DocumentsByListType(r.Context(), locationNumber, timePunchName, "signature")
-		}); err != nil {
-			writeError(w, http.StatusInternalServerError, "unable to update signature copy")
-			return
-		}
-		if err := withSQLiteRetry(func() error {
-			return s.store.addEmployeeI9Document(
-				r.Context(),
-				locationNumber,
-				timePunchName,
-				"signature",
-				"Employee Digital Signature",
-				"Electronic Signature",
-				"",
-				"",
-				signatureImageData,
-				signatureMime,
-				signatureFileName,
-			)
-		}); err != nil {
-			writeError(w, http.StatusInternalServerError, "unable to store signature copy")
-			return
 		}
 		if !savedAny {
 			writeError(w, http.StatusBadRequest, "enter paperwork fields before submitting")
 			return
 		}
-		if err := withSQLiteRetry(func() error {
-			return s.store.upsertLocationEmployee(r.Context(), locationNumber, *employeePatch)
-		}); err != nil {
-			writeError(w, http.StatusInternalServerError, "unable to save employee details")
+		if saveI9 && saveW4 {
+			var archive bytes.Buffer
+			zipWriter := zip.NewWriter(&archive)
+			i9Entry, err := zipWriter.Create("i9.pdf")
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "unable to create i-9 archive entry")
+				return
+			}
+			if _, err := i9Entry.Write(i9Data); err != nil {
+				writeError(w, http.StatusInternalServerError, "unable to write i-9 archive entry")
+				return
+			}
+			w4Entry, err := zipWriter.Create("w4.pdf")
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "unable to create w-4 archive entry")
+				return
+			}
+			if _, err := w4Entry.Write(w4Data); err != nil {
+				writeError(w, http.StatusInternalServerError, "unable to write w-4 archive entry")
+				return
+			}
+			if err := zipWriter.Close(); err != nil {
+				writeError(w, http.StatusInternalServerError, "unable to finalize archive")
+				return
+			}
+			if archive.Len() == 0 {
+				writeError(w, http.StatusInternalServerError, "generated paperwork archive is empty")
+				return
+			}
+			w.Header().Set("Content-Type", "application/zip")
+			w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote("employee-paperwork.zip"))
+			w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(archive.Bytes())
 			return
 		}
-		allSubmitted, err := s.store.hasEmployeePaperworkSubmission(r.Context(), locationNumber, timePunchName)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "unable to validate paperwork status")
+		if saveI9 {
+			if len(i9Data) == 0 {
+				writeError(w, http.StatusInternalServerError, "generated i-9 pdf is empty")
+				return
+			}
+			w.Header().Set("Content-Type", "application/pdf")
+			w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote("i9.pdf"))
+			w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(i9Data)
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{
-			"message":        "paperwork submitted",
-			"allSubmitted":   allSubmitted,
-			"locationNumber": locationNumber,
-			"timePunchName":  timePunchName,
-		})
+		if len(w4Data) == 0 {
+			writeError(w, http.StatusInternalServerError, "generated w-4 pdf is empty")
+			return
+		}
+		w.Header().Set("Content-Type", "application/pdf")
+		w.Header().Set("Content-Disposition", "attachment; filename="+strconv.Quote("w4.pdf"))
+		w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(w4Data)
+		return
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
@@ -3068,38 +3307,16 @@ func (s *server) publicEmployeePaperworkValidatePacket(w http.ResponseWriter, r 
 			writeError(w, http.StatusInternalServerError, "unable to load i9 template metadata")
 			return
 		}
+		i9Data, err = appendI9SupportingDocumentsToPDF(i9Data, i9Uploads)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
 		if err := withSQLiteRetry(func() error {
 			return s.store.upsertPacketDocument(r.Context(), packet.ID, "i9", i9Template, i9Data, "application/pdf", "i9-filled.pdf")
 		}); err != nil {
 			writeError(w, http.StatusInternalServerError, "unable to prepare i9 packet document")
 			return
-		}
-		if err := withSQLiteRetry(func() error {
-			return s.store.deleteEmployeeI9DocumentsForEmployee(r.Context(), locationNumber, timePunchName)
-		}); err != nil {
-			writeError(w, http.StatusInternalServerError, "unable to reset i9 documents")
-			return
-		}
-		for _, upload := range i9Uploads {
-			current := upload
-			if err := withSQLiteRetry(func() error {
-				return s.store.addEmployeeI9Document(
-					r.Context(),
-					locationNumber,
-					timePunchName,
-					current.ListType,
-					current.DocumentTitle,
-					current.IssuingAuthority,
-					current.DocumentNumber,
-					current.ExpirationDate,
-					current.Data,
-					current.Mime,
-					current.FileName,
-				)
-			}); err != nil {
-				writeError(w, http.StatusInternalServerError, "unable to persist i9 supporting document")
-				return
-			}
 		}
 	}
 	if saveW4 {
@@ -3349,6 +3566,9 @@ func (s *server) publicEmployeePaperworkPacketDocumentFile(w http.ResponseWriter
 }
 
 func (s *server) publicCandidateInterviewHandler(w http.ResponseWriter, r *http.Request) {
+	writeError(w, http.StatusGone, "candidate interviews have been removed from this application")
+	return
+
 	trimmed := strings.TrimPrefix(r.URL.Path, "/api/public/interview/")
 	trimmed = strings.Trim(trimmed, "/")
 	if trimmed == "" {
@@ -3748,6 +3968,10 @@ func collectI9SupportingDocumentsFromRequest(r *http.Request) ([]i9SupportingDoc
 	if r == nil || r.MultipartForm == nil {
 		return nil, errors.New("upload at least one i-9 supporting document")
 	}
+	typeValues := r.MultipartForm.Value["i9_document_type[]"]
+	if len(typeValues) == 0 {
+		typeValues = r.MultipartForm.Value["i9_document_type"]
+	}
 	listValues := r.MultipartForm.Value["i9_document_list[]"]
 	if len(listValues) == 0 {
 		listValues = r.MultipartForm.Value["i9_document_list"]
@@ -3784,18 +4008,28 @@ func collectI9SupportingDocumentsFromRequest(r *http.Request) ([]i9SupportingDoc
 		if idx >= len(listValues) {
 			return nil, errors.New("choose list A, B, or C for each uploaded i-9 document")
 		}
-		if idx >= len(titleValues) || idx >= len(authorityValues) || idx >= len(numberValues) {
-			return nil, errors.New("enter document title, issuing authority, and document number for each uploaded i-9 document")
+		if idx >= len(authorityValues) || idx >= len(numberValues) {
+			return nil, errors.New("enter issuing authority and document number for each uploaded i-9 document")
 		}
 		listType, ok := normalizeI9ListType(listValues[idx])
 		if !ok {
 			return nil, errors.New("choose list A, B, or C for each uploaded i-9 document")
 		}
-		documentTitle := strings.TrimSpace(titleValues[idx])
+		documentType := ""
+		if idx < len(typeValues) {
+			documentType = strings.TrimSpace(typeValues[idx])
+		}
+		documentTitle := normalizeI9DocumentTitle(documentType)
+		if idx < len(titleValues) {
+			submittedTitle := strings.TrimSpace(titleValues[idx])
+			if submittedTitle != "" {
+				documentTitle = submittedTitle
+			}
+		}
 		issuingAuthority := strings.TrimSpace(authorityValues[idx])
 		documentNumber := strings.TrimSpace(numberValues[idx])
-		if documentTitle == "" || issuingAuthority == "" || documentNumber == "" {
-			return nil, errors.New("enter document title, issuing authority, and document number for each uploaded i-9 document")
+		if issuingAuthority == "" || documentNumber == "" {
+			return nil, errors.New("enter issuing authority and document number for each uploaded i-9 document")
 		}
 		expiration := ""
 		if idx < len(expirationValues) {
@@ -3837,6 +4071,47 @@ func normalizeI9ListType(value string) (string, bool) {
 		return "c", true
 	}
 	return "", false
+}
+
+func normalizeI9DocumentTitle(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "us_passport":
+		return "U.S. Passport"
+	case "us_passport_card":
+		return "U.S. Passport Card"
+	case "permanent_resident_card":
+		return "Permanent Resident Card (Form I-551)"
+	case "employment_auth_card":
+		return "Employment Authorization Document (Form I-766)"
+	case "foreign_passport_i551":
+		return "Foreign Passport with I-551 Stamp or MRIV"
+	case "drivers_license":
+		return "Driver's License"
+	case "state_id":
+		return "State ID Card"
+	case "school_id":
+		return "School ID Card"
+	case "voter_registration":
+		return "Voter's Registration Card"
+	case "military_card":
+		return "U.S. Military Card or Draft Record"
+	case "military_dependent_id":
+		return "Military Dependent's ID Card"
+	case "tribal_document":
+		return "Native American Tribal Document"
+	case "ssn_card":
+		return "Social Security Account Number Card"
+	case "birth_certificate":
+		return "Birth Certificate"
+	case "fs240":
+		return "Consular Report of Birth Abroad (FS-240)"
+	case "i197_i179":
+		return "U.S. Citizen ID Card (I-197/I-179)"
+	case "dhs_auth_doc":
+		return "Employment Authorization Document Issued by DHS"
+	default:
+		return ""
+	}
 }
 
 func validateI9DocumentRequirements(uploads []i9SupportingDocumentUpload) error {
@@ -3914,9 +4189,12 @@ func readMultipartFileHeader(header *multipart.FileHeader, maxBytes int64, allow
 		return nil, "", "", errors.New("unable to open uploaded file")
 	}
 	defer file.Close()
-	raw, err := io.ReadAll(io.LimitReader(file, maxBytes))
+	raw, err := io.ReadAll(io.LimitReader(file, maxBytes+1))
 	if err != nil {
 		return nil, "", "", errors.New("unable to read uploaded file")
+	}
+	if maxBytes > 0 && int64(len(raw)) > maxBytes {
+		return nil, "", "", fmt.Errorf("uploaded file exceeds %.0f MB", float64(maxBytes)/(1024.0*1024.0))
 	}
 	if len(raw) == 0 {
 		return nil, "", "", errors.New("uploaded file is empty")
@@ -3933,6 +4211,56 @@ func readMultipartFileHeader(header *multipart.FileHeader, maxBytes int64, allow
 		return nil, "", "", errors.New("i-9 supporting documents must be a PDF or image file")
 	}
 	return raw, mime, strings.TrimSpace(header.Filename), nil
+}
+
+func appendI9SupportingDocumentsToPDF(i9Data []byte, uploads []i9SupportingDocumentUpload) ([]byte, error) {
+	if len(i9Data) == 0 {
+		return nil, errors.New("generated i-9 pdf is empty")
+	}
+	if len(uploads) == 0 {
+		return i9Data, nil
+	}
+	pdfcpuPath, err := resolvePdfcpuPath()
+	if err != nil {
+		return nil, errors.New("pdfcpu is required on the host to merge i-9 supporting documents")
+	}
+	tmpDir, err := os.MkdirTemp("", "cfasuite-i9-merge-*")
+	if err != nil {
+		return nil, errors.New("unable to prepare i-9 document merge")
+	}
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
+	basePath := filepath.Join(tmpDir, "i9-base.pdf")
+	if err := os.WriteFile(basePath, i9Data, 0o600); err != nil {
+		return nil, errors.New("unable to stage i-9 pdf for merge")
+	}
+	mergeInputs := []string{basePath}
+	for idx, upload := range uploads {
+		if len(upload.Data) == 0 {
+			return nil, errors.New("uploaded i-9 supporting document is empty")
+		}
+		path := filepath.Join(tmpDir, fmt.Sprintf("supporting-%02d.pdf", idx+1))
+		if err := os.WriteFile(path, upload.Data, 0o600); err != nil {
+			return nil, errors.New("unable to stage i-9 supporting documents")
+		}
+		mergeInputs = append(mergeInputs, path)
+	}
+	mergedPath := filepath.Join(tmpDir, "i9-merged.pdf")
+	args := append([]string{"merge", mergedPath}, mergeInputs...)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	if output, err := exec.CommandContext(ctx, pdfcpuPath, args...).CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("unable to merge i-9 supporting documents: %s", strings.TrimSpace(string(output)))
+	}
+	merged, err := os.ReadFile(mergedPath)
+	if err != nil {
+		return nil, errors.New("unable to read merged i-9 pdf")
+	}
+	if len(merged) == 0 {
+		return nil, errors.New("merged i-9 pdf is empty")
+	}
+	return merged, nil
 }
 
 func convertDocumentToPDF(data []byte, mime, fileName string) ([]byte, string, error) {
@@ -4646,14 +4974,18 @@ func paperworkEmployeePatchFromForm(existing *employee, form url.Values) (*emplo
 	}
 
 	email := strings.TrimSpace(form.Get("email"))
-	if email == "" {
-		return nil, errors.New("email is required")
-	}
-	if len([]rune(email)) > 200 {
-		return nil, errors.New("email must be 200 characters or fewer")
-	}
-	if parsed, err := mail.ParseAddress(email); err != nil || strings.TrimSpace(parsed.Address) != email {
-		return nil, errors.New("email must be a valid email address")
+	if email != "" {
+		if len([]rune(email)) > 200 {
+			return nil, errors.New("email must be 200 characters or fewer")
+		}
+		if parsed, err := mail.ParseAddress(email); err != nil || strings.TrimSpace(parsed.Address) != email {
+			return nil, errors.New("email must be a valid email address")
+		}
+	} else {
+		email = strings.TrimSpace(existing.Email)
+		if email == "" {
+			return nil, errors.New("email is required")
+		}
 	}
 
 	phoneDigits := strings.Map(func(r rune) rune {
@@ -4662,41 +4994,66 @@ func paperworkEmployeePatchFromForm(existing *employee, form url.Values) (*emplo
 		}
 		return -1
 	}, form.Get("phone"))
-	if len(phoneDigits) != 10 {
+	var phone string
+	if len(phoneDigits) == 10 {
+		phone = phoneDigits[0:3] + "-" + phoneDigits[3:6] + "-" + phoneDigits[6:10]
+	} else if phoneDigits == "" && strings.TrimSpace(existing.Phone) != "" {
+		phone = strings.TrimSpace(existing.Phone)
+	} else {
 		return nil, errors.New("phone must contain exactly 10 digits")
 	}
-	phone := phoneDigits[0:3] + "-" + phoneDigits[3:6] + "-" + phoneDigits[6:10]
 
 	address := strings.TrimSpace(form.Get("address"))
-	if address == "" {
-		return nil, errors.New("address is required")
-	}
-	if len([]rune(address)) > 180 {
-		return nil, errors.New("address must be 180 characters or fewer")
+	if address != "" {
+		if len([]rune(address)) > 180 {
+			return nil, errors.New("address must be 180 characters or fewer")
+		}
+	} else {
+		address = strings.TrimSpace(existing.Address)
+		if address == "" {
+			return nil, errors.New("address is required")
+		}
 	}
 
 	aptNumber := strings.TrimSpace(form.Get("apt_number"))
+	if aptNumber == "" {
+		aptNumber = strings.TrimSpace(existing.AptNumber)
+	}
 	if len([]rune(aptNumber)) > 40 {
 		return nil, errors.New("apt number must be 40 characters or fewer")
 	}
 
 	city := strings.ToUpper(strings.TrimSpace(form.Get("city")))
 	city = strings.Join(strings.Fields(city), " ")
-	if city == "" {
-		return nil, errors.New("city is required")
-	}
-	if !cityPattern.MatchString(city) {
-		return nil, errors.New("city must use letters and standard punctuation only")
+	if city != "" {
+		if !cityPattern.MatchString(city) {
+			return nil, errors.New("city must use letters and standard punctuation only")
+		}
+	} else {
+		city = strings.TrimSpace(existing.City)
+		if city == "" {
+			return nil, errors.New("city is required")
+		}
 	}
 
 	state := normalizeUSStateCode(form.Get("state"))
 	if state == "" {
-		return nil, errors.New("state must be a valid US state or territory")
+		state = strings.TrimSpace(existing.State)
+		if state == "" {
+			return nil, errors.New("state must be a valid US state or territory")
+		}
 	}
 
 	zipCode := strings.TrimSpace(form.Get("zip_code"))
-	if !zipCodePattern.MatchString(zipCode) {
-		return nil, errors.New("zip code must be 5 digits or ZIP+4 (e.g. 12345 or 12345-6789)")
+	if zipCode != "" {
+		if !zipCodePattern.MatchString(zipCode) {
+			return nil, errors.New("zip code must be 5 digits or ZIP+4 (e.g. 12345 or 12345-6789)")
+		}
+	} else {
+		zipCode = strings.TrimSpace(existing.ZipCode)
+		if zipCode == "" {
+			return nil, errors.New("zip code is required")
+		}
 	}
 
 	updated.Email = email
@@ -4830,7 +5187,7 @@ func (s *sqliteStore) getOrCreateActiveEmployeePacket(ctx context.Context, locat
 	rows, err := s.query(ctx, `
 		SELECT id, location_number, time_punch_name, status, finalized_at, created_at, updated_at
 		FROM employee_document_packets
-		WHERE location_number = @location_number
+		WHERE d.location_number = @location_number
 			AND time_punch_name = @time_punch_name
 			AND status != 'finalized'
 		ORDER BY id DESC
@@ -5650,6 +6007,10 @@ func (s *server) createLocationUniformOrder(w http.ResponseWriter, r *http.Reque
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if err := s.enforceTeamSubmitterPhotoGate(r.Context(), number, req.TimePunchName); err != nil {
+		writeError(w, http.StatusForbidden, err.Error())
+		return
+	}
 	if _, err := s.store.getLocationEmployee(r.Context(), number, req.TimePunchName); err != nil {
 		if errors.Is(err, errNotFound) {
 			writeError(w, http.StatusBadRequest, "employee not found for this location")
@@ -5780,6 +6141,37 @@ func (s *server) createLocationUniformOrder(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]string{"message": "uniform order submitted"})
+}
+
+func (s *server) enforceTeamSubmitterPhotoGate(ctx context.Context, locationNumber, timePunchName string) error {
+	user := userFromContext(ctx)
+	if user == nil {
+		return nil
+	}
+	if userRoleOrDefault(user.Role, user.IsAdmin) != userRoleTeam {
+		return nil
+	}
+	requested := strings.TrimSpace(timePunchName)
+	if requested == "" {
+		return errors.New("team member is required")
+	}
+	if !strings.EqualFold(strings.TrimSpace(user.LocationNumber), strings.TrimSpace(locationNumber)) {
+		return errors.New("location access denied")
+	}
+	if !strings.EqualFold(strings.TrimSpace(user.TimePunchName), requested) {
+		return errors.New("team members can only submit requests for themselves")
+	}
+	emp, err := s.store.getLocationEmployee(ctx, locationNumber, requested)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			return errors.New("employee not found for this location")
+		}
+		return errors.New("unable to validate employee")
+	}
+	if !emp.HasPhoto {
+		return errors.New("profile photo is required before submitting requests; inform your manager")
+	}
+	return nil
 }
 
 func (s *server) ensureLocationShoesItem(ctx context.Context, locationNumber string) (*uniformItem, error) {
@@ -7495,6 +7887,10 @@ func (s *server) createLocationTimePunchEntry(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if err := s.enforceTeamSubmitterPhotoGate(r.Context(), number, req.TimePunchName); err != nil {
+		writeError(w, http.StatusForbidden, err.Error())
+		return
+	}
 	if _, err := s.store.getLocationEmployee(r.Context(), number, req.TimePunchName); err != nil {
 		if errors.Is(err, errNotFound) {
 			writeError(w, http.StatusBadRequest, "employee is not active in this location")
@@ -7720,7 +8116,12 @@ func (s *server) createLocationTimeOffRequest(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if _, err := s.store.getLocationEmployee(r.Context(), number, strings.TrimSpace(req.TimePunchName)); err != nil {
+	req.TimePunchName = strings.TrimSpace(req.TimePunchName)
+	if err := s.enforceTeamSubmitterPhotoGate(r.Context(), number, req.TimePunchName); err != nil {
+		writeError(w, http.StatusForbidden, err.Error())
+		return
+	}
+	if _, err := s.store.getLocationEmployee(r.Context(), number, req.TimePunchName); err != nil {
 		if errors.Is(err, errNotFound) {
 			writeError(w, http.StatusBadRequest, "employee not found for this location")
 			return
@@ -7731,7 +8132,7 @@ func (s *server) createLocationTimeOffRequest(w http.ResponseWriter, r *http.Req
 	err = withSQLiteRetry(func() error {
 		return s.store.createTimeOffRequest(r.Context(), timeOffRequest{
 			LocationNum:   number,
-			TimePunchName: strings.TrimSpace(req.TimePunchName),
+			TimePunchName: req.TimePunchName,
 			StartDate:     startDate,
 			EndDate:       endDate,
 			CreatedAt:     time.Now().UTC(),
@@ -7939,6 +8340,10 @@ func (s *server) getEmployeeI9(w http.ResponseWriter, r *http.Request, number, t
 }
 
 func (s *server) uploadEmployeeI9(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
+	if employeePaperworkUploadsDisabled() {
+		writeError(w, http.StatusGone, "employee-attached paperwork uploads have been removed; use the standalone paperwork generator")
+		return
+	}
 	emp, err := s.store.getLocationEmployee(r.Context(), number, timePunchName)
 	if err != nil {
 		if errors.Is(err, errNotFound) {
@@ -8027,6 +8432,10 @@ func (s *server) listEmployeeI9Documents(w http.ResponseWriter, r *http.Request,
 }
 
 func (s *server) uploadEmployeeI9Document(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
+	if employeePaperworkUploadsDisabled() {
+		writeError(w, http.StatusGone, "employee-attached paperwork uploads have been removed; use the standalone paperwork generator")
+		return
+	}
 	emp, err := s.store.getLocationEmployee(r.Context(), number, timePunchName)
 	if err != nil {
 		if errors.Is(err, errNotFound) {
@@ -8227,6 +8636,10 @@ func (s *server) getEmployeeW4(w http.ResponseWriter, r *http.Request, number, t
 }
 
 func (s *server) uploadEmployeeW4(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
+	if employeePaperworkUploadsDisabled() {
+		writeError(w, http.StatusGone, "employee-attached paperwork uploads have been removed; use the standalone paperwork generator")
+		return
+	}
 	emp, err := s.store.getLocationEmployee(r.Context(), number, timePunchName)
 	if err != nil {
 		if errors.Is(err, errNotFound) {
@@ -8307,8 +8720,13 @@ func (s *server) applyPaperworkDefaults(ctx context.Context, locationNumber stri
 	if businessAddress != "" {
 		values.Set("employer_business_address", businessAddress)
 	}
-	// W-4 employer line should use owner/operator + store physical address.
-	w4EmployerNameAddr := composeW4EmployerNameAddress(sig, businessAddress)
+	// W-4 employer line should use employer business name + store physical address.
+	// Fall back to employer representative signature only when business name is unavailable.
+	w4EmployerDisplayName := businessName
+	if w4EmployerDisplayName == "" {
+		w4EmployerDisplayName = sig
+	}
+	w4EmployerNameAddr := composeW4EmployerNameAddress(w4EmployerDisplayName, businessAddress)
 	values.Set("employer_name_addr", w4EmployerNameAddr)
 	if businessEIN != "" {
 		values.Set("employer_ein", businessEIN)
@@ -8453,7 +8871,7 @@ func (s *server) getArchivedEmployeeW4File(w http.ResponseWriter, r *http.Reques
 func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request, number string) {
 	file, header, err := r.FormFile("bio_file")
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "employee bio reader file is required")
+		writeError(w, http.StatusBadRequest, "employee bio file is required")
 		return
 	}
 	defer file.Close()
@@ -8461,6 +8879,10 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 	parsedRows, err := parseBioEmployeesFromSpreadsheet(file, header.Filename)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(parsedRows) == 0 {
+		writeError(w, http.StatusBadRequest, "no employee rows were found in the uploaded employee bio")
 		return
 	}
 
@@ -8479,10 +8901,15 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 	}
 	employeesByKey := make(map[string]employee, len(existing))
 	employeesByNumber := make(map[string]employee, len(existing))
+	employeesByNameKey := make(map[string][]employee, len(existing))
 	for _, e := range existing {
 		employeesByKey[e.TimePunchName] = e
 		if strings.TrimSpace(e.EmployeeNumber) != "" {
 			employeesByNumber[strings.TrimSpace(e.EmployeeNumber)] = e
+		}
+		nameKey := normalizeNameText(e.FirstName + " " + e.LastName)
+		if nameKey != "" {
+			employeesByNameKey[nameKey] = append(employeesByNameKey[nameKey], e)
 		}
 	}
 
@@ -8503,6 +8930,14 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 		if matchKey == "" {
 			if currentByName, found := employeesByKey[incoming.TimePunchName]; found {
 				matchKey = currentByName.TimePunchName
+			}
+		}
+		if matchKey == "" {
+			nameKey := normalizeNameText(incoming.FirstName + " " + incoming.LastName)
+			if nameKey != "" {
+				if candidates := employeesByNameKey[nameKey]; len(candidates) == 1 {
+					matchKey = candidates[0].TimePunchName
+				}
 			}
 		}
 
@@ -8530,7 +8965,7 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 
 		current, found := employeesByKey[matchKey]
 		if !found {
-			// Add missing active employees from the bio reader as new hires.
+			// Add missing active employees from the bio report.
 			// They start with INIT department and blank pay/job fields until completed.
 			if incomingEmployeeNumber != "" {
 				if _, created := createdByEmployeeNumber[incomingEmployeeNumber]; created {
@@ -8544,7 +8979,7 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 			if _, exists := employeesByKey[timePunchName]; exists {
 				uniqueName, err := s.uniqueTimePunchNameForLocation(r.Context(), number, incoming.FirstName, incoming.LastName)
 				if err != nil {
-					writeError(w, http.StatusInternalServerError, "unable to prepare new-hire import")
+					writeError(w, http.StatusInternalServerError, "unable to prepare employee import")
 					return
 				}
 				timePunchName = uniqueName
@@ -8555,17 +8990,22 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 				FirstName:      incoming.FirstName,
 				LastName:       incoming.LastName,
 				Department:     "INIT",
+				HireDate:       strings.TrimSpace(incoming.HireDate),
 			}
 			if err := withSQLiteRetry(func() error {
 				return s.store.upsertLocationEmployee(r.Context(), number, newHire)
 			}); err != nil {
-				writeError(w, http.StatusInternalServerError, "unable to add new hires from employee bio")
+				writeError(w, http.StatusInternalServerError, "unable to add active employees from employee bio")
 				return
 			}
 			employeesByKey[newHire.TimePunchName] = newHire
 			if incomingEmployeeNumber != "" {
 				employeesByNumber[incomingEmployeeNumber] = newHire
 				createdByEmployeeNumber[incomingEmployeeNumber] = struct{}{}
+			}
+			nameKey := normalizeNameText(newHire.FirstName + " " + newHire.LastName)
+			if nameKey != "" {
+				employeesByNameKey[nameKey] = append(employeesByNameKey[nameKey], newHire)
 			}
 			added++
 			continue
@@ -8582,6 +9022,10 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 		}
 		if current.LastName != incoming.LastName {
 			current.LastName = incoming.LastName
+			changed = true
+		}
+		if strings.TrimSpace(incoming.HireDate) != "" && strings.TrimSpace(current.HireDate) != strings.TrimSpace(incoming.HireDate) {
+			current.HireDate = strings.TrimSpace(incoming.HireDate)
 			changed = true
 		}
 		if strings.TrimSpace(current.Department) == "" {
@@ -8604,7 +9048,7 @@ func (s *server) importLocationEmployees(w http.ResponseWriter, r *http.Request,
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"message":    "employee bio reader imported",
+		"message":    "employee bio imported",
 		"added":      added,
 		"updated":    updated,
 		"terminated": terminated,
@@ -8671,6 +9115,190 @@ func (s *server) importLocationBirthdates(w http.ResponseWriter, r *http.Request
 	})
 }
 
+func (s *server) importLocationContacts(w http.ResponseWriter, r *http.Request, number string) {
+	file, header, err := r.FormFile("contact_file")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "employee telephone and contact report file is required")
+		return
+	}
+	defer file.Close()
+
+	rows, err := parseContactReportFromSpreadsheet(file, header.Filename)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(rows) == 0 {
+		writeError(w, http.StatusBadRequest, "no contact rows were found in the uploaded report")
+		return
+	}
+
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	existing, err := s.store.listLocationEmployees(r.Context(), number)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load employees")
+		return
+	}
+	employeesByKey := make(map[string]employee, len(existing))
+	employeesByNumber := make(map[string]employee, len(existing))
+	employeesByNameKey := make(map[string][]employee, len(existing))
+	for _, e := range existing {
+		employeesByKey[e.TimePunchName] = e
+		if strings.TrimSpace(e.EmployeeNumber) != "" {
+			employeesByNumber[strings.TrimSpace(e.EmployeeNumber)] = e
+		}
+		nameKey := normalizeNameText(e.FirstName + " " + e.LastName)
+		if nameKey != "" {
+			employeesByNameKey[nameKey] = append(employeesByNameKey[nameKey], e)
+		}
+	}
+
+	updated := 0
+	for _, row := range rows {
+		matchKey := ""
+		if strings.TrimSpace(row.EmployeeNumber) != "" {
+			if currentByNumber, found := employeesByNumber[strings.TrimSpace(row.EmployeeNumber)]; found {
+				matchKey = currentByNumber.TimePunchName
+			}
+		}
+		if matchKey == "" {
+			if currentByName, found := employeesByKey[row.TimePunchName]; found {
+				matchKey = currentByName.TimePunchName
+			}
+		}
+		if matchKey == "" {
+			nameKey := normalizeNameText(row.FirstName + " " + row.LastName)
+			if nameKey != "" {
+				if candidates := employeesByNameKey[nameKey]; len(candidates) == 1 {
+					matchKey = candidates[0].TimePunchName
+				}
+			}
+		}
+		if matchKey == "" {
+			continue
+		}
+		current, found := employeesByKey[matchKey]
+		if !found {
+			continue
+		}
+		changed := false
+		if strings.TrimSpace(current.Email) != strings.TrimSpace(row.Email) {
+			current.Email = strings.TrimSpace(row.Email)
+			changed = true
+		}
+		if strings.TrimSpace(current.Phone) != strings.TrimSpace(row.Phone) {
+			current.Phone = strings.TrimSpace(row.Phone)
+			changed = true
+		}
+		if !changed {
+			continue
+		}
+		if err := withSQLiteRetry(func() error {
+			return s.store.upsertLocationEmployee(r.Context(), number, current)
+		}); err != nil {
+			writeError(w, http.StatusInternalServerError, "unable to persist contacts: "+err.Error())
+			return
+		}
+		employeesByKey[current.TimePunchName] = current
+		updated++
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"message": "employee contact report imported",
+		"updated": updated,
+	})
+}
+
+func (s *server) importLocationClockInPINs(w http.ResponseWriter, r *http.Request, number string) {
+	file, _, err := r.FormFile("pin_file")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "clock-in pin report pdf is required")
+		return
+	}
+	defer file.Close()
+
+	rows, err := parseClockInPINsFromPDF(file)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(rows) == 0 {
+		writeError(w, http.StatusBadRequest, "no clock-in pin rows were found in the uploaded report")
+		return
+	}
+
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	existing, err := s.store.listLocationEmployees(r.Context(), number)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load employees")
+		return
+	}
+	employeesByKey := make(map[string]employee, len(existing))
+	employeesByNameKey := make(map[string][]employee, len(existing))
+	for _, e := range existing {
+		employeesByKey[e.TimePunchName] = e
+		nameKey := normalizeNameText(e.FirstName + " " + e.LastName)
+		if nameKey != "" {
+			employeesByNameKey[nameKey] = append(employeesByNameKey[nameKey], e)
+		}
+	}
+
+	updated := 0
+	skipped := 0
+	conflicts := 0
+	for _, row := range rows {
+		matchKey := ""
+		if currentByName, found := employeesByKey[row.TimePunchName]; found {
+			matchKey = currentByName.TimePunchName
+		}
+		if matchKey == "" {
+			nameKey := normalizeNameText(row.FirstName + " " + row.LastName)
+			if nameKey != "" {
+				if candidates := employeesByNameKey[nameKey]; len(candidates) == 1 {
+					matchKey = candidates[0].TimePunchName
+				}
+			}
+		}
+		if matchKey == "" {
+			skipped++
+			continue
+		}
+		if err := withSQLiteRetry(func() error {
+			return s.store.upsertTeamMemberPIN(r.Context(), number, matchKey, row.PIN)
+		}); err != nil {
+			if errors.Is(err, errPINInUse) {
+				conflicts++
+				continue
+			}
+			writeError(w, http.StatusInternalServerError, "unable to persist clock-in pins")
+			return
+		}
+		updated++
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"message":   "clock-in pin report imported",
+		"updated":   updated,
+		"skipped":   skipped,
+		"conflicts": conflicts,
+		"count":     len(rows),
+	})
+}
+
 func (s *server) listLocations(w http.ResponseWriter, r *http.Request) {
 	page := parsePositiveInt(r.URL.Query().Get("page"), 1)
 	perPage := parsePositiveInt(r.URL.Query().Get("per_page"), defaultPerPage)
@@ -8734,6 +9362,24 @@ func (s *server) createLocation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Number = strings.TrimSpace(req.Number)
+	req.Name = compactSingleSpaces(req.Name)
+	req.OwnerFirstName = compactSingleSpaces(req.OwnerFirstName)
+	req.OwnerLastName = compactSingleSpaces(req.OwnerLastName)
+	req.EmployerRepSignature = compactSingleSpaces(req.EmployerRepSignature)
+	req.BusinessName = compactSingleSpaces(req.BusinessName)
+	req.BusinessStreet = compactSingleSpaces(req.BusinessStreet)
+	req.BusinessCity = compactSingleSpaces(req.BusinessCity)
+	req.BusinessState = strings.ToUpper(compactSingleSpaces(req.BusinessState))
+	req.BusinessEIN = compactSingleSpaces(req.BusinessEIN)
+	normalizedPhone, err := normalizePhoneTenDigits(req.Phone)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	req.Phone = normalizedPhone
+	if req.OwnerFirstName != "" || req.OwnerLastName != "" {
+		req.EmployerRepSignature = strings.TrimSpace(req.OwnerFirstName + " " + req.OwnerLastName)
+	}
 	req.Email = locationLoginEmail(req.Number)
 	if err := validateCreateLocation(req); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -9037,12 +9683,17 @@ func (s *server) updateEmployeePayBand(w http.ResponseWriter, r *http.Request, n
 }
 
 func (s *server) addEmployeeAdditionalCompensation(w http.ResponseWriter, r *http.Request, number, timePunchName string) {
-	if _, err := s.store.getLocationEmployee(r.Context(), number, timePunchName); err != nil {
+	emp, err := s.store.getLocationEmployee(r.Context(), number, timePunchName)
+	if err != nil {
 		if errors.Is(err, errNotFound) {
 			writeError(w, http.StatusNotFound, "employee not found")
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "unable to load employee")
+		return
+	}
+	if strings.EqualFold(strings.TrimSpace(emp.PayType), "salary") {
+		writeError(w, http.StatusBadRequest, "salary employees cannot have additional compensations; update salary through pay band")
 		return
 	}
 	var req createEmployeeAdditionalCompensationRequest
@@ -9178,18 +9829,6 @@ func (s *server) updateLocationEmployeeDetails(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	payType := strings.TrimSpace(current.PayType)
-	payAmountCents := current.PayAmountCents
-	if strings.TrimSpace(req.PayType) != "" || strings.TrimSpace(req.PayAmount) != "" {
-		parsedPayType, parsedPayAmountCents, err := parseAndValidateEmployeePay(req.PayType, req.PayAmount)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		payType = parsedPayType
-		payAmountCents = parsedPayAmountCents
-	}
-
 	birthday := strings.TrimSpace(req.Birthday)
 	if birthday != "" {
 		normalized, ok := normalizeBirthday(birthday)
@@ -9206,13 +9845,6 @@ func (s *server) updateLocationEmployeeDetails(w http.ResponseWriter, r *http.Re
 	updated.Birthday = birthday
 	updated.Email = strings.TrimSpace(req.Email)
 	updated.Phone = strings.TrimSpace(req.Phone)
-	updated.Address = strings.TrimSpace(req.Address)
-	updated.AptNumber = strings.TrimSpace(req.AptNumber)
-	updated.City = strings.TrimSpace(req.City)
-	updated.State = strings.TrimSpace(req.State)
-	updated.ZipCode = strings.TrimSpace(req.ZipCode)
-	updated.PayType = payType
-	updated.PayAmountCents = payAmountCents
 
 	if err := withSQLiteRetry(func() error {
 		return s.store.upsertLocationEmployee(r.Context(), number, updated)
@@ -9266,7 +9898,11 @@ func (s *server) createLocationDepartment(w http.ResponseWriter, r *http.Request
 		writeError(w, http.StatusBadRequest, "department name is required")
 		return
 	}
-	department, err := s.store.createLocationDepartment(r.Context(), number, req.Name)
+	if req.HotSchedulesJobID < 0 {
+		writeError(w, http.StatusBadRequest, "invalid hotschedules job")
+		return
+	}
+	department, err := s.store.createLocationDepartment(r.Context(), number, req.Name, req.HotSchedulesJobID)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "unique") {
 			writeError(w, http.StatusConflict, "department already exists")
@@ -9278,6 +9914,263 @@ func (s *server) createLocationDepartment(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"message":    "department created",
 		"department": department,
+	})
+}
+
+func (s *server) updateLocationDepartmentHotSchedulesJob(w http.ResponseWriter, r *http.Request, number string, departmentID int64) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	var req updateDepartmentHotSchedulesJobRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.HotSchedulesJobID < 0 {
+		writeError(w, http.StatusBadRequest, "invalid hotschedules job")
+		return
+	}
+	if err := s.store.updateLocationDepartmentHotSchedulesJob(r.Context(), number, departmentID, req.HotSchedulesJobID); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "department not found")
+			return
+		}
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"message": "hotschedules job mapping updated"})
+}
+
+func (s *server) listLocationHotSchedulesJobs(w http.ResponseWriter, r *http.Request, number string) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	if err := s.store.ensureLocationHotSchedulesDefaultJobs(r.Context(), number); err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load hotschedules jobs")
+		return
+	}
+	jobs, err := s.store.listLocationHotSchedulesJobs(r.Context(), number)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load hotschedules jobs")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"count": len(jobs),
+		"jobs":  jobs,
+	})
+}
+
+func (s *server) updateLocationHotSchedulesJobPrecedence(w http.ResponseWriter, r *http.Request, number string, jobID int64) {
+	if _, err := s.store.getLocationByNumber(r.Context(), number); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "location not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load location")
+		return
+	}
+	var req updateHotSchedulesJobPrecedenceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Precedence <= 0 {
+		writeError(w, http.StatusBadRequest, "precedence must be a positive integer")
+		return
+	}
+	if err := s.store.updateLocationHotSchedulesJobPrecedence(r.Context(), number, jobID, req.Precedence); err != nil {
+		if errors.Is(err, errNotFound) {
+			writeError(w, http.StatusNotFound, "hotschedules job not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to update precedence")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"message": "precedence updated"})
+}
+
+func (s *server) importLocationHotSchedulesJobs(w http.ResponseWriter, r *http.Request, number string) {
+	file, _, err := r.FormFile("hotschedules_file")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "hotschedules report pdf is required")
+		return
+	}
+	defer file.Close()
+
+	rows, err := parseHotSchedulesStaffFromPDF(file)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	jobSet := map[string]struct{}{}
+	for _, row := range rows {
+		for _, job := range row.Jobs {
+			clean := strings.TrimSpace(job)
+			if clean == "" || clean == "-" {
+				continue
+			}
+			jobSet[clean] = struct{}{}
+		}
+	}
+	if len(jobSet) == 0 {
+		writeError(w, http.StatusBadRequest, "no hotschedules jobs were found in the uploaded report")
+		return
+	}
+	jobNames := make([]string, 0, len(jobSet))
+	for name := range jobSet {
+		jobNames = append(jobNames, name)
+	}
+	sort.Strings(jobNames)
+	added := 0
+	for _, name := range jobNames {
+		created, upsertErr := s.store.upsertLocationHotSchedulesJobByName(r.Context(), number, name)
+		if upsertErr != nil {
+			writeError(w, http.StatusInternalServerError, "unable to save hotschedules jobs")
+			return
+		}
+		if created {
+			added++
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"message": "hotschedules jobs imported",
+		"added":   added,
+		"count":   len(jobNames),
+	})
+}
+
+func (s *server) importLocationHotSchedulesStaff(w http.ResponseWriter, r *http.Request, number string) {
+	file, _, err := r.FormFile("hotschedules_file")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "hotschedules report pdf is required")
+		return
+	}
+	defer file.Close()
+
+	rows, err := parseHotSchedulesStaffFromPDF(file)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(rows) == 0 {
+		writeError(w, http.StatusBadRequest, "no employee rows were found in the uploaded report")
+		return
+	}
+	if err := s.store.ensureLocationHotSchedulesDefaultJobs(r.Context(), number); err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load hotschedules jobs")
+		return
+	}
+	existingEmployees, err := s.store.listLocationEmployees(r.Context(), number)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load employees")
+		return
+	}
+	employeesByKey := make(map[string]employee, len(existingEmployees))
+	employeesByNameKey := make(map[string][]employee, len(existingEmployees))
+	for _, e := range existingEmployees {
+		employeesByKey[e.TimePunchName] = e
+		nameKey := normalizeNameText(e.FirstName + " " + e.LastName)
+		if nameKey != "" {
+			employeesByNameKey[nameKey] = append(employeesByNameKey[nameKey], e)
+		}
+	}
+
+	departments, err := s.store.listLocationDepartments(r.Context(), number)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load departments")
+		return
+	}
+	mappedDepartmentByJobName := make(map[string]locationDepartment)
+	for _, dept := range departments {
+		if strings.TrimSpace(dept.HotSchedulesJobName) == "" {
+			continue
+		}
+		mappedDepartmentByJobName[strings.ToLower(strings.TrimSpace(dept.HotSchedulesJobName))] = dept
+	}
+	if len(mappedDepartmentByJobName) == 0 {
+		writeError(w, http.StatusBadRequest, "no department to hotschedules job mappings are configured")
+		return
+	}
+	hsJobs, err := s.store.listLocationHotSchedulesJobs(r.Context(), number)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load hotschedules jobs")
+		return
+	}
+	precedenceByJobName := make(map[string]int64, len(hsJobs))
+	for _, job := range hsJobs {
+		precedenceByJobName[strings.ToLower(strings.TrimSpace(job.Name))] = job.Precedence
+	}
+
+	updated := 0
+	skipped := 0
+	for _, row := range rows {
+		matchKey := ""
+		if currentByName, found := employeesByKey[row.TimePunchName]; found {
+			matchKey = currentByName.TimePunchName
+		}
+		if matchKey == "" {
+			nameKey := normalizeNameText(row.FirstName + " " + row.LastName)
+			if nameKey != "" {
+				if candidates := employeesByNameKey[nameKey]; len(candidates) == 1 {
+					matchKey = candidates[0].TimePunchName
+				}
+			}
+		}
+		if matchKey == "" {
+			skipped++
+			continue
+		}
+		current := employeesByKey[matchKey]
+		bestDepartment := ""
+		bestPrecedence := int64(-1)
+		for _, jobName := range row.Jobs {
+			key := strings.ToLower(strings.TrimSpace(jobName))
+			if key == "" {
+				continue
+			}
+			dept, ok := mappedDepartmentByJobName[key]
+			if !ok {
+				continue
+			}
+			precedence := precedenceByJobName[key]
+			if precedence > bestPrecedence {
+				bestPrecedence = precedence
+				bestDepartment = dept.Name
+			}
+		}
+		if strings.TrimSpace(bestDepartment) == "" {
+			skipped++
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(current.Department), strings.TrimSpace(bestDepartment)) {
+			continue
+		}
+		current.Department = strings.ToUpper(strings.TrimSpace(bestDepartment))
+		if err := withSQLiteRetry(func() error {
+			return s.store.upsertLocationEmployee(r.Context(), number, current)
+		}); err != nil {
+			writeError(w, http.StatusInternalServerError, "unable to persist employee department updates")
+			return
+		}
+		employeesByKey[current.TimePunchName] = current
+		updated++
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"message": "hotschedules staff report imported",
+		"updated": updated,
+		"skipped": skipped,
+		"count":   len(rows),
 	})
 }
 
@@ -9616,6 +10509,7 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			job_id INTEGER NOT NULL DEFAULT 0,
 			pay_type TEXT NOT NULL DEFAULT '',
 			pay_amount_cents INTEGER NOT NULL DEFAULT 0,
+			hire_date TEXT NOT NULL DEFAULT '',
 			birthday TEXT NOT NULL DEFAULT '',
 			email TEXT NOT NULL DEFAULT '',
 			phone TEXT NOT NULL DEFAULT '',
@@ -9641,6 +10535,7 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			job_id INTEGER NOT NULL DEFAULT 0,
 			pay_type TEXT NOT NULL DEFAULT '',
 			pay_amount_cents INTEGER NOT NULL DEFAULT 0,
+			hire_date TEXT NOT NULL DEFAULT '',
 			birthday TEXT NOT NULL DEFAULT '',
 			email TEXT NOT NULL DEFAULT '',
 			phone TEXT NOT NULL DEFAULT '',
@@ -9906,11 +10801,23 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			location_number TEXT NOT NULL,
 			name TEXT NOT NULL,
+			hotschedules_job_id INTEGER NOT NULL DEFAULT 0,
 			created_at INTEGER NOT NULL,
 			UNIQUE(location_number, name),
 			FOREIGN KEY(location_number) REFERENCES locations(number) ON DELETE CASCADE
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_location_departments_location ON location_departments(location_number, name ASC);`,
+		`CREATE TABLE IF NOT EXISTS location_hotschedules_jobs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			location_number TEXT NOT NULL,
+			name TEXT NOT NULL,
+			precedence INTEGER NOT NULL DEFAULT 0,
+			created_at INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL,
+			UNIQUE(location_number, name),
+			FOREIGN KEY(location_number) REFERENCES locations(number) ON DELETE CASCADE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_location_hotschedules_jobs_location_precedence ON location_hotschedules_jobs(location_number, precedence DESC, name ASC);`,
 		`CREATE TABLE IF NOT EXISTS location_jobs (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			location_number TEXT NOT NULL,
@@ -10227,6 +11134,12 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 	}
 	if _, err := s.exec(ctx, `
 		ALTER TABLE location_employees
+		ADD COLUMN hire_date TEXT NOT NULL DEFAULT '';
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE location_employees
 		ADD COLUMN profile_image_mime TEXT NOT NULL DEFAULT '';
 	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
 		return err
@@ -10337,6 +11250,12 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 	if _, err := s.exec(ctx, `
 		ALTER TABLE archived_location_employees
 		ADD COLUMN pay_amount_cents INTEGER NOT NULL DEFAULT 0;
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE archived_location_employees
+		ADD COLUMN hire_date TEXT NOT NULL DEFAULT '';
 	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
 		return err
 	}
@@ -10471,6 +11390,32 @@ func (s *sqliteStore) initSchema(ctx context.Context) error {
 		ALTER TABLE location_settings
 		ADD COLUMN departments_csv TEXT NOT NULL DEFAULT 'INIT';
 	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		ALTER TABLE location_departments
+		ADD COLUMN hotschedules_job_id INTEGER NOT NULL DEFAULT 0;
+	`, nil); err != nil && !strings.Contains(strings.ToLower(err.Error()), "duplicate column name") {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		CREATE TABLE IF NOT EXISTS location_hotschedules_jobs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			location_number TEXT NOT NULL,
+			name TEXT NOT NULL,
+			precedence INTEGER NOT NULL DEFAULT 0,
+			created_at INTEGER NOT NULL,
+			updated_at INTEGER NOT NULL,
+			UNIQUE(location_number, name),
+			FOREIGN KEY(location_number) REFERENCES locations(number) ON DELETE CASCADE
+		);
+	`, nil); err != nil {
+		return err
+	}
+	if _, err := s.exec(ctx, `
+		CREATE INDEX IF NOT EXISTS idx_location_hotschedules_jobs_location_precedence
+		ON location_hotschedules_jobs(location_number, precedence DESC, name ASC);
+	`, nil); err != nil {
 		return err
 	}
 	if _, err := s.exec(ctx, `
@@ -12693,7 +13638,7 @@ func (s *sqliteStore) listLocationEmployees(ctx context.Context, number string) 
 			e.pay_type, e.pay_amount_cents,
 			COALESCE(c.total_cents, 0) AS additional_comp_cents,
 			(e.pay_amount_cents + COALESCE(c.total_cents, 0)) AS effective_pay_cents,
-			e.birthday, e.email, e.phone, e.address, e.apt_number, e.city, e.state, e.zip_code,
+			e.hire_date, e.birthday, e.email, e.phone, e.address, e.apt_number, e.city, e.state, e.zip_code,
 			CASE WHEN LENGTH(COALESCE(profile_image_data, '')) > 0 THEN 1 ELSE 0 END AS has_photo,
 			CASE WHEN EXISTS (
 				SELECT 1 FROM users u
@@ -12711,6 +13656,7 @@ func (s *sqliteStore) listLocationEmployees(ctx context.Context, number string) 
 				WHERE w.location_number = e.location_number
 					AND w.time_punch_name = e.time_punch_name
 					AND LENGTH(COALESCE(w.file_data, '')) > 0
+			)
 			THEN 1 ELSE 0 END AS has_completed_paperwork
 		FROM location_employees e
 		LEFT JOIN location_jobs j ON j.id = e.job_id AND j.location_number = e.location_number
@@ -12777,6 +13723,10 @@ func (s *sqliteStore) listLocationEmployees(ctx context.Context, number string) 
 		if err != nil {
 			return nil, err
 		}
+		hireDate, err := valueAsString(row["hire_date"])
+		if err != nil {
+			return nil, err
+		}
 		birthday, err := valueAsString(row["birthday"])
 		if err != nil {
 			return nil, err
@@ -12836,6 +13786,7 @@ func (s *sqliteStore) listLocationEmployees(ctx context.Context, number string) 
 			PayAmountCents:        payAmountCents,
 			AdditionalCompCents:   additionalCompCents,
 			EffectivePayCents:     effectivePayCents,
+			HireDate:              strings.TrimSpace(hireDate),
 			Birthday:              birthday,
 			Email:                 email,
 			Phone:                 phone,
@@ -12859,7 +13810,7 @@ func (s *sqliteStore) getLocationEmployee(ctx context.Context, locationNumber, t
 			e.pay_type, e.pay_amount_cents,
 			COALESCE(c.total_cents, 0) AS additional_comp_cents,
 			(e.pay_amount_cents + COALESCE(c.total_cents, 0)) AS effective_pay_cents,
-			e.birthday, e.email, e.phone, e.address, e.apt_number, e.city, e.state, e.zip_code,
+			e.hire_date, e.birthday, e.email, e.phone, e.address, e.apt_number, e.city, e.state, e.zip_code,
 			CASE WHEN LENGTH(COALESCE(profile_image_data, '')) > 0 THEN 1 ELSE 0 END AS has_photo,
 			CASE WHEN EXISTS (
 				SELECT 1 FROM users u
@@ -12877,6 +13828,7 @@ func (s *sqliteStore) getLocationEmployee(ctx context.Context, locationNumber, t
 				WHERE w.location_number = e.location_number
 					AND w.time_punch_name = e.time_punch_name
 					AND LENGTH(COALESCE(w.file_data, '')) > 0
+			)
 			THEN 1 ELSE 0 END AS has_completed_paperwork
 		FROM location_employees e
 		LEFT JOIN location_jobs j ON j.id = e.job_id AND j.location_number = e.location_number
@@ -12947,6 +13899,10 @@ func (s *sqliteStore) getLocationEmployee(ctx context.Context, locationNumber, t
 	if err != nil {
 		return nil, err
 	}
+	hireDate, err := valueAsString(rows[0]["hire_date"])
+	if err != nil {
+		return nil, err
+	}
 	birthday, err := valueAsString(rows[0]["birthday"])
 	if err != nil {
 		return nil, err
@@ -13006,6 +13962,7 @@ func (s *sqliteStore) getLocationEmployee(ctx context.Context, locationNumber, t
 		PayAmountCents:        payAmountCents,
 		AdditionalCompCents:   additionalCompCents,
 		EffectivePayCents:     effectivePayCents,
+		HireDate:              strings.TrimSpace(hireDate),
 		Birthday:              birthday,
 		Email:                 email,
 		Phone:                 phone,
@@ -13022,7 +13979,7 @@ func (s *sqliteStore) getLocationEmployee(ctx context.Context, locationNumber, t
 
 func (s *sqliteStore) listArchivedLocationEmployees(ctx context.Context, number string) ([]employee, error) {
 	rows, err := s.query(ctx, `
-		SELECT time_punch_name, employee_number, first_name, last_name, department, job_id, pay_type, pay_amount_cents, birthday, email, phone, address, apt_number, city, state, zip_code,
+		SELECT time_punch_name, employee_number, first_name, last_name, department, job_id, pay_type, pay_amount_cents, hire_date, birthday, email, phone, address, apt_number, city, state, zip_code,
 			CASE WHEN LENGTH(COALESCE(profile_image_data, '')) > 0 THEN 1 ELSE 0 END AS has_photo,
 			archived_at
 		FROM archived_location_employees
@@ -13063,6 +14020,10 @@ func (s *sqliteStore) listArchivedLocationEmployees(ctx context.Context, number 
 			return nil, err
 		}
 		payAmountCents, err := valueAsInt64(row["pay_amount_cents"])
+		if err != nil {
+			return nil, err
+		}
+		hireDate, err := valueAsString(row["hire_date"])
 		if err != nil {
 			return nil, err
 		}
@@ -13119,6 +14080,7 @@ func (s *sqliteStore) listArchivedLocationEmployees(ctx context.Context, number 
 			PayType:           strings.TrimSpace(payType),
 			PayAmountCents:    payAmountCents,
 			EffectivePayCents: payAmountCents,
+			HireDate:          strings.TrimSpace(hireDate),
 			Birthday:          birthday,
 			Email:             email,
 			Phone:             phone,
@@ -13136,7 +14098,7 @@ func (s *sqliteStore) listArchivedLocationEmployees(ctx context.Context, number 
 
 func (s *sqliteStore) getArchivedLocationEmployee(ctx context.Context, locationNumber, timePunchName string) (*employee, error) {
 	rows, err := s.query(ctx, `
-		SELECT time_punch_name, employee_number, first_name, last_name, department, job_id, pay_type, pay_amount_cents, birthday, email, phone, address, apt_number, city, state, zip_code,
+		SELECT time_punch_name, employee_number, first_name, last_name, department, job_id, pay_type, pay_amount_cents, hire_date, birthday, email, phone, address, apt_number, city, state, zip_code,
 			CASE WHEN LENGTH(COALESCE(profile_image_data, '')) > 0 THEN 1 ELSE 0 END AS has_photo,
 			archived_at
 		FROM archived_location_employees
@@ -13182,6 +14144,10 @@ func (s *sqliteStore) getArchivedLocationEmployee(ctx context.Context, locationN
 		return nil, err
 	}
 	payAmountCents, err := valueAsInt64(rows[0]["pay_amount_cents"])
+	if err != nil {
+		return nil, err
+	}
+	hireDate, err := valueAsString(rows[0]["hire_date"])
 	if err != nil {
 		return nil, err
 	}
@@ -13238,6 +14204,7 @@ func (s *sqliteStore) getArchivedLocationEmployee(ctx context.Context, locationN
 		PayType:           strings.TrimSpace(payType),
 		PayAmountCents:    payAmountCents,
 		EffectivePayCents: payAmountCents,
+		HireDate:          strings.TrimSpace(hireDate),
 		Birthday:          birthday,
 		Email:             email,
 		Phone:             phone,
@@ -13253,7 +14220,7 @@ func (s *sqliteStore) getArchivedLocationEmployee(ctx context.Context, locationN
 
 func (s *sqliteStore) getArchivedEmployeeRecord(ctx context.Context, locationNumber, timePunchName string) (*archivedEmployeeRecord, error) {
 	rows, err := s.query(ctx, `
-		SELECT id, location_number, time_punch_name, employee_number, first_name, last_name, department, job_id, birthday, email, phone, address, apt_number, city, state, zip_code, profile_image_data, profile_image_mime, archived_at
+		SELECT id, location_number, time_punch_name, employee_number, first_name, last_name, department, job_id, hire_date, birthday, email, phone, address, apt_number, city, state, zip_code, profile_image_data, profile_image_mime, archived_at
 		FROM archived_location_employees
 		WHERE location_number = @location_number
 			AND time_punch_name = @time_punch_name
@@ -13289,6 +14256,10 @@ func (s *sqliteStore) getArchivedEmployeeRecord(ctx context.Context, locationNum
 		return nil, err
 	}
 	jobID, err := valueAsInt64(rows[0]["job_id"])
+	if err != nil {
+		return nil, err
+	}
+	hireDate, err := valueAsString(rows[0]["hire_date"])
 	if err != nil {
 		return nil, err
 	}
@@ -13345,6 +14316,7 @@ func (s *sqliteStore) getArchivedEmployeeRecord(ctx context.Context, locationNum
 		LastName:       lastName,
 		Department:     normalizeDepartment(department),
 		JobID:          jobID,
+		HireDate:       strings.TrimSpace(hireDate),
 		Birthday:       birthday,
 		Email:          email,
 		Phone:          phone,
@@ -13361,7 +14333,7 @@ func (s *sqliteStore) getArchivedEmployeeRecord(ctx context.Context, locationNum
 
 func (s *sqliteStore) archiveAndDeleteLocationEmployee(ctx context.Context, locationNumber, timePunchName string) error {
 	rows, err := s.query(ctx, `
-		SELECT employee_number, first_name, last_name, department, job_id, pay_type, pay_amount_cents, birthday, email, phone, address, apt_number, city, state, zip_code, profile_image_data, profile_image_mime
+		SELECT employee_number, first_name, last_name, department, job_id, pay_type, pay_amount_cents, hire_date, birthday, email, phone, address, apt_number, city, state, zip_code, profile_image_data, profile_image_mime
 		FROM location_employees
 		WHERE location_number = @location_number AND time_punch_name = @time_punch_name
 		LIMIT 1;
@@ -13400,6 +14372,10 @@ func (s *sqliteStore) archiveAndDeleteLocationEmployee(ctx context.Context, loca
 		return err
 	}
 	payAmountCents, err := valueAsInt64(rows[0]["pay_amount_cents"])
+	if err != nil {
+		return err
+	}
+	hireDate, err := valueAsString(rows[0]["hire_date"])
 	if err != nil {
 		return err
 	}
@@ -13448,7 +14424,7 @@ func (s *sqliteStore) archiveAndDeleteLocationEmployee(ctx context.Context, loca
 	stmt := `
 		BEGIN;
 		INSERT INTO archived_location_employees (
-			location_number, time_punch_name, employee_number, first_name, last_name, department, job_id, pay_type, pay_amount_cents, birthday, email, phone, address, apt_number, city, state, zip_code, profile_image_data, profile_image_mime, archived_at
+			location_number, time_punch_name, employee_number, first_name, last_name, department, job_id, pay_type, pay_amount_cents, hire_date, birthday, email, phone, address, apt_number, city, state, zip_code, profile_image_data, profile_image_mime, archived_at
 		) VALUES (
 			` + sqliteStringLiteral(locationNumber) + `,
 			` + sqliteStringLiteral(timePunchName) + `,
@@ -13459,6 +14435,7 @@ func (s *sqliteStore) archiveAndDeleteLocationEmployee(ctx context.Context, loca
 			` + strconv.FormatInt(jobID, 10) + `,
 			` + sqliteStringLiteral(strings.TrimSpace(payType)) + `,
 			` + strconv.FormatInt(payAmountCents, 10) + `,
+			` + sqliteStringLiteral(strings.TrimSpace(hireDate)) + `,
 			` + sqliteStringLiteral(birthday) + `,
 			` + sqliteStringLiteral(email) + `,
 			` + sqliteStringLiteral(phone) + `,
@@ -13480,6 +14457,7 @@ func (s *sqliteStore) archiveAndDeleteLocationEmployee(ctx context.Context, loca
 			job_id = excluded.job_id,
 			pay_type = excluded.pay_type,
 			pay_amount_cents = excluded.pay_amount_cents,
+			hire_date = excluded.hire_date,
 			birthday = excluded.birthday,
 			email = excluded.email,
 			phone = excluded.phone,
@@ -14493,9 +15471,9 @@ func (s *sqliteStore) getArchivedEmployeeW4File(ctx context.Context, archivedEmp
 func (s *sqliteStore) upsertLocationEmployee(ctx context.Context, locationNumber string, emp employee) error {
 	_, err := s.exec(ctx, `
 		INSERT INTO location_employees (
-			location_number, time_punch_name, employee_number, first_name, last_name, department, job_id, pay_type, pay_amount_cents, birthday, email, phone, address, apt_number, city, state, zip_code
+			location_number, time_punch_name, employee_number, first_name, last_name, department, job_id, pay_type, pay_amount_cents, hire_date, birthday, email, phone, address, apt_number, city, state, zip_code
 		)
-		VALUES (@location_number, @time_punch_name, @employee_number, @first_name, @last_name, @department, @job_id, @pay_type, @pay_amount_cents, @birthday, @email, @phone, @address, @apt_number, @city, @state, @zip_code)
+		VALUES (@location_number, @time_punch_name, @employee_number, @first_name, @last_name, @department, @job_id, @pay_type, @pay_amount_cents, @hire_date, @birthday, @email, @phone, @address, @apt_number, @city, @state, @zip_code)
 		ON CONFLICT(location_number, time_punch_name)
 		DO UPDATE SET
 			employee_number = excluded.employee_number,
@@ -14505,6 +15483,7 @@ func (s *sqliteStore) upsertLocationEmployee(ctx context.Context, locationNumber
 			job_id = excluded.job_id,
 			pay_type = excluded.pay_type,
 			pay_amount_cents = excluded.pay_amount_cents,
+			hire_date = excluded.hire_date,
 			birthday = excluded.birthday,
 			email = excluded.email,
 			phone = excluded.phone,
@@ -14523,6 +15502,7 @@ func (s *sqliteStore) upsertLocationEmployee(ctx context.Context, locationNumber
 		"job_id":           strconv.FormatInt(emp.JobID, 10),
 		"pay_type":         strings.TrimSpace(strings.ToLower(emp.PayType)),
 		"pay_amount_cents": strconv.FormatInt(emp.PayAmountCents, 10),
+		"hire_date":        strings.TrimSpace(emp.HireDate),
 		"birthday":         emp.Birthday,
 		"email":            strings.TrimSpace(emp.Email),
 		"phone":            strings.TrimSpace(emp.Phone),
@@ -14576,10 +15556,19 @@ func (s *sqliteStore) updateLocationEmployeeDepartment(ctx context.Context, loca
 
 func (s *sqliteStore) listLocationDepartments(ctx context.Context, locationNumber string) ([]locationDepartment, error) {
 	rows, err := s.query(ctx, `
-		SELECT id, location_number, name, created_at
-		FROM location_departments
-		WHERE location_number = @location_number
-		ORDER BY name ASC, id ASC;
+		SELECT
+			d.id,
+			d.location_number,
+			d.name,
+			d.hotschedules_job_id,
+			COALESCE(h.name, '') AS hotschedules_job_name,
+			d.created_at
+		FROM location_departments d
+		LEFT JOIN location_hotschedules_jobs h
+			ON h.id = d.hotschedules_job_id
+			AND h.location_number = d.location_number
+		WHERE d.location_number = @location_number
+		ORDER BY d.name ASC, d.id ASC;
 	`, map[string]string{"location_number": locationNumber})
 	if err != nil {
 		return nil, err
@@ -14598,47 +15587,86 @@ func (s *sqliteStore) listLocationDepartments(ctx context.Context, locationNumbe
 		if err != nil {
 			return nil, err
 		}
+		hotSchedulesJobID, err := valueAsInt64(row["hotschedules_job_id"])
+		if err != nil {
+			return nil, err
+		}
+		hotSchedulesJobName, err := valueAsString(row["hotschedules_job_name"])
+		if err != nil {
+			return nil, err
+		}
 		createdAtUnix, err := valueAsInt64(row["created_at"])
 		if err != nil {
 			return nil, err
 		}
 		out = append(out, locationDepartment{
-			ID:             id,
-			LocationNumber: loc,
-			Name:           strings.TrimSpace(name),
-			CreatedAt:      time.Unix(createdAtUnix, 0).UTC(),
+			ID:                  id,
+			LocationNumber:      loc,
+			Name:                strings.TrimSpace(name),
+			HotSchedulesJobID:   hotSchedulesJobID,
+			HotSchedulesJobName: strings.TrimSpace(hotSchedulesJobName),
+			CreatedAt:           time.Unix(createdAtUnix, 0).UTC(),
 		})
 	}
 	return out, nil
 }
 
-func (s *sqliteStore) createLocationDepartment(ctx context.Context, locationNumber, name string) (locationDepartment, error) {
+func (s *sqliteStore) createLocationDepartment(ctx context.Context, locationNumber, name string, hotSchedulesJobID int64) (locationDepartment, error) {
 	now := time.Now().UTC()
 	cleanName := strings.TrimSpace(name)
 	if cleanName == "" {
 		return locationDepartment{}, errors.New("department name is required")
 	}
+	if hotSchedulesJobID < 0 {
+		return locationDepartment{}, errors.New("invalid hotschedules job")
+	}
+	if hotSchedulesJobID > 0 {
+		rows, err := s.query(ctx, `
+			SELECT id
+			FROM location_hotschedules_jobs
+			WHERE location_number = @location_number
+				AND id = @id
+			LIMIT 1;
+		`, map[string]string{
+			"location_number": locationNumber,
+			"id":              strconv.FormatInt(hotSchedulesJobID, 10),
+		})
+		if err != nil {
+			return locationDepartment{}, err
+		}
+		if len(rows) == 0 {
+			return locationDepartment{}, errors.New("invalid hotschedules job")
+		}
+	}
 	_, err := s.exec(ctx, `
-		INSERT INTO location_departments (location_number, name, created_at)
-		VALUES (@location_number, @name, @created_at);
+		INSERT INTO location_departments (location_number, name, hotschedules_job_id, created_at)
+		VALUES (@location_number, @name, @hotschedules_job_id, @created_at);
 	`, map[string]string{
-		"location_number": locationNumber,
-		"name":            cleanName,
-		"created_at":      strconv.FormatInt(now.Unix(), 10),
+		"location_number":     locationNumber,
+		"name":                cleanName,
+		"hotschedules_job_id": strconv.FormatInt(hotSchedulesJobID, 10),
+		"created_at":          strconv.FormatInt(now.Unix(), 10),
 	})
 	if err != nil {
 		return locationDepartment{}, err
 	}
 	rows, err := s.query(ctx, `
-		SELECT id, location_number, name, created_at
-		FROM location_departments
-		WHERE location_number = @location_number AND name = @name
-		ORDER BY id DESC
+		SELECT
+			d.id,
+			d.location_number,
+			d.name,
+			d.hotschedules_job_id,
+			COALESCE(h.name, '') AS hotschedules_job_name,
+			d.created_at
+		FROM location_departments d
+		LEFT JOIN location_hotschedules_jobs h
+			ON h.id = d.hotschedules_job_id
+			AND h.location_number = d.location_number
+		WHERE d.location_number = @location_number
+			AND d.name = @name
+		ORDER BY d.id DESC
 		LIMIT 1;
-	`, map[string]string{
-		"location_number": locationNumber,
-		"name":            cleanName,
-	})
+	`, map[string]string{"location_number": locationNumber, "name": cleanName})
 	if err != nil {
 		return locationDepartment{}, err
 	}
@@ -14653,12 +15681,212 @@ func (s *sqliteStore) createLocationDepartment(ctx context.Context, locationNumb
 	if err != nil {
 		return locationDepartment{}, err
 	}
+	hotSchedulesJobName, err := valueAsString(rows[0]["hotschedules_job_name"])
+	if err != nil {
+		return locationDepartment{}, err
+	}
 	return locationDepartment{
-		ID:             id,
-		LocationNumber: locationNumber,
-		Name:           cleanName,
-		CreatedAt:      time.Unix(createdAtUnix, 0).UTC(),
+		ID:                  id,
+		LocationNumber:      locationNumber,
+		Name:                cleanName,
+		HotSchedulesJobID:   hotSchedulesJobID,
+		HotSchedulesJobName: strings.TrimSpace(hotSchedulesJobName),
+		CreatedAt:           time.Unix(createdAtUnix, 0).UTC(),
 	}, nil
+}
+
+func (s *sqliteStore) updateLocationDepartmentHotSchedulesJob(ctx context.Context, locationNumber string, departmentID, hotSchedulesJobID int64) error {
+	if hotSchedulesJobID < 0 {
+		return errors.New("invalid hotschedules job")
+	}
+	if hotSchedulesJobID > 0 {
+		rows, err := s.query(ctx, `
+			SELECT 1
+			FROM location_hotschedules_jobs
+			WHERE location_number = @location_number
+				AND id = @id
+			LIMIT 1;
+		`, map[string]string{
+			"location_number": locationNumber,
+			"id":              strconv.FormatInt(hotSchedulesJobID, 10),
+		})
+		if err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			return errors.New("invalid hotschedules job")
+		}
+	}
+	rows, err := s.query(ctx, `
+		SELECT 1
+		FROM location_departments
+		WHERE location_number = @location_number
+			AND id = @department_id
+		LIMIT 1;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"department_id":   strconv.FormatInt(departmentID, 10),
+	})
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return errNotFound
+	}
+	_, err = s.exec(ctx, `
+		UPDATE location_departments
+		SET hotschedules_job_id = @hotschedules_job_id
+		WHERE location_number = @location_number
+			AND id = @department_id;
+	`, map[string]string{
+		"hotschedules_job_id": strconv.FormatInt(hotSchedulesJobID, 10),
+		"location_number":     locationNumber,
+		"department_id":       strconv.FormatInt(departmentID, 10),
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *sqliteStore) listLocationHotSchedulesJobs(ctx context.Context, locationNumber string) ([]locationHotSchedulesJob, error) {
+	rows, err := s.query(ctx, `
+		SELECT id, location_number, name, precedence, created_at, updated_at
+		FROM location_hotschedules_jobs
+		WHERE location_number = @location_number
+		ORDER BY precedence DESC, name ASC, id ASC;
+	`, map[string]string{"location_number": locationNumber})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]locationHotSchedulesJob, 0, len(rows))
+	for _, row := range rows {
+		id, err := valueAsInt64(row["id"])
+		if err != nil {
+			return nil, err
+		}
+		name, err := valueAsString(row["name"])
+		if err != nil {
+			return nil, err
+		}
+		precedence, err := valueAsInt64(row["precedence"])
+		if err != nil {
+			return nil, err
+		}
+		createdAt, err := valueAsInt64(row["created_at"])
+		if err != nil {
+			return nil, err
+		}
+		updatedAt, err := valueAsInt64(row["updated_at"])
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, locationHotSchedulesJob{
+			ID:             id,
+			LocationNumber: locationNumber,
+			Name:           strings.TrimSpace(name),
+			Precedence:     precedence,
+			CreatedAt:      time.Unix(createdAt, 0).UTC(),
+			UpdatedAt:      time.Unix(updatedAt, 0).UTC(),
+		})
+	}
+	return out, nil
+}
+
+func (s *sqliteStore) ensureLocationHotSchedulesDefaultJobs(ctx context.Context, locationNumber string) error {
+	for _, defaultJob := range defaultHotSchedulesJobs {
+		if _, err := s.upsertLocationHotSchedulesJobByName(ctx, locationNumber, defaultJob.Name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *sqliteStore) upsertLocationHotSchedulesJobByName(ctx context.Context, locationNumber, name string) (bool, error) {
+	cleanName := strings.TrimSpace(name)
+	if cleanName == "" {
+		return false, errors.New("hotschedules job name is required")
+	}
+	existingRows, err := s.query(ctx, `
+		SELECT id
+		FROM location_hotschedules_jobs
+		WHERE location_number = @location_number
+			AND LOWER(TRIM(name)) = LOWER(TRIM(@name))
+		LIMIT 1;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"name":            cleanName,
+	})
+	if err != nil {
+		return false, err
+	}
+	if len(existingRows) > 0 {
+		return false, nil
+	}
+	maxRows, err := s.query(ctx, `
+		SELECT COALESCE(MAX(precedence), 0) AS max_precedence
+		FROM location_hotschedules_jobs
+		WHERE location_number = @location_number;
+	`, map[string]string{"location_number": locationNumber})
+	if err != nil {
+		return false, err
+	}
+	maxPrecedence := int64(0)
+	if len(maxRows) > 0 {
+		if value, valueErr := valueAsInt64(maxRows[0]["max_precedence"]); valueErr == nil {
+			maxPrecedence = value
+		}
+	}
+	now := strconv.FormatInt(time.Now().UTC().Unix(), 10)
+	_, err = s.exec(ctx, `
+		INSERT INTO location_hotschedules_jobs (location_number, name, precedence, created_at, updated_at)
+		VALUES (@location_number, @name, @precedence, @created_at, @updated_at);
+	`, map[string]string{
+		"location_number": locationNumber,
+		"name":            cleanName,
+		"precedence":      strconv.FormatInt(maxPrecedence+1, 10),
+		"created_at":      now,
+		"updated_at":      now,
+	})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *sqliteStore) updateLocationHotSchedulesJobPrecedence(ctx context.Context, locationNumber string, jobID, precedence int64) error {
+	rows, err := s.query(ctx, `
+		SELECT 1
+		FROM location_hotschedules_jobs
+		WHERE location_number = @location_number
+			AND id = @id
+		LIMIT 1;
+	`, map[string]string{
+		"location_number": locationNumber,
+		"id":              strconv.FormatInt(jobID, 10),
+	})
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return errNotFound
+	}
+	_, err = s.exec(ctx, `
+		UPDATE location_hotschedules_jobs
+		SET precedence = @precedence,
+			updated_at = @updated_at
+		WHERE location_number = @location_number
+			AND id = @id;
+	`, map[string]string{
+		"precedence":      strconv.FormatInt(precedence, 10),
+		"updated_at":      strconv.FormatInt(time.Now().UTC().Unix(), 10),
+		"location_number": locationNumber,
+		"id":              strconv.FormatInt(jobID, 10),
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *sqliteStore) listLocationJobs(ctx context.Context, locationNumber string) ([]locationJob, error) {
@@ -15402,6 +16630,16 @@ func (s *sqliteStore) markCandidateInterviewTokenUsed(ctx context.Context, token
 	return err
 }
 
+func interviewSessionStatus(scheduledAt time.Time, usedAt *time.Time, now time.Time) string {
+	if usedAt != nil && !usedAt.IsZero() {
+		return "Completed"
+	}
+	if !scheduledAt.IsZero() && now.After(scheduledAt.Add(24*time.Hour)) {
+		return "Expired"
+	}
+	return "Active"
+}
+
 func (s *sqliteStore) listCandidateInterviewLinks(ctx context.Context, locationNumber string, candidateID int64) ([]candidateInterviewLink, error) {
 	rows, err := s.query(ctx, `
 		SELECT token, location_number, candidate_id, interviewer_time_punch_name, interview_type, scheduled_at, expires_at, used_at, created_at
@@ -15416,6 +16654,7 @@ func (s *sqliteStore) listCandidateInterviewLinks(ctx context.Context, locationN
 		return nil, err
 	}
 	out := make([]candidateInterviewLink, 0, len(rows))
+	now := time.Now().UTC()
 	for _, row := range rows {
 		token, err := valueAsString(row["token"])
 		if err != nil {
@@ -15471,6 +16710,7 @@ func (s *sqliteStore) listCandidateInterviewLinks(ctx context.Context, locationN
 			usedAt := time.Unix(usedUnix, 0).UTC()
 			record.UsedAt = &usedAt
 		}
+		record.Status = interviewSessionStatus(record.ScheduledAt, record.UsedAt, now)
 		out = append(out, record)
 	}
 	return out, nil
@@ -15501,6 +16741,7 @@ func (s *sqliteStore) listLocationInterviewCalendar(ctx context.Context, locatio
 		return nil, err
 	}
 	out := make([]interviewCalendarEntry, 0, len(rows))
+	now := time.Now().UTC()
 	for _, row := range rows {
 		token, err := valueAsString(row["token"])
 		if err != nil {
@@ -15560,6 +16801,7 @@ func (s *sqliteStore) listLocationInterviewCalendar(ctx context.Context, locatio
 			usedAt := time.Unix(usedUnix, 0).UTC()
 			entry.UsedAt = &usedAt
 		}
+		entry.Status = interviewSessionStatus(entry.ScheduledAt, entry.UsedAt, now)
 		out = append(out, entry)
 	}
 	return out, nil
@@ -18111,80 +19353,142 @@ func locationDefaultPassword(number string) string {
 	return strings.TrimSpace(number) + "wafflefry!"
 }
 
+func compactSingleSpaces(value string) string {
+	return strings.Join(strings.Fields(strings.TrimSpace(value)), " ")
+}
+
+func normalizePhoneTenDigits(value string) (string, error) {
+	digits := strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, value)
+	if len(digits) != 10 {
+		return "", errors.New("phone must contain exactly 10 digits")
+	}
+	return digits[0:3] + "-" + digits[3:6] + "-" + digits[6:10], nil
+}
+
+func ownerNameParts(req createLocationRequest) (string, string) {
+	first := compactSingleSpaces(req.OwnerFirstName)
+	last := compactSingleSpaces(req.OwnerLastName)
+	if first != "" || last != "" {
+		return first, last
+	}
+	parts := strings.Fields(compactSingleSpaces(req.EmployerRepSignature))
+	if len(parts) < 2 {
+		return "", ""
+	}
+	return parts[0], strings.Join(parts[1:], " ")
+}
+
+func looksLikeStreetAddress(value string) bool {
+	addr := compactSingleSpaces(value)
+	if addr == "" {
+		return false
+	}
+	if strings.HasPrefix(strings.ToUpper(addr), "PO BOX") {
+		return true
+	}
+	if strings.ContainsAny(addr, "0123456789") {
+		return true
+	}
+	lower := strings.ToLower(addr)
+	suffixes := []string{
+		" street", " st", " avenue", " ave", " road", " rd", " boulevard", " blvd",
+		" lane", " ln", " drive", " dr", " highway", " hwy", " way", " court", " ct",
+		" circle", " cir", " parkway", " pkwy", " plaza", " plz", " terrace", " ter",
+		" suite", " ste", " unit", " building", " bldg",
+	}
+	for _, suffix := range suffixes {
+		if strings.Contains(lower, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
 func validateCreateLocation(req createLocationRequest) error {
-	name := strings.TrimSpace(req.Name)
+	name := compactSingleSpaces(req.Name)
 	number := strings.TrimSpace(req.Number)
 	email := strings.TrimSpace(req.Email)
-	phone := strings.TrimSpace(req.Phone)
-	employerRepSignature := strings.TrimSpace(req.EmployerRepSignature)
-	businessName := strings.TrimSpace(req.BusinessName)
-	businessStreet := strings.TrimSpace(req.BusinessStreet)
-	businessCity := strings.TrimSpace(req.BusinessCity)
-	businessState := strings.TrimSpace(req.BusinessState)
-	businessEIN := strings.TrimSpace(req.BusinessEIN)
+	phone := compactSingleSpaces(req.Phone)
+	businessName := compactSingleSpaces(req.BusinessName)
+	businessStreet := compactSingleSpaces(req.BusinessStreet)
+	businessCity := compactSingleSpaces(req.BusinessCity)
+	businessState := strings.ToUpper(compactSingleSpaces(req.BusinessState))
+	businessEIN := compactSingleSpaces(req.BusinessEIN)
 	if businessStreet == "" && businessCity == "" && businessState == "" {
 		businessStreet, businessCity, businessState = splitBusinessAddressParts(req.BusinessAddress)
 	}
 	if name == "" {
 		return errors.New("name is required")
 	}
+	if !locationNamePattern.MatchString(name) {
+		return errors.New("location name must be 2-80 characters and use letters, numbers, spaces, or .,'()/#&-")
+	}
 	if number == "" {
 		return errors.New("number is required")
+	}
+	if !locationNumberPattern.MatchString(number) {
+		return errors.New("location number must be exactly 5 digits")
 	}
 	if email == "" {
 		return errors.New("email is required")
 	}
+	expectedEmail := locationLoginEmail(number)
+	if !strings.EqualFold(email, expectedEmail) {
+		return errors.New("email must match the location number")
+	}
+	if parsed, err := mail.ParseAddress(email); err != nil || strings.TrimSpace(parsed.Address) != email {
+		return errors.New("email must be a valid email address")
+	}
 	if phone == "" {
 		return errors.New("phone is required")
 	}
-	if employerRepSignature == "" {
-		return errors.New("owner/operator is required")
+	if !phonePattern.MatchString(phone) {
+		return errors.New("phone must use 10 digits")
+	}
+	ownerFirst, ownerLast := ownerNameParts(req)
+	if ownerFirst == "" || ownerLast == "" {
+		return errors.New("owner/operator first and last name are required")
+	}
+	if !personNamePattern.MatchString(ownerFirst) {
+		return errors.New("owner/operator first name must be 1-40 letters and can include spaces, apostrophes, periods, or hyphens")
+	}
+	if !personNamePattern.MatchString(ownerLast) {
+		return errors.New("owner/operator last name must be 1-40 letters and can include spaces, apostrophes, periods, or hyphens")
 	}
 	if businessName == "" {
 		return errors.New("business or organization name is required")
 	}
+	if !businessNamePattern.MatchString(businessName) {
+		return errors.New("business name must be 2-120 characters and use letters, numbers, spaces, or .,'()/#&-")
+	}
 	if businessStreet == "" {
 		return errors.New("business street is required")
+	}
+	if !businessStreetLoosePattern.MatchString(businessStreet) || !looksLikeStreetAddress(businessStreet) {
+		return errors.New("business street must look like a valid street address")
 	}
 	if businessCity == "" {
 		return errors.New("business city is required")
 	}
+	if !cityNamePattern.MatchString(businessCity) {
+		return errors.New("business city must be 2-80 letters and can include spaces, apostrophes, periods, or hyphens")
+	}
 	if businessState == "" {
 		return errors.New("business state is required")
+	}
+	if !stateCodePattern.MatchString(businessState) {
+		return errors.New("business state must be a 2-letter code")
 	}
 	if businessEIN == "" {
 		return errors.New("business EIN is required")
 	}
-	if len([]rune(businessName)) > 160 {
-		return errors.New("business or organization name must be 160 characters or fewer")
-	}
-	if len([]rune(businessStreet)) > 180 {
-		return errors.New("business street must be 180 characters or fewer")
-	}
-	if len([]rune(businessCity)) > 100 {
-		return errors.New("business city must be 100 characters or fewer")
-	}
-	if len([]rune(businessState)) > 60 {
-		return errors.New("business state must be 60 characters or fewer")
-	}
-	if len([]rune(businessEIN)) > 32 {
-		return errors.New("business EIN must be 32 characters or fewer")
-	}
-	if len([]rune(email)) > 200 {
-		return errors.New("email must be 200 characters or fewer")
-	}
-	if len([]rune(phone)) > 40 {
-		return errors.New("phone must be 40 characters or fewer")
-	}
-	if !strings.Contains(email, "@") {
-		return errors.New("email must be a valid email address")
-	}
-	if len([]rune(employerRepSignature)) > 120 {
-		return errors.New("owner/operator must be 120 characters or fewer")
-	}
-	validNumber := regexp.MustCompile(`^[A-Za-z0-9-]+$`)
-	if !validNumber.MatchString(number) {
-		return errors.New("number can only contain letters, digits, and hyphens")
+	if !einPattern.MatchString(businessEIN) {
+		return errors.New("business EIN must use format 12-3456789")
 	}
 	return nil
 }
@@ -18887,6 +20191,27 @@ func parseBioEmployeesFromSpreadsheet(reader io.Reader, filename string) ([]bioE
 	if !ok {
 		return nil, fmt.Errorf("missing required column: employee name")
 	}
+	timePunchIdx := -1
+	for _, key := range []string{"time punch name", "time punch", "timepunchname", "time punch id"} {
+		if idx, ok := headerIndex[key]; ok {
+			timePunchIdx = idx
+			break
+		}
+	}
+	firstNameIdx := -1
+	for _, key := range []string{"first name", "employee first name"} {
+		if idx, ok := headerIndex[key]; ok {
+			firstNameIdx = idx
+			break
+		}
+	}
+	lastNameIdx := -1
+	for _, key := range []string{"last name", "employee last name"} {
+		if idx, ok := headerIndex[key]; ok {
+			lastNameIdx = idx
+			break
+		}
+	}
 	employeeNumberIdx := -1
 	if idx, ok := headerIndex["employee number"]; ok {
 		employeeNumberIdx = idx
@@ -18894,6 +20219,16 @@ func parseBioEmployeesFromSpreadsheet(reader io.Reader, filename string) ([]bioE
 	statusIdx := -1
 	if idx, ok := headerIndex["employee status"]; ok {
 		statusIdx = idx
+	}
+	hireDateIdx := -1
+	if idx, ok := headerIndex["location latest start date"]; ok {
+		hireDateIdx = idx
+	}
+	if idx, ok := headerIndex["hire date"]; ok && hireDateIdx == -1 {
+		hireDateIdx = idx
+	}
+	if idx, ok := headerIndex["latest start date"]; ok && hireDateIdx == -1 {
+		hireDateIdx = idx
 	}
 	termDateIdx := -1
 	if idx, ok := headerIndex["termination date"]; ok {
@@ -18903,18 +20238,38 @@ func parseBioEmployeesFromSpreadsheet(reader io.Reader, filename string) ([]bioE
 	var employees []bioEmployeeRow
 	for _, row := range rows[1:] {
 		name := cellValue(row, nameIdx)
-		first, last, timePunch, ok := splitTimePunchName(name)
-		if !ok {
+		first, last, derivedTimePunch, splitOK := splitTimePunchName(name)
+		if !splitOK {
+			first = strings.TrimSpace(cellValue(row, firstNameIdx))
+			last = strings.TrimSpace(cellValue(row, lastNameIdx))
+			if first == "" || last == "" {
+				if parsedFirst, parsedLast, _, parsedOK := splitTimePunchName(strings.TrimSpace(cellValue(row, timePunchIdx))); parsedOK {
+					first = parsedFirst
+					last = parsedLast
+				}
+			}
+		}
+		if first == "" || last == "" {
 			continue
+		}
+		timePunch := strings.TrimSpace(cellValue(row, timePunchIdx))
+		if timePunch == "" {
+			timePunch = strings.TrimSpace(derivedTimePunch)
+		}
+		if timePunch == "" {
+			timePunch = canonicalTimePunchName(first, last)
 		}
 		status := strings.ToLower(strings.TrimSpace(cellValue(row, statusIdx)))
 		termDate := strings.TrimSpace(cellValue(row, termDateIdx))
+		hireDateRaw := cellValue(row, hireDateIdx)
+		hireDate, _ := normalizeBirthday(hireDateRaw)
 		terminated := termDate != "" || strings.Contains(status, "terminat") || strings.Contains(status, "inactive")
 		employees = append(employees, bioEmployeeRow{
 			EmployeeNumber: strings.TrimSpace(cellValue(row, employeeNumberIdx)),
 			FirstName:      first,
 			LastName:       last,
 			TimePunchName:  timePunch,
+			HireDate:       strings.TrimSpace(hireDate),
 			Terminated:     terminated,
 		})
 	}
@@ -18976,6 +20331,488 @@ func parseBirthdatesFromSpreadsheet(reader io.Reader, filename string) ([]birthd
 	return rowsOut, nil
 }
 
+func parseContactReportFromSpreadsheet(reader io.Reader, filename string) ([]contactReportRow, error) {
+	rows, err := readRowsFromSpreadsheet(reader, filename)
+	if err != nil {
+		return nil, err
+	}
+
+	headerIndex := map[string]int{}
+	for i, header := range rows[0] {
+		headerIndex[normalizeHeader(header)] = i
+	}
+
+	nameIdx, ok := headerIndex["employee name"]
+	if !ok {
+		return nil, fmt.Errorf("missing required column: employee name")
+	}
+	employeeNumberIdx := -1
+	if idx, ok := headerIndex["employee number"]; ok {
+		employeeNumberIdx = idx
+	}
+	emailIdx := -1
+	for _, key := range []string{"email", "e-mail", "employees e-mail address", "employee email", "employee e-mail"} {
+		if idx, ok := headerIndex[key]; ok {
+			emailIdx = idx
+			break
+		}
+	}
+	cellPhoneIdx := -1
+	for _, key := range []string{"cell phone", "cellular phone", "mobile phone", "cell"} {
+		if idx, ok := headerIndex[key]; ok {
+			cellPhoneIdx = idx
+			break
+		}
+	}
+	homePhoneIdx := -1
+	for _, key := range []string{"home phone", "home telephone", "telephone number", "home"} {
+		if idx, ok := headerIndex[key]; ok {
+			homePhoneIdx = idx
+			break
+		}
+	}
+
+	contacts := make([]contactReportRow, 0, len(rows)-1)
+	for _, row := range rows[1:] {
+		name := cellValue(row, nameIdx)
+		first, last, timePunch, ok := splitTimePunchName(name)
+		if !ok {
+			continue
+		}
+		cellPhone := normalizePhoneFromSpreadsheet(cellValue(row, cellPhoneIdx))
+		homePhone := normalizePhoneFromSpreadsheet(cellValue(row, homePhoneIdx))
+		phone := cellPhone
+		if phone == "" {
+			phone = homePhone
+		}
+		contacts = append(contacts, contactReportRow{
+			EmployeeNumber: strings.TrimSpace(cellValue(row, employeeNumberIdx)),
+			FirstName:      first,
+			LastName:       last,
+			TimePunchName:  timePunch,
+			Email:          strings.TrimSpace(cellValue(row, emailIdx)),
+			Phone:          phone,
+		})
+	}
+
+	return contacts, nil
+}
+
+func parseClockInPINsFromPDF(reader io.Reader) ([]clockInPINReportRow, error) {
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, errors.New("unable to read clock-in pin report")
+	}
+	if len(data) == 0 {
+		return nil, errors.New("clock-in pin report is empty")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "cfasuite-clockin-pins-*")
+	if err != nil {
+		return nil, errors.New("unable to prepare clock-in pin import")
+	}
+	defer os.RemoveAll(tmpDir)
+
+	if err := api.ExtractContent(bytes.NewReader(data), tmpDir, "clock-in-pins.pdf", nil, nil); err != nil {
+		return nil, errors.New("unable to read clock-in pin report pdf")
+	}
+
+	entries, err := os.ReadDir(tmpDir)
+	if err != nil {
+		return nil, errors.New("unable to read extracted clock-in pin pages")
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name() < entries[j].Name()
+	})
+
+	type textCell struct {
+		X    float64
+		Y    float64
+		Text string
+	}
+	cells := make([]textCell, 0, 256)
+	tdRe := regexp.MustCompile(`^\s*([0-9]+(?:\.[0-9]+)?)\s+([0-9]+(?:\.[0-9]+)?)\s+Td\s*$`)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if !strings.Contains(strings.ToLower(entry.Name()), "_content_page_") {
+			continue
+		}
+		contentPath := filepath.Join(tmpDir, entry.Name())
+		raw, readErr := os.ReadFile(contentPath)
+		if readErr != nil {
+			return nil, errors.New("unable to read extracted clock-in pin page")
+		}
+		lines := strings.Split(string(raw), "\n")
+		currentX := 0.0
+		currentY := 0.0
+		hasCoord := false
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			if match := tdRe.FindStringSubmatch(line); len(match) == 3 {
+				x, parseXErr := strconv.ParseFloat(match[1], 64)
+				y, parseYErr := strconv.ParseFloat(match[2], 64)
+				if parseXErr == nil && parseYErr == nil {
+					currentX = x
+					currentY = y
+					hasCoord = true
+				}
+				continue
+			}
+			if !hasCoord {
+				continue
+			}
+			start := strings.Index(line, "(")
+			end := strings.LastIndex(line, ") Tj")
+			if start < 0 || end <= start {
+				continue
+			}
+			text := decodePDFLiteralString(line[start+1 : end])
+			text = strings.TrimSpace(text)
+			if text == "" {
+				continue
+			}
+			cells = append(cells, textCell{
+				X:    currentX,
+				Y:    currentY,
+				Text: text,
+			})
+		}
+	}
+	if len(cells) == 0 {
+		return nil, nil
+	}
+
+	pinByRow := map[int]string{}
+	nameByRow := map[int]string{}
+	pinPattern := regexp.MustCompile(`^\d{5,6}$`)
+	for _, cell := range cells {
+		rowKey := int(math.Round(cell.Y))
+		text := strings.TrimSpace(cell.Text)
+		if text == "" {
+			continue
+		}
+		if strings.EqualFold(text, "Full Name") || strings.EqualFold(text, "Clock-In PIN") {
+			continue
+		}
+		if cell.X >= 350 && pinPattern.MatchString(text) {
+			pinByRow[rowKey] = text
+			continue
+		}
+		if cell.X <= 220 && strings.Contains(text, ",") {
+			nameByRow[rowKey] = text
+		}
+	}
+
+	rowsOut := make([]clockInPINReportRow, 0, len(nameByRow))
+	for rowKey, fullName := range nameByRow {
+		pin := strings.TrimSpace(pinByRow[rowKey])
+		if !pinPattern.MatchString(pin) {
+			continue
+		}
+		first, last, timePunch, ok := splitTimePunchName(fullName)
+		if !ok {
+			continue
+		}
+		rowsOut = append(rowsOut, clockInPINReportRow{
+			FirstName:     first,
+			LastName:      last,
+			TimePunchName: timePunch,
+			PIN:           pin,
+		})
+	}
+	sort.Slice(rowsOut, func(i, j int) bool {
+		if rowsOut[i].LastName == rowsOut[j].LastName {
+			return rowsOut[i].FirstName < rowsOut[j].FirstName
+		}
+		return rowsOut[i].LastName < rowsOut[j].LastName
+	})
+	return rowsOut, nil
+}
+
+func parseHotSchedulesStaffFromPDF(reader io.Reader) ([]hotSchedulesStaffRow, error) {
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, errors.New("unable to read hotschedules report")
+	}
+	if len(data) == 0 {
+		return nil, errors.New("hotschedules report is empty")
+	}
+	tmpDir, err := os.MkdirTemp("", "cfasuite-hotschedules-*")
+	if err != nil {
+		return nil, errors.New("unable to prepare hotschedules import")
+	}
+	defer os.RemoveAll(tmpDir)
+	if err := api.ExtractContent(bytes.NewReader(data), tmpDir, "hotschedules.pdf", nil, nil); err != nil {
+		return nil, errors.New("unable to read hotschedules report pdf")
+	}
+	entries, err := os.ReadDir(tmpDir)
+	if err != nil {
+		return nil, errors.New("unable to read extracted hotschedules pages")
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name() < entries[j].Name()
+	})
+
+	rowsOut := make([]hotSchedulesStaffRow, 0, 64)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if !strings.Contains(strings.ToLower(entry.Name()), "_content_page_") {
+			continue
+		}
+		raw, readErr := os.ReadFile(filepath.Join(tmpDir, entry.Name()))
+		if readErr != nil {
+			return nil, errors.New("unable to read extracted hotschedules page")
+		}
+		pageRows := parseHotSchedulesStaffRowsFromPage(raw)
+		rowsOut = append(rowsOut, pageRows...)
+	}
+	return rowsOut, nil
+}
+
+func parseHotSchedulesStaffRowsFromPage(pageContent []byte) []hotSchedulesStaffRow {
+	type textCell struct {
+		X    float64
+		Y    float64
+		Text string
+	}
+	lines := strings.Split(string(pageContent), "\n")
+	cmRe := regexp.MustCompile(`^\s*1 0 0 1 ([0-9]+(?:\.[0-9]+)?) ([0-9]+(?:\.[0-9]+)?) cm\s*$`)
+	tdRe := regexp.MustCompile(`^\s*([0-9]+(?:\.[0-9]+)?)\s+([0-9]+(?:\.[0-9]+)?)\s+Td\s*$`)
+	cells := make([]textCell, 0, 512)
+	currentX := 0.0
+	currentY := 0.0
+	hasCoord := false
+	for _, rawLine := range lines {
+		line := strings.TrimSpace(rawLine)
+		if line == "" {
+			continue
+		}
+		if match := cmRe.FindStringSubmatch(line); len(match) == 3 {
+			x, parseXErr := strconv.ParseFloat(match[1], 64)
+			y, parseYErr := strconv.ParseFloat(match[2], 64)
+			if parseXErr == nil && parseYErr == nil {
+				currentX = x
+				currentY = y
+				hasCoord = true
+			}
+			continue
+		}
+		if match := tdRe.FindStringSubmatch(line); len(match) == 3 {
+			x, parseXErr := strconv.ParseFloat(match[1], 64)
+			y, parseYErr := strconv.ParseFloat(match[2], 64)
+			if parseXErr == nil && parseYErr == nil {
+				currentX = x
+				currentY = y
+				hasCoord = true
+			}
+			continue
+		}
+		if !hasCoord {
+			continue
+		}
+		start := strings.Index(line, "(")
+		end := strings.LastIndex(line, ")Tj")
+		if end <= start {
+			end = strings.LastIndex(line, ") Tj")
+		}
+		if start < 0 || end <= start {
+			continue
+		}
+		text := decodePDFLiteralString(line[start+1 : end])
+		text = strings.TrimSpace(text)
+		if text == "" {
+			continue
+		}
+		cells = append(cells, textCell{X: currentX, Y: currentY, Text: text})
+	}
+
+	nameAnchors := make([]textCell, 0, 64)
+	for _, cell := range cells {
+		if cell.X > 120 {
+			continue
+		}
+		if !looksLikeHotSchedulesEmployeeName(cell.Text) {
+			continue
+		}
+		nameAnchors = append(nameAnchors, cell)
+	}
+	sort.Slice(nameAnchors, func(i, j int) bool {
+		if nameAnchors[i].Y == nameAnchors[j].Y {
+			return nameAnchors[i].X < nameAnchors[j].X
+		}
+		return nameAnchors[i].Y > nameAnchors[j].Y
+	})
+
+	out := make([]hotSchedulesStaffRow, 0, len(nameAnchors))
+	for i := range nameAnchors {
+		anchor := nameAnchors[i]
+		nextY := -1e9
+		if i+1 < len(nameAnchors) {
+			nextY = nameAnchors[i+1].Y
+		}
+		jobFragments := make([]textCell, 0, 8)
+		for _, cell := range cells {
+			if cell.X < 490 {
+				continue
+			}
+			if cell.Y > anchor.Y+0.5 {
+				continue
+			}
+			if cell.Y <= nextY+0.5 {
+				continue
+			}
+			jobFragments = append(jobFragments, cell)
+		}
+		sort.Slice(jobFragments, func(a, b int) bool {
+			if jobFragments[a].Y == jobFragments[b].Y {
+				return jobFragments[a].X < jobFragments[b].X
+			}
+			return jobFragments[a].Y > jobFragments[b].Y
+		})
+		var jobsText strings.Builder
+		for _, fragment := range jobFragments {
+			jobsText.WriteString(strings.TrimSpace(fragment.Text))
+		}
+		jobs := extractHotSchedulesJobsFromJoinedText(jobsText.String())
+		first, last, timePunch, ok := splitTimePunchName(anchor.Text)
+		if !ok {
+			continue
+		}
+		out = append(out, hotSchedulesStaffRow{
+			FirstName:     first,
+			LastName:      last,
+			TimePunchName: timePunch,
+			Jobs:          jobs,
+		})
+	}
+	return out
+}
+
+func looksLikeHotSchedulesEmployeeName(value string) bool {
+	text := strings.TrimSpace(value)
+	if text == "" {
+		return false
+	}
+	lower := strings.ToLower(text)
+	switch lower {
+	case "name", "all employees":
+		return false
+	}
+	if strings.Contains(lower, "am") || strings.Contains(lower, "pm") {
+		if strings.Contains(lower, ",") {
+			return false
+		}
+	}
+	fields := strings.Fields(text)
+	if len(fields) < 2 {
+		return false
+	}
+	if strings.ContainsAny(text, "@0123456789") {
+		return false
+	}
+	return true
+}
+
+func extractHotSchedulesJobsFromJoinedText(joined string) []string {
+	text := strings.TrimSpace(joined)
+	if text == "" || text == "-" {
+		return nil
+	}
+	text = strings.TrimPrefix(text, "-")
+	text = strings.TrimSpace(text)
+	text = regexp.MustCompile(`^\d+\s+Jobs?\s*\(`).ReplaceAllString(text, "")
+	text = strings.TrimSuffix(text, ")")
+	text = strings.TrimSpace(text)
+	if text == "" || text == "-" {
+		return nil
+	}
+	parts := strings.Split(text, ",")
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		job := strings.TrimSpace(part)
+		job = strings.TrimPrefix(job, "(")
+		job = strings.TrimSuffix(job, ")")
+		job = strings.TrimSpace(job)
+		if job == "" {
+			continue
+		}
+		key := strings.ToLower(job)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, job)
+	}
+	return out
+}
+
+func decodePDFLiteralString(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	var b strings.Builder
+	b.Grow(len(raw))
+	for i := 0; i < len(raw); i++ {
+		ch := raw[i]
+		if ch != '\\' {
+			b.WriteByte(ch)
+			continue
+		}
+		if i+1 >= len(raw) {
+			b.WriteByte(ch)
+			break
+		}
+		next := raw[i+1]
+		switch next {
+		case 'n':
+			b.WriteByte('\n')
+			i++
+		case 'r':
+			b.WriteByte('\r')
+			i++
+		case 't':
+			b.WriteByte('\t')
+			i++
+		case 'b':
+			b.WriteByte('\b')
+			i++
+		case 'f':
+			b.WriteByte('\f')
+			i++
+		case '\\', '(', ')':
+			b.WriteByte(next)
+			i++
+		default:
+			if next >= '0' && next <= '7' {
+				val := int(next - '0')
+				consumed := 1
+				for consumed < 3 && i+1+consumed < len(raw) {
+					o := raw[i+1+consumed]
+					if o < '0' || o > '7' {
+						break
+					}
+					val = (val * 8) + int(o-'0')
+					consumed++
+				}
+				b.WriteByte(byte(val))
+				i += consumed
+				continue
+			}
+			b.WriteByte(next)
+			i++
+		}
+	}
+	return b.String()
+}
+
 func findBirthdayInRow(row []string, skipIdx int) (string, bool) {
 	for idx, cell := range row {
 		if idx == skipIdx {
@@ -18986,6 +20823,19 @@ func findBirthdayInRow(row []string, skipIdx int) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func normalizePhoneFromSpreadsheet(raw string) string {
+	digits := strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, raw)
+	if len(digits) != 10 {
+		return ""
+	}
+	return digits[0:3] + "-" + digits[3:6] + "-" + digits[6:10]
 }
 
 func readRowsFromSpreadsheet(reader io.Reader, filename string) ([][]string, error) {
@@ -19190,15 +21040,19 @@ func manualPaperworkRequiredFields(emp *employee) []string {
 	if emp == nil {
 		return []string{"Employee record"}
 	}
-	missing := make([]string, 0, 12)
+	missing := make([]string, 0, 14)
 	require := func(value, label string) {
 		if strings.TrimSpace(value) == "" {
 			missing = append(missing, label)
 		}
 	}
+	require(emp.EmployeeNumber, "Employee Number")
 	require(emp.FirstName, "First Name")
 	require(emp.LastName, "Last Name")
 	require(emp.TimePunchName, "Time Punch Name")
+	if _, ok := normalizeBirthday(emp.HireDate); !ok {
+		missing = append(missing, "Hire Date")
+	}
 	require(emp.Department, "Department")
 	if emp.JobID <= 0 {
 		missing = append(missing, "Pay Band")
@@ -19215,13 +21069,14 @@ func manualPaperworkRequiredFields(emp *employee) []string {
 	}
 	require(emp.Email, "Email")
 	require(emp.Phone, "Phone")
-	require(emp.Address, "Address")
-	require(emp.City, "City")
-	if normalizeUSStateCode(emp.State) == "" {
-		missing = append(missing, "State")
+	if !emp.HasClockInPIN {
+		missing = append(missing, "Clock In PIN")
 	}
-	require(emp.ZipCode, "Zip Code")
 	return missing
+}
+
+func employeePaperworkUploadsDisabled() bool {
+	return true
 }
 
 func normalizeNameText(value string) string {
@@ -19447,6 +21302,7 @@ type pdfFormExportEntry struct {
 }
 
 type pdfFormExportTextField struct {
+	Pages []int  `json:"pages"`
 	Name  string `json:"name"`
 	Value string `json:"value"`
 }
@@ -19458,6 +21314,73 @@ type pdfFormExportCheckBox struct {
 }
 
 func generateFilledI9PDF(values url.Values) ([]byte, error) {
+	normalizedValues := url.Values{}
+	for key, entries := range values {
+		copied := make([]string, len(entries))
+		copy(copied, entries)
+		normalizedValues[key] = copied
+	}
+	values = normalizedValues
+
+	citizenshipStatus := normalizeI9CitizenshipStatus(values.Get("citizenship_status"))
+	if citizenshipStatus == "" {
+		return nil, errors.New("citizenship/immigration status is required")
+	}
+	switch citizenshipStatus {
+	case "lpr":
+		lprUSCIS := strings.TrimSpace(values.Get("citizenship_lpr_uscis_number"))
+		lprANumber := strings.TrimSpace(values.Get("citizenship_lpr_anumber"))
+		lprFilledCount := 0
+		if lprUSCIS != "" {
+			lprFilledCount += 1
+		}
+		if lprANumber != "" {
+			lprFilledCount += 1
+		}
+		if lprFilledCount == 0 {
+			return nil, errors.New("lawful permanent resident status requires either a USCIS Number or an A-Number")
+		}
+		if lprFilledCount > 1 {
+			return nil, errors.New("enter only one of USCIS Number or A-Number for lawful permanent resident status")
+		}
+		values.Set("citizenship_lpr_number", firstNonEmpty(lprUSCIS, lprANumber))
+		values.Del("alien_exp_date")
+		values.Del("alien_uscis_number")
+		values.Del("alien_i94_number")
+		values.Del("alien_passport_country")
+	case "alien_authorized":
+		alienUSCIS := strings.TrimSpace(values.Get("alien_uscis_number"))
+		alienI94 := strings.TrimSpace(values.Get("alien_i94_number"))
+		alienPassportCountry := strings.TrimSpace(values.Get("alien_passport_country"))
+		alienFilledCount := 0
+		if alienUSCIS != "" {
+			alienFilledCount += 1
+		}
+		if alienI94 != "" {
+			alienFilledCount += 1
+		}
+		if alienPassportCountry != "" {
+			alienFilledCount += 1
+		}
+		if alienFilledCount == 0 {
+			return nil, errors.New("alien authorized to work status requires exactly one of USCIS Number, Form I-94 Admission Number, or Foreign Passport Number and Country of Issuance")
+		}
+		if alienFilledCount > 1 {
+			return nil, errors.New("enter only one of USCIS Number, Form I-94 Admission Number, or Foreign Passport Number and Country of Issuance")
+		}
+		values.Del("citizenship_lpr_number")
+		values.Del("citizenship_lpr_uscis_number")
+		values.Del("citizenship_lpr_anumber")
+	default:
+		values.Del("citizenship_lpr_number")
+		values.Del("citizenship_lpr_uscis_number")
+		values.Del("citizenship_lpr_anumber")
+		values.Del("alien_exp_date")
+		values.Del("alien_uscis_number")
+		values.Del("alien_i94_number")
+		values.Del("alien_passport_country")
+	}
+
 	textFieldMap := map[string]string{
 		"last_name":                 "Last Name (Family Name)",
 		"first_name":                "First Name Given Name",
@@ -19472,24 +21395,24 @@ func generateFilledI9PDF(values url.Values) ([]byte, error) {
 		"ssn":                       "US Social Security Number",
 		"email":                     "Employees E-mail Address",
 		"phone":                     "Telephone Number",
-		"citizenship_lpr_number":    "3 A lawful permanent resident Enter USCIS or ANumber",
-		"alien_exp_date":            "Exp Date mmddyyyy",
-		"alien_uscis_number":        "USCIS ANumber",
-		"alien_i94_number":          "Form I94 Admission Number",
-		"alien_passport_country":    "Foreign Passport Number and Country of IssuanceRow1",
+		"citizenship_lpr_number":    "FOREIGN PASSPORT NUMBER OR COUNTRY OF ISSUANCE",
+		"alien_exp_date":            "ALIEN TO WORK EXPIRATION (IF ANY)",
+		"alien_uscis_number":        "USCIS NUMBER",
+		"alien_i94_number":          "FORM I94 ADMISSION NUMBER",
+		"alien_passport_country":    "FOREIGN PASSPORT NUMBER OR COUNTRY OF ISSUANCE",
 		"employee_signature_date":   "Today's Date mmddyyy",
-		"list_a_title":              "Document Title 1",
-		"list_a_issuing_authority":  "Issuing Authority 1",
-		"list_a_number":             "Document Number 0 (if any)",
-		"list_a_expiration":         "Expiration Date if any",
-		"list_b_title":              "List B Document 1 Title",
-		"list_b_issuing_authority":  "List B Issuing Authority 1",
-		"list_b_number":             "List B Document Number 1",
-		"list_b_expiration":         "List B Expiration Date 1",
-		"list_c_title":              "List C Document Title 1",
-		"list_c_issuing_authority":  "List C Issuing Authority 1",
-		"list_c_number":             "List C Document Number 1",
-		"list_c_expiration":         "List C Expiration Date 1",
+		"list_a_title":              "LIST A DOCUMENT TITLE",
+		"list_a_issuing_authority":  "LIST A ISSUING AUTHORITY",
+		"list_a_number":             "LIST A DOCUMENT NUMBER (IF ANY)",
+		"list_a_expiration":         "LIST A EXPIRATION DATE (IF ANY)",
+		"list_b_title":              "LIST B DOCUMENT TITLE",
+		"list_b_issuing_authority":  "LIST B ISSUING AUTHORITY",
+		"list_b_number":             "LIST B DOCUMENT NUMBER (IF ANY)",
+		"list_b_expiration":         "LIST B EXPIRATION DATE (IF ANY)",
+		"list_c_title":              "LIST C DOCUMENT TITLE",
+		"list_c_issuing_authority":  "LIST C ISSUING AUTHORITY",
+		"list_c_number":             "LIST C DOCUMENT NUMBER (IF ANY)",
+		"list_c_expiration":         "LIST C EXPIRATION DATE (IF ANY)",
 		"first_day_employed":        "FirstDayEmployed mmddyyyy",
 		"employer_name_title":       "Last Name First Name and Title of Employer or Authorized Representative",
 		"employer_signature":        "Signature of Employer or AR",
@@ -19506,14 +21429,100 @@ func generateFilledI9PDF(values url.Values) ([]byte, error) {
 		}
 		pdfTextValues[pdfFieldName] = raw
 	}
+	// Support template variants where list document number/expiration field labels differ.
+	setAliases := func(value string, aliases ...string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return
+		}
+		for _, alias := range aliases {
+			alias = strings.TrimSpace(alias)
+			if alias == "" {
+				continue
+			}
+			pdfTextValues[alias] = value
+		}
+	}
+	setAliases(values.Get("list_a_number"),
+		"LIST A DOCUMENT NUMBER (IF ANY)",
+		"Document Number 0 (if any)",
+		"Document Number 0",
+		"List A Document Number 1",
+	)
+	setAliases(values.Get("list_a_expiration"),
+		"LIST A EXPIRATION DATE (IF ANY)",
+		"Expiration Date if any",
+		"Expiration Date (if any)",
+		"List A Expiration Date 1",
+	)
+	setAliases(values.Get("list_a_title"),
+		"LIST A DOCUMENT TITLE",
+		"Document Title 1",
+	)
+	setAliases(values.Get("list_a_issuing_authority"),
+		"LIST A ISSUING AUTHORITY",
+		"Issuing Authority 1",
+	)
+	setAliases(values.Get("list_b_number"),
+		"LIST B DOCUMENT NUMBER (IF ANY)",
+		"List B Document Number 1",
+		"List B Document Number",
+	)
+	setAliases(values.Get("list_b_expiration"),
+		"LIST B EXPIRATION DATE (IF ANY)",
+		"List B Expiration Date 1",
+		"List B Expiration Date",
+	)
+	setAliases(values.Get("list_b_title"),
+		"LIST B DOCUMENT TITLE",
+		"List B Document 1 Title",
+	)
+	setAliases(values.Get("list_b_issuing_authority"),
+		"LIST B ISSUING AUTHORITY",
+		"List B Issuing Authority 1",
+	)
+	setAliases(values.Get("list_c_number"),
+		"LIST C DOCUMENT NUMBER (IF ANY)",
+		"List C Document Number 1",
+		"List C Document Number",
+	)
+	setAliases(values.Get("list_c_expiration"),
+		"LIST C EXPIRATION DATE (IF ANY)",
+		"List C Expiration Date 1",
+		"List C Expiration Date",
+	)
+	setAliases(values.Get("list_c_title"),
+		"LIST C DOCUMENT TITLE",
+		"List C Document Title 1",
+	)
+	setAliases(values.Get("list_c_issuing_authority"),
+		"LIST C ISSUING AUTHORITY",
+		"List C Issuing Authority 1",
+	)
+	setAliases(values.Get("citizenship_lpr_number"),
+		"FOREIGN PASSPORT NUMBER OR COUNTRY OF ISSUANCE",
+		"3 A lawful permanent resident Enter USCIS or ANumber",
+	)
+	setAliases(values.Get("alien_exp_date"),
+		"ALIEN TO WORK EXPIRATION (IF ANY)",
+		"Exp Date mmddyyyy",
+	)
+	setAliases(values.Get("alien_uscis_number"),
+		"USCIS NUMBER",
+		"USCIS ANumber",
+	)
+	setAliases(values.Get("alien_i94_number"),
+		"FORM I94 ADMISSION NUMBER",
+		"Form I94 Admission Number",
+	)
+	setAliases(values.Get("alien_passport_country"),
+		"FOREIGN PASSPORT NUMBER OR COUNTRY OF ISSUANCE",
+		"Foreign Passport Number and Country of IssuanceRow1",
+	)
 	if stateRaw := strings.TrimSpace(values.Get("state")); stateRaw != "" {
 		pdfTextValues["State_Real"] = stateRaw
 	}
 
-	citizenshipStatus := normalizeI9CitizenshipStatus(values.Get("citizenship_status"))
-	if citizenshipStatus == "" {
-		return nil, errors.New("citizenship/immigration status is required")
-	}
 	statusTextFieldMap := map[string]string{
 		"citizen":             "CHECK_1",
 		"noncitizen_national": "CHECK_2",
@@ -19565,6 +21574,16 @@ func normalizeI9CitizenshipStatus(raw string) string {
 	return ""
 }
 
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func generateFilledW4PDF(values url.Values) ([]byte, error) {
 	textFieldMap := map[string]string{
 		"first_name_middle":  "topmostSubform[0].Page1[0].Step1a[0].f1_01[0]",
@@ -19572,13 +21591,7 @@ func generateFilledW4PDF(values url.Values) ([]byte, error) {
 		"address":            "topmostSubform[0].Page1[0].Step1a[0].f1_03[0]",
 		"city_state_zip":     "topmostSubform[0].Page1[0].Step1a[0].f1_04[0]",
 		"ssn":                "topmostSubform[0].Page1[0].f1_05[0]",
-		"dependents_under17": "topmostSubform[0].Page1[0].Step3_ReadOrder[0].f1_06[0]",
-		"other_dependents":   "topmostSubform[0].Page1[0].f1_10[0]",
-		"dependents_total":   "topmostSubform[0].Page1[0].Step3_ReadOrder[0].f1_07[0]",
-		"other_income":       "topmostSubform[0].Page1[0].f1_08[0]",
-		"deductions":         "topmostSubform[0].Page1[0].f1_09[0]",
-		"extra_withholding":  "topmostSubform[0].Page1[0].f1_11[0]",
-		"employer_name_addr": "topmostSubform[0].Page1[0].f1_12[0]",
+		"employer_name_addr": "EMPLOYER NAME AND ADDRESS",
 		"employer_date":      "topmostSubform[0].Page1[0].f1_13[0]",
 		"employer_ein":       "topmostSubform[0].Page1[0].f1_14[0]",
 	}
@@ -19590,13 +21603,56 @@ func generateFilledW4PDF(values url.Values) ([]byte, error) {
 		}
 		pdfTextValues[pdfFieldName] = raw
 	}
+	employerNameAddr := strings.TrimSpace(values.Get("employer_name_addr"))
+	if employerNameAddr != "" {
+		// Support older template variants.
+		pdfTextValues["EMPLOYER NAME AND ADDRESS"] = employerNameAddr
+		pdfTextValues["topmostSubform[0].Page1[0].f1_12[0]"] = employerNameAddr
+	}
 	under17Amount, hasUnder17Amount := parseWholeDollarAmount(values.Get("dependents_under17"))
 	otherDependentsAmount, hasOtherDependentsAmount := parseWholeDollarAmount(values.Get("other_dependents"))
-	if hasUnder17Amount || hasOtherDependentsAmount {
-		dependentsSum := under17Amount + otherDependentsAmount
-		dependentsSumText := strconv.FormatInt(dependentsSum, 10)
-		// Keep only the W-4 Step 3(c) total field in sync with computed amounts.
-		pdfTextValues["topmostSubform[0].Page1[0].Step3_ReadOrder[0].f1_07[0]"] = dependentsSumText
+	dependentsTotalAmount, hasDependentsTotalAmount := parseWholeDollarAmount(values.Get("dependents_total"))
+	if hasUnder17Amount {
+		under17Text := strconv.FormatInt(under17Amount, 10)
+		pdfTextValues["2200 SUM"] = under17Text
+		// Legacy alias for older W-4 templates.
+		pdfTextValues["topmostSubform[0].Page1[0].Step3_ReadOrder[0].f1_06[0]"] = under17Text
+	}
+	if hasOtherDependentsAmount {
+		otherDependentsText := strconv.FormatInt(otherDependentsAmount, 10)
+		pdfTextValues["500 SUM"] = otherDependentsText
+		// Legacy alias for older W-4 templates.
+		pdfTextValues["topmostSubform[0].Page1[0].f1_10[0]"] = otherDependentsText
+	}
+	var dependentsSumText string
+	switch {
+	case hasUnder17Amount || hasOtherDependentsAmount:
+		dependentsSumText = strconv.FormatInt(under17Amount+otherDependentsAmount, 10)
+	case hasDependentsTotalAmount:
+		dependentsSumText = strconv.FormatInt(dependentsTotalAmount, 10)
+	}
+		if dependentsSumText != "" {
+			pdfTextValues["2200 AND 500 SUM"] = dependentsSumText
+			// Legacy alias for older W-4 templates.
+			pdfTextValues["topmostSubform[0].Page1[0].Step3_ReadOrder[0].f1_07[0]"] = dependentsSumText
+		}
+	otherIncome := strings.TrimSpace(values.Get("other_income"))
+	if otherIncome != "" {
+		pdfTextValues["OTHER INCOME"] = otherIncome
+		// Legacy alias for older W-4 templates.
+		pdfTextValues["topmostSubform[0].Page1[0].f1_08[0]"] = otherIncome
+	}
+	deductions := strings.TrimSpace(values.Get("deductions"))
+	if deductions != "" {
+		pdfTextValues["DEDUCTIONS"] = deductions
+		// Legacy alias for older W-4 templates.
+		pdfTextValues["topmostSubform[0].Page1[0].f1_09[0]"] = deductions
+	}
+	extraWithholding := strings.TrimSpace(values.Get("extra_withholding"))
+	if extraWithholding != "" {
+		pdfTextValues["EXTRA WITHOLDING"] = extraWithholding
+		// Legacy alias for older W-4 templates.
+		pdfTextValues["topmostSubform[0].Page1[0].f1_11[0]"] = extraWithholding
 	}
 	// Signature line is stamped from drawn signature; avoid typed/text signature in this field.
 	delete(pdfTextValues, "Employee Signature")
@@ -19678,6 +21734,53 @@ func normalizeW4DollarFields(values url.Values) error {
 	return nil
 }
 
+func validateRequiredW4IdentityFields(values url.Values) error {
+	firstNameMiddle := strings.TrimSpace(values.Get("first_name_middle"))
+	lastName := strings.TrimSpace(values.Get("last_name"))
+	address := strings.TrimSpace(values.Get("address"))
+	cityStateZip := strings.TrimSpace(values.Get("city_state_zip"))
+	ssnDigits := strings.NewReplacer("-", "", " ", "").Replace(strings.TrimSpace(values.Get("ssn")))
+
+	if firstNameMiddle == "" {
+		return errors.New("first name is required for w-4")
+	}
+	if lastName == "" {
+		return errors.New("last name is required for w-4")
+	}
+	if ssnDigits == "" {
+		return errors.New("social security number is required for w-4")
+	}
+	if len(ssnDigits) != 9 || strings.Trim(ssnDigits, "0123456789") != "" {
+		return errors.New("social security number must be exactly 9 digits")
+	}
+	if address == "" {
+		return errors.New("address is required for w-4")
+	}
+	if cityStateZip == "" {
+		return errors.New("city, state, and zip code are required for w-4")
+	}
+
+	parts := strings.Fields(cityStateZip)
+	if len(parts) < 3 {
+		return errors.New("city, state, and zip code are required for w-4")
+	}
+	zipCode := strings.TrimSpace(parts[len(parts)-1])
+	if !zipCodePattern.MatchString(zipCode) {
+		return errors.New("zip code must be 5 digits or ZIP+4 (e.g. 12345 or 12345-6789)")
+	}
+	state := strings.Trim(strings.TrimSpace(parts[len(parts)-2]), ",")
+	if normalizeUSStateCode(state) == "" {
+		return errors.New("state must be a valid 2-letter code")
+	}
+	city := strings.TrimSpace(strings.Join(parts[:len(parts)-2], " "))
+	city = strings.TrimSuffix(city, ",")
+	if city == "" {
+		return errors.New("city is required for w-4")
+	}
+
+	return nil
+}
+
 func normalizeDollarAmount(raw string) (string, error) {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
@@ -19748,15 +21851,36 @@ func fillPDFTemplate(templatePath string, textValues map[string]string, checkVal
 	if len(payload.Forms) == 0 {
 		return nil, errors.New("template does not include fillable form fields")
 	}
+	isI9Template := filepath.Base(templatePath) == "i9.pdf"
+	allowFieldFill := func(pages []int) bool {
+		if !isI9Template {
+			return true
+		}
+		if len(pages) == 0 {
+			return true
+		}
+		for _, page := range pages {
+			if page == 1 {
+				return true
+			}
+		}
+		return false
+	}
 
 	for formIdx := range payload.Forms {
 		for fieldIdx := range payload.Forms[formIdx].Textfield {
+			if !allowFieldFill(payload.Forms[formIdx].Textfield[fieldIdx].Pages) {
+				continue
+			}
 			name := payload.Forms[formIdx].Textfield[fieldIdx].Name
 			if value, ok := textValues[name]; ok {
 				payload.Forms[formIdx].Textfield[fieldIdx].Value = value
 			}
 		}
 		for fieldIdx := range payload.Forms[formIdx].Combobox {
+			if !allowFieldFill(payload.Forms[formIdx].Combobox[fieldIdx].Pages) {
+				continue
+			}
 			name := payload.Forms[formIdx].Combobox[fieldIdx].Name
 			if value, ok := textValues[name]; ok {
 				payload.Forms[formIdx].Combobox[fieldIdx].Value = value

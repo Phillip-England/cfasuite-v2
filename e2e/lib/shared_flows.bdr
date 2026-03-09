@@ -229,7 +229,6 @@ func complete_new_hire_paperwork() {
   #personal_ssn_3.fill("6789")
   #i9_status.select("1. A citizen of the United States")
 
-  #show-legal.click()
   #i9-doc-rows.wait_visible()
   select[name='i9_document_type[]'][0].select("U.S. Passport")
   input[name='i9_document_title[]'][0].fill("U.S. Passport")
@@ -243,11 +242,10 @@ func complete_new_hire_paperwork() {
   #show-w4.click()
   #w4_filing_status.select("Single or Married filing separately")
 
-  #show-signature.click()
   #i9-signature-pad.wait_visible()
   #i9-signature-pad.draw()
   #employee_esign_attestation.click()
-  #paperwork-submit-btn.click()
+  #w4-submit-btn.click()
   .message.ok[0].assert_text("Paperwork submitted")
 }
 
